@@ -12,14 +12,20 @@
  */
 package org.openhab.binding.velux.internal.handler;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -43,6 +49,7 @@ import org.openhab.binding.velux.internal.bridge.common.BridgeCommunicationProto
 import org.openhab.binding.velux.internal.bridge.common.RunProductCommand;
 import org.openhab.binding.velux.internal.bridge.common.RunReboot;
 import org.openhab.binding.velux.internal.bridge.json.JsonVeluxBridge;
+import org.openhab.binding.velux.internal.bridge.slip.FunctionalParameters;
 import org.openhab.binding.velux.internal.bridge.slip.SlipVeluxBridge;
 import org.openhab.binding.velux.internal.config.VeluxBridgeConfiguration;
 import org.openhab.binding.velux.internal.development.Threads;
@@ -59,15 +66,21 @@ import org.openhab.binding.velux.internal.things.VeluxProductPosition.PositionTy
 import org.openhab.binding.velux.internal.utils.Localization;
 import org.openhab.core.common.AbstractUID;
 import org.openhab.core.common.NamedThreadFactory;
+import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.ThingHandlerService;
+import org.openhab.core.thing.binding.builder.ChannelBuilder;
+import org.openhab.core.thing.binding.builder.ThingBuilder;
+import org.openhab.core.thing.type.ChannelKind;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
@@ -462,6 +475,8 @@ public class VeluxBridgeHandler extends ExtendedBaseBridgeHandler implements Vel
                 logger.warn("Activation of House-Status-Monitoring failed (might lead to a lack of status updates).");
             }
         }
+
+        initializeVanePositionChannels();
 
         veluxBridgeConfiguration.hasChanged = false;
         logger.debug("Velux veluxBridge is online, now.");
@@ -906,5 +921,148 @@ public class VeluxBridgeHandler extends ExtendedBaseBridgeHandler implements Vel
      */
     public boolean isDisposing() {
         return disposing;
+    }
+
+    /**
+     * Exported method (called by an OpenHAB Rules Action) to simultaneously move the shade main position and the vane
+     * position.
+     *
+     * @param node the node index in the bridge.
+     * @param mainPosition the desired main position.
+     * @param vanePosition the desired vane position.
+     * @return true if the command could be issued.
+     */
+    public Boolean moveMainAndVane(ProductBridgeIndex node, PercentType mainPosition, PercentType vanePosition) {
+        logger.trace("moveMainAndVane() called on {}", getThing().getUID());
+        RunProductCommand bcp = thisBridge.bridgeAPI().runProductCommand();
+        if (bcp != null) {
+            VeluxProduct product = existingProducts().get(node).clone();
+            FunctionalParameters functionalParameters = null;
+            if (product.supportsVanePosition()) {
+                int vanePos = new VeluxProductPosition(vanePosition).getPositionAsVeluxType();
+                product.setVanePosition(vanePos);
+                functionalParameters = product.getFunctionalParameters();
+            }
+            VeluxProductPosition mainPos = new VeluxProductPosition(mainPosition);
+            bcp.setNodeIdAndParameters(node.toInt(), mainPos, functionalParameters);
+            submitCommunicationsJob(() -> {
+                if (thisBridge.bridgeCommunicate(bcp)) {
+                    logger.trace("moveMainAndVane() command {}sucessfully sent to {}",
+                            bcp.isCommunicationSuccessful() ? "" : "un", getThing().getUID());
+                }
+            });
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get the bridge product index for a given thing name.
+     *
+     * @param thingName the thing name
+     * @return the bridge product index or ProductBridgeIndex.UNKNOWN if not found.
+     */
+    public ProductBridgeIndex getProductBridgeIndex(String thingName) {
+        for (Entry<ChannelUID, Thing2VeluxActuator> entry : channel2VeluxActuator.entrySet()) {
+            if (thingName.equals(entry.getKey().getThingUID().getAsString())) {
+                return entry.getValue().getProductBridgeIndex();
+            }
+        }
+        return ProductBridgeIndex.UNKNOWN;
+    }
+
+    /**
+     * Iterate over all actuators in the hub and for each one dynamically create / delete its vanePosition channel.
+     */
+    private void initializeVanePositionChannels() {
+        // predicate to include rollerShutter type channels
+        final String rollerShutterTag = VeluxBindingConstants.THING_TYPE_VELUX_ROLLERSHUTTER.getId();
+        final Predicate<Entry<ChannelUID, Thing2VeluxActuator>> isRollerShutter = e -> {
+            return e.getKey().getThingUID().toString().contains(rollerShutterTag);
+        };
+
+        // predicate to include main position channels
+        final String positionChannelTag = VeluxBindingConstants.CHANNEL_ACTUATOR_POSITION;
+        final Predicate<Entry<ChannelUID, Thing2VeluxActuator>> isMainPosition = e -> {
+            return e.getKey().getId().equals(positionChannelTag);
+        };
+
+        // predicate to include channels that represent valid products
+        final VeluxExistingProducts products = existingProducts();
+        final Predicate<Entry<ChannelUID, Thing2VeluxActuator>> isValidProduct = e -> {
+            return !products.get(e.getValue().getProductBridgeIndex()).equals(VeluxProduct.UNKNOWN);
+        };
+
+        /*
+         * Create a stream by applying three filters to process only those channels that fulfil ALL of the following:
+         * a) rollerShutters, and
+         * b) main position channels, and
+         * c) represent valid products
+         */
+        final Stream<Entry<ChannelUID, Thing2VeluxActuator>> channelsToProcess = channel2VeluxActuator.entrySet()
+                .stream().filter(isRollerShutter).filter(isMainPosition).filter(isValidProduct);
+
+        // cache the things in a stream as well
+        final Stream<Thing> things = getThing().getThings().stream();
+
+        // process the filtered subset of products, channels, things
+        channelsToProcess.forEach(e -> {
+            Optional<Thing> thing = things.filter(t -> t.getUID().equals(e.getKey().getThingUID())).findFirst();
+            if (thing.isPresent()) {
+                initializeVanePositionChannel(thing.get(), products.get(e.getValue().getProductBridgeIndex()));
+            }
+        });
+    }
+
+    /**
+     * Dynamically create / delete the vanePosition channel for the target thing depending on whether a vane position is
+     * supported by the respective target product.
+     *
+     * @param targetThing the thing for which the channel should be created / deleted.
+     * @param targetProduct the product that determines if the channel is needed or not.
+     * @return true if the thing was updated.
+     */
+    private boolean initializeVanePositionChannel(Thing targetThing, VeluxProduct targetProduct) {
+        // note: the thing's original channel list is immutable
+        List<Channel> channelList = targetThing.getChannels();
+
+        // predicate to search for vane position channels
+        final ChannelUID channelUID = new ChannelUID(targetThing.getUID(), VeluxBindingConstants.CHANNEL_VANE_POSITION);
+        final Predicate<Channel> isVaneChannel = c -> c.getUID().equals(channelUID);
+
+        final boolean channelExisting = channelList.stream().anyMatch(isVaneChannel);
+        final boolean channelRequired = targetProduct.supportsVanePosition();
+
+        if (channelExisting == channelRequired) {
+            // no change needed
+            return false;
+        }
+
+        // create a mutable copy of the original immutable channel list
+        channelList = new ArrayList<>(channelList);
+
+        if (channelRequired) {
+            // build the extra channel
+            Channel newChannel = ChannelBuilder.create(channelUID).withAcceptedItemType(CoreItemFactory.DIMMER)
+                    .withKind(ChannelKind.STATE).withDescription("@text/channel-type.velux.vanePosition.description")
+                    .withLabel("@text/channel-type.velux.vanePosition.label").build();
+
+            if (!channelList.add(newChannel)) {
+                return false;
+            }
+        } else {
+            if (!channelList.removeIf(isVaneChannel)) {
+                return false;
+            }
+        }
+
+        // build an identical copy of the target thing, except with the modified channel list
+        Thing newThing = ThingBuilder.create(targetThing.getThingTypeUID(), targetThing.getUID())
+                .withBridge(targetThing.getBridgeUID()).withConfiguration(targetThing.getConfiguration())
+                .withLabel(targetThing.getLabel()).withLocation(targetThing.getLocation())
+                .withProperties(targetThing.getProperties()).withChannels(channelList).build();
+
+        updateThing(newThing);
+        return true;
     }
 }
