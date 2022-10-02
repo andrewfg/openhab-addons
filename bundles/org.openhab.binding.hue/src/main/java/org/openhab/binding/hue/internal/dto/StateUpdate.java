@@ -14,6 +14,7 @@ package org.openhab.binding.hue.internal.dto;
 
 import org.openhab.binding.hue.internal.dto.State.AlertMode;
 import org.openhab.binding.hue.internal.dto.State.Effect;
+import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
 
 /**
  * Collection of updates to the state of a light.
@@ -23,7 +24,7 @@ import org.openhab.binding.hue.internal.dto.State.Effect;
  * @author Denis Dudnik - moved Jue library source code inside the smarthome Hue binding, minor code cleanup
  * @author Samuel Leisering - refactor configuration updates
  */
-public class StateUpdate extends ConfigUpdate {
+public class StateUpdate extends ConfigUpdate implements LightUpdateInstance {
 
     private Integer colorTemperature;
     private Integer brightness;

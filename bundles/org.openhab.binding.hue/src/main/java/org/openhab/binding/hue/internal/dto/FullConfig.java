@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
+
 /**
  * Container for all data on a bridge.
  *
@@ -32,13 +34,15 @@ public class FullConfig {
      *
      * @return detailed lights list
      */
-    public List<FullLight> getLights() {
-        ArrayList<FullLight> lightsList = new ArrayList<>();
+    public List<LightInstance> getLights() {
+        ArrayList<LightInstance> lightsList = new ArrayList<>();
 
         for (String id : lights.keySet()) {
             FullLight light = lights.get(id);
-            light.setId(id);
-            lightsList.add(light);
+            if (light != null) {
+                light.setId(id);
+                lightsList.add(light);
+            }
         }
 
         return lightsList;

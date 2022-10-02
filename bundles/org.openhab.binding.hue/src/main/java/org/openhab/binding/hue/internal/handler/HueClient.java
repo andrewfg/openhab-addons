@@ -20,6 +20,8 @@ import org.openhab.binding.hue.internal.dto.FullGroup;
 import org.openhab.binding.hue.internal.dto.FullLight;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
+import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
+import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
 
 /**
  * Access to the Hue system for light handlers.
@@ -126,11 +128,12 @@ public interface HueClient {
      * Updates the given light.
      *
      * @param listener the light status listener to block it for state updates
-     * @param light the light to be updated
-     * @param stateUpdate the state update
+     * @param lightInstance instance of a DTA for the light to be updated
+     * @param lightUpdateInstance instance of a DTO for the updated state
      * @param fadeTime the status listener will be blocked for this duration after command
      */
-    void updateLightState(LightStatusListener listener, FullLight light, StateUpdate stateUpdate, long fadeTime);
+    void updateLightState(LightStatusListener listener, LightInstance lightInstance,
+            LightUpdateInstance lightUpdateInstance, long fadeTime);
 
     /**
      * Updates the given sensors config.

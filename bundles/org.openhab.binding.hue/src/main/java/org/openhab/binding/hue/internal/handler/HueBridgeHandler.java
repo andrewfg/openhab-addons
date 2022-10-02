@@ -47,6 +47,8 @@ import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.dto.State;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
+import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
+import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.DeviceOffException;
 import org.openhab.binding.hue.internal.exceptions.EntityNotAvailableException;
@@ -438,11 +440,11 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public void updateLightState(LightStatusListener listener, FullLight light, StateUpdate stateUpdate,
-            long fadeTime) {
+    public void updateLightState(LightStatusListener listener, LightInstance lightInstance,
+            LightUpdateInstance lighUpdateInstance, long fadeTime) {
         if (hueBridge != null) {
             listener.setPollBypass(BYPASS_MIN_DURATION_BEFORE_CMD);
-            hueBridge.setLightState(light, stateUpdate).thenAccept(result -> {
+            hueBridge.setLightState(lightInstance, lightUpdateInstance).thenAccept(result -> {
                 try {
                     hueBridge.handleErrors(result);
                     listener.setPollBypass(fadeTime);
