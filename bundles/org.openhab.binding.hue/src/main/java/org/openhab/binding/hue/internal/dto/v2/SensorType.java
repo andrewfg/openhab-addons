@@ -10,16 +10,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.hue.internal.dto.interfaces;
+package org.openhab.binding.hue.internal.dto.v2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * Interface used as an instance reference for commanding Light DTO instances from both API v1 and v2.
+ * Enum for types of sensor.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public interface LightUpdateInstance {
-
+public enum SensorType {
+    MOTION,
+    LIGHT_LEVEL,
+    TEMPERATURE,
+    BUTTON;
 }

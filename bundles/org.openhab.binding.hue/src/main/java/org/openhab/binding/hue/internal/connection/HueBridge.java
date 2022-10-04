@@ -43,12 +43,12 @@ import org.openhab.binding.hue.internal.dto.ConfigUpdate;
 import org.openhab.binding.hue.internal.dto.FullConfig;
 import org.openhab.binding.hue.internal.dto.FullGroup;
 import org.openhab.binding.hue.internal.dto.FullLight;
-import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.Group;
+import org.openhab.binding.hue.internal.dto.HueObject;
 import org.openhab.binding.hue.internal.dto.Scene;
-import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
-import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
+import org.openhab.binding.hue.internal.dto.tag.Light;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.Update;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.UnauthorizedException;
 import org.openhab.core.i18n.CommunicationException;
@@ -149,7 +149,7 @@ public abstract class HueBridge {
 
     protected abstract String getRootPath();
 
-    public abstract ApiVersion getApiVersion() throws IOException, ApiException;
+    public abstract ApiVersion getVersion() throws IOException, ApiException;
 
     /**
      * Returns a list of lights known to the bridge.
@@ -158,7 +158,7 @@ public abstract class HueBridge {
      * @throws IOException
      * @throws ApiException
      */
-    public abstract List<LightInstance> getFullLights() throws IOException, ApiException;
+    public abstract List<Light> getFullLights() throws IOException, ApiException;
 
     /**
      * Returns a list of lights known to the bridge.
@@ -167,7 +167,7 @@ public abstract class HueBridge {
      * @throws IOException
      * @throws ApiException
      */
-    public abstract List<LightInstance> getLights() throws IOException, ApiException;
+    public abstract List<HueObject> getLights() throws IOException, ApiException;
 
     /**
      * Returns a list of sensors known to the bridge
@@ -178,7 +178,7 @@ public abstract class HueBridge {
      * @throws ConfigurationException
      * @throws CommunicationException
      */
-    public abstract List<FullSensor> getSensors()
+    public abstract List<Sensor> getSensors()
             throws IOException, ApiException, ConfigurationException, CommunicationException;
 
     /**
@@ -208,8 +208,7 @@ public abstract class HueBridge {
      * @param light light
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setLightState(LightInstance lightInstance,
-            LightUpdateInstance lightUpdateInstane);
+    public abstract CompletableFuture<HueResult> setLightState(Light light, Update update);
 
     /**
      * Changes the state of a clip sensor.
@@ -217,7 +216,7 @@ public abstract class HueBridge {
      * @param sensor sensor
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setSensorState(FullSensor sensor, StateUpdate update);
+    public abstract CompletableFuture<HueResult> setSensorState(Sensor sensor, Update update);
 
     /**
      * Changes the config of a sensor.
@@ -225,7 +224,7 @@ public abstract class HueBridge {
      * @param sensor sensor
      * @param update changes to the config
      */
-    public abstract CompletableFuture<HueResult> updateSensorConfig(FullSensor sensor, ConfigUpdate update);
+    public abstract CompletableFuture<HueResult> updateSensorConfig(Sensor sensor, ConfigUpdate update);
 
     /**
      * Returns the list of groups, including the unmodifiable all lights group.
@@ -245,7 +244,7 @@ public abstract class HueBridge {
      * @param group group
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setGroupState(Group group, StateUpdate update);
+    public abstract CompletableFuture<HueResult> setGroupState(Group group, Update update);
 
     /**
      * Returns the list of scenes that are not recyclable.

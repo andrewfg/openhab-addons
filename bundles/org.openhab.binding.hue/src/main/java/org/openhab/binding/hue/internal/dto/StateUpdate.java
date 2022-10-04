@@ -12,9 +12,10 @@
  */
 package org.openhab.binding.hue.internal.dto;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.openhab.binding.hue.internal.dto.State.AlertMode;
 import org.openhab.binding.hue.internal.dto.State.Effect;
-import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
+import org.openhab.binding.hue.internal.dto.tag.Update;
 
 /**
  * Collection of updates to the state of a light.
@@ -24,7 +25,7 @@ import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
  * @author Denis Dudnik - moved Jue library source code inside the smarthome Hue binding, minor code cleanup
  * @author Samuel Leisering - refactor configuration updates
  */
-public class StateUpdate extends ConfigUpdate implements LightUpdateInstance {
+public class StateUpdate extends ConfigUpdate implements Update {
 
     private Integer colorTemperature;
     private Integer brightness;
@@ -229,6 +230,11 @@ public class StateUpdate extends ConfigUpdate implements LightUpdateInstance {
      */
     public StateUpdate setScene(String sceneId) {
         commands.add(new Command("scene", sceneId));
+        return this;
+    }
+
+    @Override
+    public @NonNull StateUpdate toStateUpdate() {
         return this;
     }
 }

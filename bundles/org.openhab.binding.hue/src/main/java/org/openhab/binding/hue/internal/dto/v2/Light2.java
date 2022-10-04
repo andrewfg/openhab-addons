@@ -14,8 +14,9 @@ package org.openhab.binding.hue.internal.dto.v2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
-import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
+import org.openhab.binding.hue.internal.dto.tag.ApiType;
+import org.openhab.binding.hue.internal.dto.tag.Light;
+import org.openhab.binding.hue.internal.dto.tag.Update;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -30,16 +31,20 @@ import org.openhab.core.types.Command;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstance {
-    private @Nullable OnV2 on;
-    private @Nullable DimmingV2 dimming;
-    private @Nullable ColorTemperatureV2 color_temperature;
-    private @Nullable ColorV2 color;
+public class Light2 extends BaseObject implements Light, Update {
+    private @Nullable OnState on;
+    private @Nullable Dimming dimming;
+    private @Nullable ColorTemperature2 color_temperature;
+    private @Nullable ColorXy color;
 
     private transient HSBType colorObject = HSBType.WHITE;
     private transient boolean colorInitialized = false;
 
     private static final int DELTA = 30;
+
+    public Light2() {
+        setType("light");
+    }
 
     /**
      * Create an HsbType from an array of floats of colour x & y parameters.
@@ -83,7 +88,7 @@ public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstanc
      */
     public void setSwitch(Command command) {
         if (command instanceof OnOffType) {
-            on = on != null ? on : new OnV2();
+            on = on != null ? on : new OnState();
             on.setOn(OnOffType.ON.equals(command));
         }
     }
@@ -142,7 +147,7 @@ public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstanc
      * @return the mirek value
      */
     public int getColorTemperature() {
-        return color_temperature != null ? color_temperature.getMirek() : ColorTemperatureV2.MIN;
+        return color_temperature != null ? color_temperature.getMirek() : ColorTemperature2.MIN;
     }
 
     /**
@@ -171,7 +176,7 @@ public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstanc
      *            IncreaseDecreaseType in which case it is increased/decreased by a certain amount.
      */
     public void setColorTemperature(Command command) {
-        ColorTemperatureV2 colorTemperature = color_temperature != null ? color_temperature : new ColorTemperatureV2();
+        ColorTemperature2 colorTemperature = color_temperature != null ? color_temperature : new ColorTemperature2();
         this.color_temperature = colorTemperature;
         PercentType percent = evaluatePercent(command, getColorTemperaturePercent());
         if (percent != null) {
@@ -211,9 +216,9 @@ public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstanc
             setBrightness(command);
         } else if (command instanceof HSBType) {
             colorObject = (HSBType) command;
-            color = color != null ? color : new ColorV2();
+            color = color != null ? color : new ColorXy();
             color.setXY(xyFromHsb(colorObject));
-            dimming = dimming != null ? dimming : new DimmingV2();
+            dimming = dimming != null ? dimming : new Dimming();
             dimming.setBrightness(colorObject.getBrightness().intValue());
             colorInitialized = true;
         }
@@ -233,18 +238,25 @@ public class LightV2 extends BaseV2 implements LightInstance, LightUpdateInstanc
     }
 
     @Override
-    public boolean sameState(LightInstance lightInstance) {
-        if (lightInstance instanceof LightV2) {
-            LightV2 other = (LightV2) lightInstance;
-            return getSwitch().equals(other.getSwitch()) && getBrightnessPercent().equals(other.getBrightnessPercent())
-                    && getColorTemperaturePercent().equals(other.getColorTemperaturePercent())
-                    && getColor().equals(other.getColor());
-        }
-        return false;
+    public boolean sameState(Light other) {
+        Light2 two = other.toLight2();
+        return getSwitch().equals(two.getSwitch()) && getBrightnessPercent().equals(two.getBrightnessPercent())
+                && getColorTemperaturePercent().equals(two.getColorTemperaturePercent())
+                && getColor().equals(two.getColor());
     }
 
     @Override
-    public @Nullable LightV2 toLightV2() {
+    public ApiType apiVersion() {
+        return ApiType.V2;
+    }
+
+    @Override
+    public Light2 toLight2() {
+        return this;
+    }
+
+    @Override
+    public Light2 toLight2Update() {
         return this;
     }
 }

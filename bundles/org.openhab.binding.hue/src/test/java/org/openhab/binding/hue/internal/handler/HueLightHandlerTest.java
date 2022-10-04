@@ -394,7 +394,7 @@ public class HueLightHandlerTest {
     @SuppressWarnings("null")
     private void assertSendCommand(String channel, Command command, HueLightState currentState, String expectedReply,
             String expectedModel, String expectedVendor) {
-        FullLight light = gson.fromJson(currentState.toString(), FullConfig.class).getLights().get(0);
+        FullLight light = (FullLight) gson.fromJson(currentState.toString(), FullConfig.class).getLights().get(0);
 
         Bridge mockBridge = mock(Bridge.class);
         when(mockBridge.getStatus()).thenReturn(ThingStatus.ONLINE);

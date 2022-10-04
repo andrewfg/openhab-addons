@@ -12,21 +12,22 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
- * DTO that contains an x and y pair of floats.
+ * DTO for dimming brightness of a light.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class XyV2 {
-    private float x;
-    private float y;
+@NonNullByDefault
+public class Dimming {
+    private float brightness;
 
-    public float[] getXY() {
-        return new float[] { x, y };
+    public int getBrightness() {
+        return (int) brightness;
     }
 
-    public void setXY(float[] xy) {
-        x = xy.length > 0 ? xy[0] : 0f;
-        y = xy.length > 1 ? xy[1] : 0f;
+    public void setBrightness(int brightness) {
+        this.brightness = brightness;
     }
 }

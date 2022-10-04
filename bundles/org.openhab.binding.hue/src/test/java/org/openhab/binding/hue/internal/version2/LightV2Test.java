@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.hue.internal.dto.v2.LightV2;
+import org.openhab.binding.hue.internal.dto.v2.Light2;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
 import org.openhab.core.library.types.OnOffType;
@@ -78,23 +78,23 @@ public class LightV2Test {
 
     @Test
     void testCreateFromJson() {
-        LightV2 light = gson.fromJson(json, LightV2.class);
+        Light2 light = gson.fromJson(json, Light2.class);
         assertNotNull(light);
         assertEquals("light", light.getType());
         assertEquals("c6b028c8-076e-4817-92b1-bcb0cbb78783", light.getId());
-        assertEquals("/lights/21", light.getId_v1());
+        assertEquals("/lights/21", light.getIdV1());
         assertEquals(OnOffType.ON, light.getSwitch());
         assertEquals(100, light.getBrightnessPercent().intValue());
         assertEquals(61, light.getColorTemperaturePercent().intValue());
         assertEquals(2732, light.getColorTemperatureKelvin().intValue());
-        float[] xy = LightV2.xyFromHsb(light.getColor());
+        float[] xy = Light2.xyFromHsb(light.getColor());
         assertEquals(0.4575, xy[0], 0.01);
         assertEquals(0.4099, xy[1], 0.01);
     }
 
     @Test
     void testCreateRaw() {
-        LightV2 light = new LightV2();
+        Light2 light = new Light2();
         assertNotNull(light);
         light.setType("light");
         light.setId("c6b028c8-076e-4817-92b1-bcb0cbb78783");
@@ -108,8 +108,8 @@ public class LightV2Test {
         assertEquals(61, light.getColorTemperaturePercent().intValue());
         light.setColorTemperature(new DecimalType(2732));
         assertEquals(2732, light.getColorTemperatureKelvin().intValue());
-        light.setColor(LightV2.hsbFromXY(new float[] { 0.4575f, 0.4099f }));
-        float[] xy = LightV2.xyFromHsb(light.getColor());
+        light.setColor(Light2.hsbFromXY(new float[] { 0.4575f, 0.4099f }));
+        float[] xy = Light2.xyFromHsb(light.getColor());
         assertEquals(0.4575, xy[0], 0.01);
         assertEquals(0.4099, xy[1], 0.01);
         // String json = gson.toJson(light);
@@ -118,9 +118,9 @@ public class LightV2Test {
 
     @Test
     void testSameState() {
-        LightV2 lightA = gson.fromJson(json, LightV2.class);
+        Light2 lightA = gson.fromJson(json, Light2.class);
         assertNotNull(lightA);
-        LightV2 lightB = gson.fromJson(json, LightV2.class);
+        Light2 lightB = gson.fromJson(json, Light2.class);
         assertNotNull(lightB);
         assertTrue(lightA.sameState(lightB));
         lightA.setBrightness(IncreaseDecreaseType.INCREASE);

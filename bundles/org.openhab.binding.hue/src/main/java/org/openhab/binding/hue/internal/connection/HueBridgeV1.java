@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.hue.internal.connection.v1;
+package org.openhab.binding.hue.internal.connection;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -28,7 +28,6 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.http.HttpStatus;
-import org.openhab.binding.hue.internal.connection.HueBridge;
 import org.openhab.binding.hue.internal.dto.ApiVersion;
 import org.openhab.binding.hue.internal.dto.ApiVersionUtils;
 import org.openhab.binding.hue.internal.dto.Config;
@@ -45,8 +44,9 @@ import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.dto.SearchForLightsRequest;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
 import org.openhab.binding.hue.internal.dto.SuccessResponse;
-import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
-import org.openhab.binding.hue.internal.dto.interfaces.LightUpdateInstance;
+import org.openhab.binding.hue.internal.dto.tag.Light;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.Update;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.DeviceOffException;
 import org.openhab.binding.hue.internal.exceptions.EntityNotAvailableException;
@@ -107,7 +107,7 @@ public class HueBridgeV1 extends HueBridge {
     }
 
     @Override
-    public ApiVersion getApiVersion() throws IOException, ApiException {
+    public ApiVersion getVersion() throws IOException, ApiException {
         Config c = getCachedConfig();
         return ApiVersion.of(c.getApiVersion());
     }
@@ -119,10 +119,12 @@ public class HueBridgeV1 extends HueBridge {
      * @throws UnauthorizedException thrown if the user no longer exists
      */
     @Override
-    public List<LightInstance> getFullLights() throws IOException, ApiException {
-        if (ApiVersionUtils.supportsFullLights(getApiVersion())) {
+    public List<Light> getFullLights() throws IOException, ApiException {
+        if (ApiVersionUtils.supportsFullLights(getVersion())) {
             Type gsonType = FullLight.GSON_TYPE;
-            return getTypedLights(gsonType);
+            // TODO
+            // return getTypedLights(gsonType);
+            return List.of();
         } else {
             return getFullConfig().getLights();
         }
@@ -135,12 +137,12 @@ public class HueBridgeV1 extends HueBridge {
      * @throws UnauthorizedException thrown if the user no longer exists
      */
     @Override
-    public List<LightInstance> getLights() throws IOException, ApiException {
+    public List<HueObject> getLights() throws IOException, ApiException {
         Type gsonType = HueObject.GSON_TYPE;
         return getTypedLights(gsonType);
     }
 
-    private <T extends LightInstance> List<T> getTypedLights(Type gsonType)
+    private <T extends HueObject> List<T> getTypedLights(Type gsonType)
             throws IOException, ApiException, ConfigurationException, CommunicationException {
         requireAuthentication();
 
@@ -151,10 +153,8 @@ public class HueBridgeV1 extends HueBridge {
         Map<String, T> lightMap = safeFromJson(result.body, gsonType);
         List<T> lights = new ArrayList<>();
         lightMap.forEach((id, light) -> {
-            if (light instanceof FullLight) {
-                ((FullLight) light).setId(id);
-                lights.add(light);
-            }
+            light.setId(id);
+            lights.add(light);
         });
         return lights;
     }
@@ -166,8 +166,7 @@ public class HueBridgeV1 extends HueBridge {
      * @throws UnauthorizedException thrown if the user no longer exists
      */
     @Override
-    public List<FullSensor> getSensors()
-            throws IOException, ApiException, ConfigurationException, CommunicationException {
+    public List<Sensor> getSensors() throws IOException, ApiException, ConfigurationException, CommunicationException {
         requireAuthentication();
 
         HueResult result = get(getRelativeURL("sensors"));
@@ -175,7 +174,7 @@ public class HueBridgeV1 extends HueBridge {
         handleErrors(result);
 
         Map<String, FullSensor> sensorMap = safeFromJson(result.body, FullSensor.GSON_TYPE);
-        List<FullSensor> sensors = new ArrayList<>();
+        List<Sensor> sensors = new ArrayList<>();
         sensorMap.forEach((id, sensor) -> {
             sensor.setId(id);
             sensors.add(sensor);
@@ -218,7 +217,7 @@ public class HueBridgeV1 extends HueBridge {
     /**
      * Changes the state of a light.
      *
-     * @param lightInstance light
+     * @param light light
      * @param update changes to the state
      * @throws UnauthorizedException thrown if the user no longer exists
      * @throws EntityNotAvailableException thrown if the specified light no longer exists
@@ -226,18 +225,13 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> setLightState(LightInstance lightInstance,
-            LightUpdateInstance lightUpdateInstance) {
+    public CompletableFuture<HueResult> setLightState(Light light, Update update) {
+        FullLight fullLight = light.toFullLight();
+        StateUpdate stateUpdate = update.toStateUpdate();
         requireAuthentication();
 
-        if ((lightInstance instanceof FullLight) && (lightUpdateInstance instanceof StateUpdate)) {
-            FullLight light = (FullLight) lightInstance;
-            StateUpdate update = (StateUpdate) lightUpdateInstance;
-
-            return putAsync(getRelativeURL("lights/" + enc(light.getId()) + "/state"), update.toJson(),
-                    update.getMessageDelay());
-        }
-        throw new IllegalArgumentException("Either 'ligtInstance' or 'lightUpdateInstance' are of the wrong type!");
+        return putAsync(getRelativeURL("lights/" + enc(fullLight.getId()) + "/state"), stateUpdate.toJson(),
+                stateUpdate.getMessageDelay());
     }
 
     /**
@@ -251,11 +245,13 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> setSensorState(FullSensor sensor, StateUpdate update) {
+    public CompletableFuture<HueResult> setSensorState(Sensor sensor, Update update) {
+        FullSensor fullSensor = sensor.toFullSensor();
+        StateUpdate stateUpdate = update.toStateUpdate();
         requireAuthentication();
 
-        return putAsync(getRelativeURL("sensors/" + enc(sensor.getId()) + "/state"), update.toJson(),
-                update.getMessageDelay());
+        return putAsync(getRelativeURL("sensors/" + enc(fullSensor.getId()) + "/state"), stateUpdate.toJson(),
+                stateUpdate.getMessageDelay());
     }
 
     /**
@@ -268,10 +264,11 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> updateSensorConfig(FullSensor sensor, ConfigUpdate update) {
+    public CompletableFuture<HueResult> updateSensorConfig(Sensor sensor, ConfigUpdate update) {
+        FullSensor fullSensor = sensor.toFullSensor();
         requireAuthentication();
 
-        return putAsync(getRelativeURL("sensors/" + enc(sensor.getId()) + "/config"), update.toJson(),
+        return putAsync(getRelativeURL("sensors/" + enc(fullSensor.getId()) + "/config"), update.toJson(),
                 update.getMessageDelay());
     }
 
@@ -320,11 +317,12 @@ public class HueBridgeV1 extends HueBridge {
      * @throws EntityNotAvailableException thrown if the specified group no longer exists
      */
     @Override
-    public CompletableFuture<HueResult> setGroupState(Group group, StateUpdate update) {
+    public CompletableFuture<HueResult> setGroupState(Group group, Update update) {
+        StateUpdate stateUpdate = update.toStateUpdate();
         requireAuthentication();
 
-        return putAsync(getRelativeURL("groups/" + enc(group.getId()) + "/action"), update.toJson(),
-                update.getMessageDelay());
+        return putAsync(getRelativeURL("groups/" + enc(group.getId()) + "/action"), stateUpdate.toJson(),
+                stateUpdate.getMessageDelay());
     }
 
     /**

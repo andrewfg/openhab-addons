@@ -27,6 +27,7 @@ import org.eclipse.jetty.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.hue.internal.config.HueBridgeConfig;
 import org.openhab.binding.hue.internal.connection.HueBridge;
+import org.openhab.binding.hue.internal.connection.HueBridgeV1;
 import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.core.i18n.CommunicationException;
@@ -40,7 +41,7 @@ public class HueBridgeTest {
 
     @Test
     public void testGetScenesExcludeRecycleScenes() throws IOException, ApiException {
-        HueBridge hueBridge = new HueBridge(mock(HttpClient.class), "ip", 443, HueBridgeConfig.HTTPS, "username",
+        HueBridge hueBridge = new HueBridgeV1(mock(HttpClient.class), "ip", 443, HueBridgeConfig.HTTPS, "username",
                 Executors.newScheduledThreadPool(1)) {
             @Override
             public HueResult get(String address) throws ConfigurationException, CommunicationException {
@@ -63,7 +64,7 @@ public class HueBridgeTest {
 
     @Test
     public void testGetScenesOrderByGroup() throws IOException, ApiException {
-        HueBridge hueBridge = new HueBridge(mock(HttpClient.class), "ip", 443, HueBridgeConfig.HTTPS, "username",
+        HueBridge hueBridge = new HueBridgeV1(mock(HttpClient.class), "ip", 443, HueBridgeConfig.HTTPS, "username",
                 Executors.newScheduledThreadPool(1)) {
             @Override
             public HueResult get(String address) throws ConfigurationException, CommunicationException {

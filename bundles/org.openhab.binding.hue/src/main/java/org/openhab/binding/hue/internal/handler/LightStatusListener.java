@@ -14,7 +14,7 @@ package org.openhab.binding.hue.internal.handler;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullLight;
-import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
+import org.openhab.binding.hue.internal.dto.tag.Light;
 
 /**
  * The {@link LightStatusListener} is notified when a light status has changed or a light has been removed or added.
@@ -39,7 +39,7 @@ public interface LightStatusListener {
      * @param light The light which received the state update.
      * @return
      */
-    boolean onLightStateChanged(LightInstance light);
+    boolean onLightStateChanged(Light light);
 
     /**
      * This method is called whenever a light is removed.
@@ -56,7 +56,7 @@ public interface LightStatusListener {
      *
      * @param light The light which is added.
      */
-    void onLightAdded(LightInstance light);
+    void onLightAdded(Light light);
 
     /**
      * The thing will block state updates for set time.

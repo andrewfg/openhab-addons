@@ -19,7 +19,8 @@ import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.interfaces.LightInstance;
+import org.openhab.binding.hue.internal.dto.tag.ApiType;
+import org.openhab.binding.hue.internal.dto.tag.Light;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -32,7 +33,7 @@ import com.google.gson.reflect.TypeToken;
  * @author Samuel Leisering - added GSon Type to FullLight, refactored content to {@link FullHueObject}
  */
 @NonNullByDefault
-public class FullLight extends FullHueObject implements LightInstance {
+public class FullLight extends FullHueObject implements Light {
     public static final Type GSON_TYPE = new TypeToken<Map<String, FullLight>>() {
     }.getType();
 
@@ -54,16 +55,18 @@ public class FullLight extends FullHueObject implements LightInstance {
     }
 
     @Override
-    public boolean sameState(LightInstance lightInstance) {
-        if (lightInstance instanceof FullLight) {
-            FullLight other = (FullLight) lightInstance;
-            return Objects.equals(getState(), other.getState());
-        }
-        return false;
+    public boolean sameState(Light other) {
+        FullLight two = other.toFullLight();
+        return Objects.equals(getState(), two.getState());
     }
 
     @Override
-    public @Nullable FullLight toFullLight() {
+    public ApiType apiVersion() {
+        return ApiType.V1;
+    }
+
+    @Override
+    public FullLight toFullLight() {
         return this;
     }
 }

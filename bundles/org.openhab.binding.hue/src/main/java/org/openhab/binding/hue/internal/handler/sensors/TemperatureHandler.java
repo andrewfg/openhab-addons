@@ -23,6 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
 import org.openhab.binding.hue.internal.dto.TemperatureConfigUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.QuantityType;
@@ -55,15 +56,25 @@ public class TemperatureHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(FullSensor sensor, Configuration config) {
-        Object temperature = sensor.getState().get(STATE_TEMPERATURE);
-        if (temperature != null) {
-            BigDecimal value = new BigDecimal(String.valueOf(temperature));
-            updateState(CHANNEL_TEMPERATURE, new QuantityType<>(value.divide(new BigDecimal(100)), SIUnits.CELSIUS));
-        }
+    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
+        switch (sensor.apiVersion()) {
 
-        if (sensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
-            config.put(CONFIG_LED_INDICATION, sensor.getConfig().get(CONFIG_LED_INDICATION));
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                Object temperature = fullSensor.getState().get(STATE_TEMPERATURE);
+                if (temperature != null) {
+                    BigDecimal value = new BigDecimal(String.valueOf(temperature));
+                    updateState(CHANNEL_TEMPERATURE,
+                            new QuantityType<>(value.divide(new BigDecimal(100)), SIUnits.CELSIUS));
+                }
+
+                if (fullSensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
+                    config.put(CONFIG_LED_INDICATION, fullSensor.getConfig().get(CONFIG_LED_INDICATION));
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 }

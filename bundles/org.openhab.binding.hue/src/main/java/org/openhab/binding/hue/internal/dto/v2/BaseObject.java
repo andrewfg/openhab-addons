@@ -16,14 +16,14 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * Basic object information for API V2.
+ * Basic object information DTO for API V2.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class BaseV2 {
-    private @NonNullByDefault({}) String type;
-    private @NonNullByDefault({}) String id;
+public class BaseObject {
+    private @Nullable String type;
+    private @Nullable String id;
     private @Nullable String id_v1;
 
     public void setType(String type) {
@@ -39,14 +39,14 @@ public class BaseV2 {
     }
 
     public String getType() {
-        return type;
+        return type != null ? type : "unknown";
     }
 
     public String getId() {
-        return id;
+        return id != null ? id : "";
     }
 
-    public String getId_v1() {
+    public String getIdV1() {
         return id_v1 != null ? id_v1 : "";
     }
 }

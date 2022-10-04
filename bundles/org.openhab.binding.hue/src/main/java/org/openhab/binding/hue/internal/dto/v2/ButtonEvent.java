@@ -15,19 +15,15 @@ package org.openhab.binding.hue.internal.dto.v2;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * DTO for dimming brightness of a light.
+ * Enum for types button press.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class DimmingV2 {
-    private float brightness;
-
-    public int getBrightness() {
-        return (int) brightness;
-    }
-
-    public void setBrightness(int brightness) {
-        this.brightness = brightness;
-    }
+public enum ButtonEvent {
+    INITIAL_PRESS,
+    REPEAT,
+    SHORT_RELEASE,
+    LONG_RELEASE,
+    DOUBLE_SHORT_RELEASE;
 }

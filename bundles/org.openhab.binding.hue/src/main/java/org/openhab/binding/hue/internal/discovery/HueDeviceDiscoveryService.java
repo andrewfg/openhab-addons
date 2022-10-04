@@ -29,6 +29,8 @@ import org.openhab.binding.hue.internal.dto.FullGroup;
 import org.openhab.binding.hue.internal.dto.FullHueObject;
 import org.openhab.binding.hue.internal.dto.FullLight;
 import org.openhab.binding.hue.internal.dto.FullSensor;
+import org.openhab.binding.hue.internal.dto.tag.Light;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueGroupHandler;
 import org.openhab.binding.hue.internal.handler.HueLightHandler;
@@ -147,13 +149,15 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
     public void startScan() {
         final HueBridgeHandler handler = hueBridgeHandler;
         if (handler != null) {
-            List<FullLight> lights = handler.getFullLights();
-            for (FullLight l : lights) {
-                addLightDiscovery(l);
+            List<Light> lights = handler.getFullLights();
+            for (Light l : lights) {
+                // TODO
+                addLightDiscovery(l.toFullLight());
             }
-            List<FullSensor> sensors = handler.getFullSensors();
-            for (FullSensor s : sensors) {
-                addSensorDiscovery(s);
+            List<Sensor> sensors = handler.getFullSensors();
+            for (Sensor s : sensors) {
+                // TODO
+                addSensorDiscovery(s.toFullSensor());
             }
             List<FullGroup> groups = handler.getFullGroups();
             for (FullGroup g : groups) {
@@ -173,37 +177,53 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         }
     }
 
-    public void addLightDiscovery(FullLight light) {
-        ThingUID thingUID = getThingUID(light);
-        ThingTypeUID thingTypeUID = getThingTypeUID(light);
+    public void addLightDiscovery(Light light) {
+        switch (light.apiVersion()) {
 
-        String modelId = light.getNormalizedModelID();
+            case V1:
+                FullLight fullLight = light.toFullLight();
+                ThingUID thingUID = getThingUID(fullLight);
+                ThingTypeUID thingTypeUID = getThingTypeUID(fullLight);
 
-        if (thingUID != null && thingTypeUID != null) {
-            Map<String, Object> properties = new HashMap<>();
-            properties.put(LIGHT_ID, light.getId());
-            if (modelId != null) {
-                properties.put(Thing.PROPERTY_MODEL_ID, modelId);
-            }
-            String uniqueID = light.getUniqueID();
-            if (uniqueID != null) {
-                properties.put(UNIQUE_ID, uniqueID);
-            }
+                String modelId = fullLight.getNormalizedModelID();
 
-            DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
-                    .withProperties(properties).withBridge(bridgeUID).withRepresentationProperty(UNIQUE_ID)
-                    .withLabel(light.getName()).build();
+                if (thingUID != null && thingTypeUID != null) {
+                    Map<String, Object> properties = new HashMap<>();
+                    properties.put(LIGHT_ID, fullLight.getId());
+                    if (modelId != null) {
+                        properties.put(Thing.PROPERTY_MODEL_ID, modelId);
+                    }
+                    String uniqueID = fullLight.getUniqueID();
+                    if (uniqueID != null) {
+                        properties.put(UNIQUE_ID, uniqueID);
+                    }
 
-            thingDiscovered(discoveryResult);
-        } else {
-            logger.debug("discovered unsupported light of type '{}' and model '{}' with id {}", light.getType(),
-                    modelId, light.getId());
+                    DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID)
+                            .withThingType(thingTypeUID).withProperties(properties).withBridge(bridgeUID)
+                            .withRepresentationProperty(UNIQUE_ID).withLabel(fullLight.getName()).build();
+
+                    thingDiscovered(discoveryResult);
+                } else {
+                    logger.debug("discovered unsupported light of type '{}' and model '{}' with id {}",
+                            fullLight.getType(), modelId, fullLight.getId());
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 
-    public void removeLightDiscovery(FullLight light) {
-        ThingUID thingUID = getThingUID(light);
-
+    public void removeLightDiscovery(Light light) {
+        ThingUID thingUID = null;
+        switch (light.apiVersion()) {
+            case V1:
+                thingUID = getThingUID(light.toFullLight());
+                break;
+            case V2:
+                // TODO
+                break;
+        }
         if (thingUID != null) {
             thingRemoved(thingUID);
         }
@@ -227,36 +247,51 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         return thingTypeId != null ? new ThingTypeUID(BINDING_ID, thingTypeId) : null;
     }
 
-    public void addSensorDiscovery(FullSensor sensor) {
-        ThingUID thingUID = getThingUID(sensor);
-        ThingTypeUID thingTypeUID = getThingTypeUID(sensor);
+    public void addSensorDiscovery(Sensor sensor) {
+        switch (sensor.apiVersion()) {
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                ThingUID thingUID = getThingUID(fullSensor);
+                ThingTypeUID thingTypeUID = getThingTypeUID(fullSensor);
 
-        String modelId = sensor.getNormalizedModelID();
-        if (thingUID != null && thingTypeUID != null) {
-            Map<String, Object> properties = new HashMap<>();
-            properties.put(SENSOR_ID, sensor.getId());
-            if (modelId != null) {
-                properties.put(Thing.PROPERTY_MODEL_ID, modelId);
-            }
-            String uniqueID = sensor.getUniqueID();
-            if (uniqueID != null) {
-                properties.put(UNIQUE_ID, uniqueID);
-            }
+                String modelId = fullSensor.getNormalizedModelID();
+                if (thingUID != null && thingTypeUID != null) {
+                    Map<String, Object> properties = new HashMap<>();
+                    properties.put(SENSOR_ID, fullSensor.getId());
+                    if (modelId != null) {
+                        properties.put(Thing.PROPERTY_MODEL_ID, modelId);
+                    }
+                    String uniqueID = fullSensor.getUniqueID();
+                    if (uniqueID != null) {
+                        properties.put(UNIQUE_ID, uniqueID);
+                    }
 
-            DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
-                    .withProperties(properties).withBridge(bridgeUID).withRepresentationProperty(UNIQUE_ID)
-                    .withLabel(sensor.getName()).build();
+                    DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID)
+                            .withThingType(thingTypeUID).withProperties(properties).withBridge(bridgeUID)
+                            .withRepresentationProperty(UNIQUE_ID).withLabel(fullSensor.getName()).build();
 
-            thingDiscovered(discoveryResult);
-        } else {
-            logger.debug("discovered unsupported sensor of type '{}' and model '{}' with id {}", sensor.getType(),
-                    modelId, sensor.getId());
+                    thingDiscovered(discoveryResult);
+                } else {
+                    logger.debug("discovered unsupported sensor of type '{}' and model '{}' with id {}",
+                            fullSensor.getType(), modelId, fullSensor.getId());
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 
-    public void removeSensorDiscovery(FullSensor sensor) {
-        ThingUID thingUID = getThingUID(sensor);
-
+    public void removeSensorDiscovery(Sensor sensor) {
+        ThingUID thingUID = null;
+        switch (sensor.apiVersion()) {
+            case V1:
+                thingUID = getThingUID(sensor.toFullSensor());
+                break;
+            case V2:
+                // TODO
+                break;
+        }
         if (thingUID != null) {
             thingRemoved(thingUID);
         }

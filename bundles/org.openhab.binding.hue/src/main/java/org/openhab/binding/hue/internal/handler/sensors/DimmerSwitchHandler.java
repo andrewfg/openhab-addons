@@ -27,6 +27,7 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DecimalType;
@@ -54,31 +55,40 @@ public class DimmerSwitchHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(FullSensor sensor, Configuration config) {
+    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
         ZoneId zoneId = ZoneId.systemDefault();
         ZonedDateTime now = ZonedDateTime.now(zoneId), timestamp = now;
 
-        Object lastUpdated = sensor.getState().get(FullSensor.STATE_LAST_UPDATED);
-        if (lastUpdated != null) {
-            try {
-                timestamp = ZonedDateTime.ofInstant(
-                        LocalDateTime.parse(String.valueOf(lastUpdated), DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                        ZoneOffset.UTC, zoneId);
-            } catch (DateTimeParseException e) {
-                // do nothing
-            }
-        }
+        switch (sensor.apiVersion()) {
 
-        Object buttonState = sensor.getState().get(FullSensor.STATE_BUTTON_EVENT);
-        if (buttonState != null) {
-            String value = String.valueOf(buttonState);
-            updateState(CHANNEL_DIMMER_SWITCH, new DecimalType(value));
-            // Avoid dispatching events if "lastupdated" is older than now minus 3 seconds (e.g. during restart)
-            Instant then = timestamp.toInstant();
-            Instant someSecondsEarlier = now.minusSeconds(3).toInstant();
-            if (then.isAfter(someSecondsEarlier) && then.isBefore(now.toInstant())) {
-                triggerChannel(EVENT_DIMMER_SWITCH, value);
-            }
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                Object lastUpdated = fullSensor.getState().get(FullSensor.STATE_LAST_UPDATED);
+                if (lastUpdated != null) {
+                    try {
+                        timestamp = ZonedDateTime.ofInstant(
+                                LocalDateTime.parse(String.valueOf(lastUpdated), DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                                ZoneOffset.UTC, zoneId);
+                    } catch (DateTimeParseException e) {
+                        // do nothing
+                    }
+                }
+
+                Object buttonState = fullSensor.getState().get(FullSensor.STATE_BUTTON_EVENT);
+                if (buttonState != null) {
+                    String value = String.valueOf(buttonState);
+                    updateState(CHANNEL_DIMMER_SWITCH, new DecimalType(value));
+                    // Avoid dispatching events if "lastupdated" is older than now minus 3 seconds (e.g. during restart)
+                    Instant then = timestamp.toInstant();
+                    Instant someSecondsEarlier = now.minusSeconds(3).toInstant();
+                    if (then.isAfter(someSecondsEarlier) && then.isBefore(now.toInstant())) {
+                        triggerChannel(EVENT_DIMMER_SWITCH, value);
+                    }
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 }

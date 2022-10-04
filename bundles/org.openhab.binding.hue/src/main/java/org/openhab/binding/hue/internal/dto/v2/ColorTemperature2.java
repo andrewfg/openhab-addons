@@ -15,12 +15,12 @@ package org.openhab.binding.hue.internal.dto.v2;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * DTO for colour temperature of a light.
+ * DTO for colour temperature of a light in API v2.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class ColorTemperatureV2 {
+public class ColorTemperature2 {
     private int mirek;
 
     public static int MIN = 153;

@@ -23,6 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.LightLevelConfigUpdate;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DecimalType;
@@ -65,39 +66,50 @@ public class LightLevelHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(FullSensor sensor, Configuration config) {
-        Object lightLevel = sensor.getState().get(STATE_LIGHT_LEVEL);
-        if (lightLevel != null) {
-            BigDecimal value = new BigDecimal(String.valueOf(lightLevel));
-            updateState(CHANNEL_LIGHT_LEVEL, new DecimalType(value));
+    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
+        switch (sensor.apiVersion()) {
 
-            // calculate lux, according to
-            // https://developers.meethue.com/documentation/supported-sensors#clip_zll_lightlevel
-            double lux = Math.pow(10, (value.subtract(BigDecimal.ONE).divide(new BigDecimal(10000))).doubleValue());
-            updateState(CHANNEL_ILLUMINANCE, new QuantityType<>(lux, Units.LUX));
-        }
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                Object lightLevel = fullSensor.getState().get(STATE_LIGHT_LEVEL);
+                if (lightLevel != null) {
+                    BigDecimal value = new BigDecimal(String.valueOf(lightLevel));
+                    updateState(CHANNEL_LIGHT_LEVEL, new DecimalType(value));
 
-        Object dark = sensor.getState().get(STATE_DARK);
-        if (dark != null) {
-            boolean value = Boolean.parseBoolean(String.valueOf(dark));
-            updateState(CHANNEL_DARK, value ? OnOffType.ON : OnOffType.OFF);
-        }
+                    // calculate lux, according to
+                    // https://developers.meethue.com/documentation/supported-sensors#clip_zll_lightlevel
+                    double lux = Math.pow(10,
+                            (value.subtract(BigDecimal.ONE).divide(new BigDecimal(10000))).doubleValue());
+                    updateState(CHANNEL_ILLUMINANCE, new QuantityType<>(lux, Units.LUX));
+                }
 
-        Object daylight = sensor.getState().get(STATE_DAYLIGHT);
-        if (daylight != null) {
-            boolean value = Boolean.parseBoolean(String.valueOf(daylight));
-            updateState(CHANNEL_DAYLIGHT, value ? OnOffType.ON : OnOffType.OFF);
-        }
+                Object dark = fullSensor.getState().get(STATE_DARK);
+                if (dark != null) {
+                    boolean value = Boolean.parseBoolean(String.valueOf(dark));
+                    updateState(CHANNEL_DARK, value ? OnOffType.ON : OnOffType.OFF);
+                }
 
-        if (sensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
-            config.put(CONFIG_LED_INDICATION, sensor.getConfig().get(CONFIG_LED_INDICATION));
-        }
-        if (sensor.getConfig().containsKey(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK)) {
-            config.put(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK, sensor.getConfig().get(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK));
-        }
-        if (sensor.getConfig().containsKey(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET)) {
-            config.put(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET,
-                    sensor.getConfig().get(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET));
+                Object daylight = fullSensor.getState().get(STATE_DAYLIGHT);
+                if (daylight != null) {
+                    boolean value = Boolean.parseBoolean(String.valueOf(daylight));
+                    updateState(CHANNEL_DAYLIGHT, value ? OnOffType.ON : OnOffType.OFF);
+                }
+
+                if (fullSensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
+                    config.put(CONFIG_LED_INDICATION, fullSensor.getConfig().get(CONFIG_LED_INDICATION));
+                }
+                if (fullSensor.getConfig().containsKey(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK)) {
+                    config.put(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK,
+                            fullSensor.getConfig().get(CONFIG_LIGHT_LEVEL_THRESHOLD_DARK));
+                }
+                if (fullSensor.getConfig().containsKey(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET)) {
+                    config.put(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET,
+                            fullSensor.getConfig().get(CONFIG_LIGHT_LEVEL_THRESHOLD_OFFSET));
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 }

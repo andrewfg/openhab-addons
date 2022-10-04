@@ -12,19 +12,23 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
- * DTO for 'on' state of a light.
+ * DTO for API v2 device data.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class OnV2 {
-    private boolean on;
+@NonNullByDefault
+public class DeviceV2 extends BaseObject {
+    private @NonNullByDefault({}) ProductData product_data;
+    private @NonNullByDefault({}) MetaData metadata;
 
-    public boolean isOn() {
-        return on;
+    public ProductData getProductData() {
+        return product_data;
     }
 
-    public void setOn(boolean on) {
-        this.on = on;
+    public MetaData getMetadata() {
+        return metadata;
     }
 }

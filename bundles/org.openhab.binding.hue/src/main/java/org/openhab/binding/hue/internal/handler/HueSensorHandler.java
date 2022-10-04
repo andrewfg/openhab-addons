@@ -23,13 +23,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
-import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -64,7 +64,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
 
     private @Nullable HueClient hueClient;
 
-    protected @Nullable FullSensor lastFullSensor;
+    protected @Nullable Sensor lastSensor;
 
     public HueSensorHandler(Thing thing) {
         super(thing);
@@ -106,25 +106,37 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
         }
     }
 
-    private synchronized void initializeProperties(@Nullable FullSensor fullSensor) {
-        if (!propertiesInitializedSuccessfully && fullSensor != null) {
-            Map<String, String> properties = editProperties();
-            String softwareVersion = fullSensor.getSoftwareVersion();
-            if (softwareVersion != null) {
-                properties.put(PROPERTY_FIRMWARE_VERSION, softwareVersion);
-            }
-            String modelId = fullSensor.getNormalizedModelID();
-            if (modelId != null) {
-                properties.put(PROPERTY_MODEL_ID, modelId);
-            }
-            properties.put(PROPERTY_VENDOR, fullSensor.getManufacturerName());
-            properties.put(PRODUCT_NAME, fullSensor.getProductName());
-            String uniqueID = fullSensor.getUniqueID();
-            if (uniqueID != null) {
-                properties.put(UNIQUE_ID, uniqueID);
-            }
-            updateProperties(properties);
-            propertiesInitializedSuccessfully = true;
+    private synchronized void initializeProperties(@Nullable Sensor sensor) {
+        if (sensor == null) {
+            return;
+        }
+        switch (sensor.apiVersion()) {
+
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                if (!propertiesInitializedSuccessfully) {
+                    Map<String, String> properties = editProperties();
+                    String softwareVersion = fullSensor.getSoftwareVersion();
+                    if (softwareVersion != null) {
+                        properties.put(PROPERTY_FIRMWARE_VERSION, softwareVersion);
+                    }
+                    String modelId = fullSensor.getNormalizedModelID();
+                    if (modelId != null) {
+                        properties.put(PROPERTY_MODEL_ID, modelId);
+                    }
+                    properties.put(PROPERTY_VENDOR, fullSensor.getManufacturerName());
+                    properties.put(PRODUCT_NAME, fullSensor.getProductName());
+                    String uniqueID = fullSensor.getUniqueID();
+                    if (uniqueID != null) {
+                        properties.put(UNIQUE_ID, uniqueID);
+                    }
+                    updateProperties(properties);
+                    propertiesInitializedSuccessfully = true;
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 
@@ -171,7 +183,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
             return;
         }
 
-        final FullSensor sensor = lastFullSensor;
+        final Sensor sensor = lastSensor;
         if (sensor == null) {
             logger.debug("Hue sensor not known on bridge. Cannot handle command.");
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -210,7 +222,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
                 return;
             }
 
-            final FullSensor sensor = lastFullSensor;
+            final Sensor sensor = lastSensor;
             if (sensor == null) {
                 logger.debug("Hue sensor not known on bridge. Cannot handle configuration update.");
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -225,84 +237,95 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
     }
 
     @Override
-    public boolean onSensorStateChanged(FullSensor sensor) {
+    public boolean onSensorStateChanged(Sensor sensor) {
         logger.trace("onSensorStateChanged() was called");
 
-        final FullSensor lastSensor = lastFullSensor;
-        if (lastSensor == null || !Objects.equals(lastSensor.getState(), sensor.getState())) {
-            lastFullSensor = sensor;
+        final Sensor lastSensor = this.lastSensor;
+        if (lastSensor == null || !lastSensor.sameState(sensor)) {
+            this.lastSensor = sensor;
         } else {
             return true;
         }
 
         logger.trace("New state for sensor {}", sensorId);
 
-        initializeProperties(sensor);
+        switch (sensor.apiVersion()) {
 
-        if (Boolean.TRUE.equals(sensor.getConfig().get(CONFIG_REACHABLE))) {
-            updateStatus(ThingStatus.ONLINE);
-        } else {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.sensor-not-reachable");
+            case V1:
+                FullSensor fullSensor = sensor.toFullSensor();
+                initializeProperties(fullSensor);
+
+                if (Boolean.TRUE.equals(fullSensor.getConfig().get(CONFIG_REACHABLE))) {
+                    updateStatus(ThingStatus.ONLINE);
+                } else {
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.sensor-not-reachable");
+                }
+
+                // update generic sensor config
+                final Configuration config = !configInitializedSuccessfully ? editConfiguration() : getConfig();
+                if (fullSensor.getConfig().containsKey(CONFIG_ON)) {
+                    config.put(CONFIG_ON, fullSensor.getConfig().get(CONFIG_ON));
+                }
+
+                // update specific sensor config
+                doSensorStateChanged(fullSensor, config);
+
+                Object lastUpdated = fullSensor.getState().get(STATE_LAST_UPDATED);
+                if (lastUpdated != null) {
+                    try {
+                        updateState(CHANNEL_LAST_UPDATED,
+                                new DateTimeType(ZonedDateTime.ofInstant(
+                                        LocalDateTime.parse(String.valueOf(lastUpdated),
+                                                DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                                        ZoneOffset.UTC, ZoneId.systemDefault())));
+                    } catch (DateTimeParseException e) {
+                        // do nothing
+                    }
+                }
+
+                Object status = fullSensor.getState().get(STATE_STATUS);
+                if (status != null) {
+                    try {
+                        DecimalType value = new DecimalType(String.valueOf(status));
+                        updateState(STATE_STATUS, value);
+                    } catch (DateTimeParseException e) {
+                        // do nothing
+                    }
+                }
+                Object flag = fullSensor.getState().get(STATE_FLAG);
+                if (flag != null) {
+                    try {
+                        boolean value = Boolean.parseBoolean(String.valueOf(flag));
+                        updateState(CHANNEL_FLAG, value ? OnOffType.ON : OnOffType.OFF);
+                    } catch (DateTimeParseException e) {
+                        // do nothing
+                    }
+                }
+
+                Object battery = fullSensor.getConfig().get(CONFIG_BATTERY);
+                if (battery != null) {
+                    DecimalType batteryLevel = DecimalType.valueOf(String.valueOf(battery));
+                    updateState(CHANNEL_BATTERY_LEVEL, batteryLevel);
+                    updateState(CHANNEL_BATTERY_LOW, batteryLevel.intValue() <= 10 ? OnOffType.ON : OnOffType.OFF);
+                }
+
+                if (!configInitializedSuccessfully) {
+                    updateConfiguration(config);
+                    configInitializedSuccessfully = true;
+                }
+
+                return true;
+
+            case V2:
+                // TODO
+                return true;
         }
-
-        // update generic sensor config
-        final Configuration config = !configInitializedSuccessfully ? editConfiguration() : getConfig();
-        if (sensor.getConfig().containsKey(CONFIG_ON)) {
-            config.put(CONFIG_ON, sensor.getConfig().get(CONFIG_ON));
-        }
-
-        // update specific sensor config
-        doSensorStateChanged(sensor, config);
-
-        Object lastUpdated = sensor.getState().get(STATE_LAST_UPDATED);
-        if (lastUpdated != null) {
-            try {
-                updateState(CHANNEL_LAST_UPDATED,
-                        new DateTimeType(ZonedDateTime.ofInstant(
-                                LocalDateTime.parse(String.valueOf(lastUpdated), DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                                ZoneOffset.UTC, ZoneId.systemDefault())));
-            } catch (DateTimeParseException e) {
-                // do nothing
-            }
-        }
-
-        Object status = sensor.getState().get(STATE_STATUS);
-        if (status != null) {
-            try {
-                DecimalType value = new DecimalType(String.valueOf(status));
-                updateState(STATE_STATUS, value);
-            } catch (DateTimeParseException e) {
-                // do nothing
-            }
-        }
-        Object flag = sensor.getState().get(STATE_FLAG);
-        if (flag != null) {
-            try {
-                boolean value = Boolean.parseBoolean(String.valueOf(flag));
-                updateState(CHANNEL_FLAG, value ? OnOffType.ON : OnOffType.OFF);
-            } catch (DateTimeParseException e) {
-                // do nothing
-            }
-        }
-
-        Object battery = sensor.getConfig().get(CONFIG_BATTERY);
-        if (battery != null) {
-            DecimalType batteryLevel = DecimalType.valueOf(String.valueOf(battery));
-            updateState(CHANNEL_BATTERY_LEVEL, batteryLevel);
-            updateState(CHANNEL_BATTERY_LOW, batteryLevel.intValue() <= 10 ? OnOffType.ON : OnOffType.OFF);
-        }
-
-        if (!configInitializedSuccessfully) {
-            updateConfiguration(config);
-            configInitializedSuccessfully = true;
-        }
-
-        return true;
+        return false;
     }
 
     @Override
     public void channelLinked(ChannelUID channelUID) {
-        final FullSensor sensor = lastFullSensor;
+        final Sensor sensor = lastSensor;
         if (sensor != null) {
             onSensorStateChanged(sensor);
         }
@@ -324,7 +347,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
      * @param sensor the sensor
      * @param config the configuration in which to update the config states of the sensor
      */
-    protected abstract void doSensorStateChanged(FullSensor sensor, Configuration config);
+    protected abstract void doSensorStateChanged(Sensor sensor, Configuration config);
 
     @Override
     public void onSensorRemoved() {
@@ -337,7 +360,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
     }
 
     @Override
-    public void onSensorAdded(FullSensor sensor) {
+    public void onSensorAdded(Sensor sensor) {
         onSensorStateChanged(sensor);
     }
 

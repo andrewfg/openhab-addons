@@ -22,6 +22,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.PresenceConfigUpdate;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueClient;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
@@ -59,7 +60,7 @@ public class PresenceHandler extends HueSensorHandler {
             return;
         }
 
-        final FullSensor sensor = lastFullSensor;
+        final Sensor sensor = lastSensor;
         if (sensor == null) {
             logger.debug("Hue sensor not known on bridge. Cannot handle command.");
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -91,21 +92,31 @@ public class PresenceHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(FullSensor sensor, Configuration config) {
-        Object presence = sensor.getState().get(STATE_PRESENCE);
-        if (presence != null) {
-            boolean value = Boolean.parseBoolean(String.valueOf(presence));
-            updateState(CHANNEL_PRESENCE, value ? OnOffType.ON : OnOffType.OFF);
-        }
+    protected void doSensorStateChanged(Sensor sensorX, Configuration config) {
+        switch (sensorX.apiVersion()) {
 
-        if (sensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
-            config.put(CONFIG_LED_INDICATION, sensor.getConfig().get(CONFIG_LED_INDICATION));
-        }
-        if (sensor.getConfig().containsKey(CONFIG_PRESENCE_SENSITIVITY)) {
-            config.put(CONFIG_PRESENCE_SENSITIVITY, sensor.getConfig().get(CONFIG_PRESENCE_SENSITIVITY));
-        }
-        if (sensor.getConfig().containsKey(CONFIG_PRESENCE_SENSITIVITY_MAX)) {
-            config.put(CONFIG_PRESENCE_SENSITIVITY_MAX, sensor.getConfig().get(CONFIG_PRESENCE_SENSITIVITY_MAX));
+            case V1:
+                FullSensor sensor = sensorX.toFullSensor();
+                Object presence = sensor.getState().get(STATE_PRESENCE);
+                if (presence != null) {
+                    boolean value = Boolean.parseBoolean(String.valueOf(presence));
+                    updateState(CHANNEL_PRESENCE, value ? OnOffType.ON : OnOffType.OFF);
+                }
+
+                if (sensor.getConfig().containsKey(CONFIG_LED_INDICATION)) {
+                    config.put(CONFIG_LED_INDICATION, sensor.getConfig().get(CONFIG_LED_INDICATION));
+                }
+                if (sensor.getConfig().containsKey(CONFIG_PRESENCE_SENSITIVITY)) {
+                    config.put(CONFIG_PRESENCE_SENSITIVITY, sensor.getConfig().get(CONFIG_PRESENCE_SENSITIVITY));
+                }
+                if (sensor.getConfig().containsKey(CONFIG_PRESENCE_SENSITIVITY_MAX)) {
+                    config.put(CONFIG_PRESENCE_SENSITIVITY_MAX,
+                            sensor.getConfig().get(CONFIG_PRESENCE_SENSITIVITY_MAX));
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 }

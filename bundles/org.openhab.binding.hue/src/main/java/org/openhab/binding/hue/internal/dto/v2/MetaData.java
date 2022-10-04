@@ -13,23 +13,22 @@
 package org.openhab.binding.hue.internal.dto.v2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * DTO for colour X/Y of a light.
+ * DTO for API v2 product metadata.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class ColorV2 {
-    private @Nullable XyV2 xy;
+public class MetaData {
+    private @NonNullByDefault({}) String archetype;
+    private @NonNullByDefault({}) String name;
 
-    public float[] getXY() {
-        return xy != null ? xy.getXY() : new float[] { 0, 0 };
+    public Archetype getArchetype() {
+        return Archetype.of(archetype);
     }
 
-    public void setXY(float[] xyValues) {
-        xy = xy != null ? xy : new XyV2();
-        xy.setXY(xyValues);
+    public String getName() {
+        return name != null ? name : "unknown";
     }
 }

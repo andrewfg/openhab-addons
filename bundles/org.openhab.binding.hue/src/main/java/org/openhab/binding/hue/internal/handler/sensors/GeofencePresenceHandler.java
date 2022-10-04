@@ -21,6 +21,7 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
+import org.openhab.binding.hue.internal.dto.tag.Sensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.OnOffType;
@@ -47,11 +48,20 @@ public class GeofencePresenceHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(FullSensor sensor, Configuration config) {
-        Object presence = sensor.getState().get(STATE_PRESENCE);
-        if (presence != null) {
-            boolean value = Boolean.parseBoolean(String.valueOf(presence));
-            updateState(CHANNEL_PRESENCE, value ? OnOffType.ON : OnOffType.OFF);
+    protected void doSensorStateChanged(Sensor sensorX, Configuration config) {
+        switch (sensorX.apiVersion()) {
+
+            case V1:
+                FullSensor sensor = sensorX.toFullSensor();
+                Object presence = sensor.getState().get(STATE_PRESENCE);
+                if (presence != null) {
+                    boolean value = Boolean.parseBoolean(String.valueOf(presence));
+                    updateState(CHANNEL_PRESENCE, value ? OnOffType.ON : OnOffType.OFF);
+                }
+                break;
+
+            case V2:
+                // TODO
         }
     }
 }
