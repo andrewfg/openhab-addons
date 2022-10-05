@@ -21,5 +21,14 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  */
 @NonNullByDefault
 public class Temperature {
+    private float temperature;
+    private boolean temperature_valid;
 
+    public float getTemperature() {
+        return temperature;
+    }
+
+    public boolean isTemperatureValid() {
+        return temperature_valid;
+    }
 }

@@ -29,7 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -64,7 +64,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
 
     private @Nullable HueClient hueClient;
 
-    protected @Nullable Sensor lastSensor;
+    protected @Nullable ISensor lastSensor;
 
     public HueSensorHandler(Thing thing) {
         super(thing);
@@ -106,14 +106,14 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
         }
     }
 
-    private synchronized void initializeProperties(@Nullable Sensor sensor) {
+    private synchronized void initializeProperties(@Nullable ISensor sensor) {
         if (sensor == null) {
             return;
         }
         switch (sensor.apiVersion()) {
 
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 if (!propertiesInitializedSuccessfully) {
                     Map<String, String> properties = editProperties();
                     String softwareVersion = fullSensor.getSoftwareVersion();
@@ -183,7 +183,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
             return;
         }
 
-        final Sensor sensor = lastSensor;
+        final ISensor sensor = lastSensor;
         if (sensor == null) {
             logger.debug("Hue sensor not known on bridge. Cannot handle command.");
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -222,7 +222,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
                 return;
             }
 
-            final Sensor sensor = lastSensor;
+            final ISensor sensor = lastSensor;
             if (sensor == null) {
                 logger.debug("Hue sensor not known on bridge. Cannot handle configuration update.");
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -237,11 +237,11 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
     }
 
     @Override
-    public boolean onSensorStateChanged(Sensor sensor) {
+    public boolean onSensorStateChanged(ISensor sensor) {
         logger.trace("onSensorStateChanged() was called");
 
-        final Sensor lastSensor = this.lastSensor;
-        if (lastSensor == null || !lastSensor.sameState(sensor)) {
+        final ISensor lastSensor = this.lastSensor;
+        if (lastSensor == null || !lastSensor.isSame(sensor)) {
             this.lastSensor = sensor;
         } else {
             return true;
@@ -252,7 +252,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
         switch (sensor.apiVersion()) {
 
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 initializeProperties(fullSensor);
 
                 if (Boolean.TRUE.equals(fullSensor.getConfig().get(CONFIG_REACHABLE))) {
@@ -325,7 +325,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
 
     @Override
     public void channelLinked(ChannelUID channelUID) {
-        final Sensor sensor = lastSensor;
+        final ISensor sensor = lastSensor;
         if (sensor != null) {
             onSensorStateChanged(sensor);
         }
@@ -347,7 +347,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
      * @param sensor the sensor
      * @param config the configuration in which to update the config states of the sensor
      */
-    protected abstract void doSensorStateChanged(Sensor sensor, Configuration config);
+    protected abstract void doSensorStateChanged(ISensor sensor, Configuration config);
 
     @Override
     public void onSensorRemoved() {
@@ -360,7 +360,7 @@ public abstract class HueSensorHandler extends BaseThingHandler implements Senso
     }
 
     @Override
-    public void onSensorAdded(Sensor sensor) {
+    public void onSensorAdded(ISensor sensor) {
         onSensorStateChanged(sensor);
     }
 

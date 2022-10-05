@@ -23,7 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
 import org.openhab.binding.hue.internal.dto.TemperatureConfigUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.QuantityType;
@@ -56,11 +56,11 @@ public class TemperatureHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
+    protected void doSensorStateChanged(ISensor sensor, Configuration config) {
         switch (sensor.apiVersion()) {
 
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 Object temperature = fullSensor.getState().get(STATE_TEMPERATURE);
                 if (temperature != null) {
                     BigDecimal value = new BigDecimal(String.valueOf(temperature));

@@ -34,13 +34,13 @@ import org.openhab.binding.hue.internal.dto.Group;
 import org.openhab.binding.hue.internal.dto.HueObject;
 import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
-import org.openhab.binding.hue.internal.dto.tag.Update;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.dto.tag.IUpdate;
 import org.openhab.binding.hue.internal.dto.v2.Archetype;
-import org.openhab.binding.hue.internal.dto.v2.DeviceV2;
-import org.openhab.binding.hue.internal.dto.v2.Devices;
+import org.openhab.binding.hue.internal.dto.v2.Device2;
 import org.openhab.binding.hue.internal.dto.v2.ProductData;
+import org.openhab.binding.hue.internal.dto.v2.Resources;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.core.i18n.CommunicationException;
 import org.openhab.core.i18n.ConfigurationException;
@@ -55,7 +55,7 @@ public class HueBridgeV2 extends HueBridge {
 
     // private final Logger logger = LoggerFactory.getLogger(HueBridgeV2.class);
 
-    private Map<String, DeviceV2> deviceMap = new HashMap<>();
+    private Map<String, Device2> deviceMap = new HashMap<>();
 
     /**
      * ------------------------------------------------------------------------
@@ -81,8 +81,8 @@ public class HueBridgeV2 extends HueBridge {
 
     @Override
     public ApiVersion getVersion() throws IOException, ApiException {
-        Map<String, DeviceV2> devices = getCachedDevices();
-        for (Entry<String, DeviceV2> device : devices.entrySet()) {
+        Map<String, Device2> devices = getCachedDevices();
+        for (Entry<String, Device2> device : devices.entrySet()) {
             ProductData productData = device.getValue().getProductData();
             if (productData.getProductArchetype() == Archetype.BRIDGE_V2) {
                 return productData.getSoftwareVersion();
@@ -91,33 +91,33 @@ public class HueBridgeV2 extends HueBridge {
         throw new ApiException("Device map does not contain a bridge");
     }
 
-    private Map<String, DeviceV2> getCachedDevices() throws IOException {
+    private Map<String, Device2> getCachedDevices() throws IOException {
         if (deviceMap.isEmpty()) {
             deviceMap = getDevices();
         }
         return deviceMap;
     }
 
-    private Map<String, DeviceV2> getDevices() throws IOException {
+    private Map<String, Device2> getDevices() throws IOException {
         requireAuthentication();
         HueResult result = get(getUrl("device"));
         if (result.responseCode != HttpStatus.OK_200) {
             throw new IOException();
         }
-        Devices devices = gson.fromJson(result.body, Devices.class);
+        Resources devices = gson.fromJson(result.body, Resources.class);
         if (devices != null && devices.getErrors().isEmpty()) {
-            List<DeviceV2> deviceList = devices.getData();
+            List<Device2> deviceList = devices.getResources();
             if (!deviceList.isEmpty()) {
                 deviceMap.clear();
-                deviceMap.putAll(deviceList.stream().collect(Collectors.toMap(DeviceV2::getId, Function.identity())));
-                deviceMap.putAll(deviceList.stream().collect(Collectors.toMap(DeviceV2::getIdV1, Function.identity())));
+                deviceMap.putAll(deviceList.stream().collect(Collectors.toMap(Device2::getId, Function.identity())));
+                deviceMap.putAll(deviceList.stream().collect(Collectors.toMap(Device2::getIdV1, Function.identity())));
             }
         }
         return deviceMap;
     }
 
     @Override
-    public List<Light> getFullLights() throws IOException, ApiException {
+    public List<ILight> getFullLights() throws IOException, ApiException {
         HueResult result = get(getUrl("resource/light/"));
         handleErrors(result);
         // TODO convert HueResult to List<FullLight>
@@ -131,7 +131,7 @@ public class HueBridgeV2 extends HueBridge {
     }
 
     @Override
-    public List<Sensor> getSensors() throws IOException, ApiException, ConfigurationException, CommunicationException {
+    public List<ISensor> getSensors() throws IOException, ApiException, ConfigurationException, CommunicationException {
         // TODO Auto-generated method stub
         return List.of();
     }
@@ -148,7 +148,7 @@ public class HueBridgeV2 extends HueBridge {
     }
 
     @Override
-    public CompletableFuture<HueResult> setLightState(Light lightDto, Update updateDto) {
+    public CompletableFuture<HueResult> setLightState(ILight lightDto, IUpdate updateDto) {
         // TODO following two lines may throw ClassCastException, eventually, if my code is wrong
         FullLight light = (FullLight) lightDto;
         StateUpdate update = (StateUpdate) updateDto;
@@ -160,13 +160,13 @@ public class HueBridgeV2 extends HueBridge {
     }
 
     @Override
-    public CompletableFuture<HueResult> setSensorState(Sensor sensor, Update update) {
+    public CompletableFuture<HueResult> setSensorState(ISensor sensor, IUpdate update) {
         // TODO Auto-generated method stub
         return new CompletableFuture<>();
     }
 
     @Override
-    public CompletableFuture<HueResult> updateSensorConfig(Sensor sensor, ConfigUpdate update) {
+    public CompletableFuture<HueResult> updateSensorConfig(ISensor sensor, ConfigUpdate update) {
         // TODO Auto-generated method stub
         return new CompletableFuture<>();
     }
@@ -181,7 +181,7 @@ public class HueBridgeV2 extends HueBridge {
     }
 
     @Override
-    public CompletableFuture<HueResult> setGroupState(Group group, Update update) {
+    public CompletableFuture<HueResult> setGroupState(Group group, IUpdate update) {
         // TODO Auto-generated method stub
         return new CompletableFuture<>();
     }

@@ -22,7 +22,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.PresenceConfigUpdate;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueClient;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
@@ -60,7 +60,7 @@ public class PresenceHandler extends HueSensorHandler {
             return;
         }
 
-        final Sensor sensor = lastSensor;
+        final ISensor sensor = lastSensor;
         if (sensor == null) {
             logger.debug("Hue sensor not known on bridge. Cannot handle command.");
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -92,11 +92,11 @@ public class PresenceHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(Sensor sensorX, Configuration config) {
+    protected void doSensorStateChanged(ISensor sensorX, Configuration config) {
         switch (sensorX.apiVersion()) {
 
             case V1:
-                FullSensor sensor = sensorX.toFullSensor();
+                FullSensor sensor = sensorX.as(FullSensor.class);
                 Object presence = sensor.getState().get(STATE_PRESENCE);
                 if (presence != null) {
                     boolean value = Boolean.parseBoolean(String.valueOf(presence));

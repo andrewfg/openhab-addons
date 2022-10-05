@@ -12,15 +12,21 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import java.lang.reflect.Type;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.hue.internal.dto.tag.IScene;
+
+import com.google.gson.reflect.TypeToken;
+
 /**
- * DTO for API v2 button state.
+ * DTO for an API v2 sensor.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
+@NonNullByDefault
+public class Scene2 extends BaseObject implements IScene {
+    public static final Type GSON_TYPE = new TypeToken<Resources<Scene2>>() {
+    }.getType();
 
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
-    }
 }

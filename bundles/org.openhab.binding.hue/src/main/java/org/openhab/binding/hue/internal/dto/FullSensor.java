@@ -16,8 +16,8 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.hue.internal.dto.tag.ApiType;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.IBase;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -28,7 +28,7 @@ import com.google.gson.reflect.TypeToken;
  * @author Christoph Weitkamp - Initial contribution
  */
 @NonNullByDefault
-public class FullSensor extends FullHueObject implements Sensor {
+public class FullSensor extends FullHueObject implements ISensor {
     public static final Type GSON_TYPE = new TypeToken<Map<String, FullSensor>>() {
     }.getType();
 
@@ -65,18 +65,8 @@ public class FullSensor extends FullHueObject implements Sensor {
     }
 
     @Override
-    public ApiType apiVersion() {
-        return ApiType.V1;
-    }
-
-    @Override
-    public FullSensor toFullSensor() {
-        return this;
-    }
-
-    @Override
-    public boolean sameState(Sensor other) {
-        // TODO Auto-generated method stub
-        return false;
+    public boolean isSame(IBase other) {
+        // TODO
+        return ISensor.super.isSame(other);
     }
 }

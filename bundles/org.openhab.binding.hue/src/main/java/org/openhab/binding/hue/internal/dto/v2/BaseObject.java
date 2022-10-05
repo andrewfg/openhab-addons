@@ -25,6 +25,7 @@ public class BaseObject {
     private @Nullable String type;
     private @Nullable String id;
     private @Nullable String id_v1;
+    private @Nullable MetaData metadata;
 
     public void setType(String type) {
         this.type = type;
@@ -48,5 +49,9 @@ public class BaseObject {
 
     public String getIdV1() {
         return id_v1 != null ? id_v1 : "";
+    }
+
+    public @Nullable MetaData getMetaData() {
+        return metadata;
     }
 }

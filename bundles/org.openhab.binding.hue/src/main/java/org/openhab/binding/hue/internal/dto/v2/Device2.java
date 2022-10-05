@@ -12,15 +12,25 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import java.lang.reflect.Type;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
+import com.google.gson.reflect.TypeToken;
+
 /**
- * DTO for API v2 button state.
+ * DTO for API v2 device data.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
+@NonNullByDefault
+public class Device2 extends BaseObject {
+    public static final Type GSON_TYPE = new TypeToken<Resources<Device2>>() {
+    }.getType();
 
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
+    private @NonNullByDefault({}) ProductData product_data;
+
+    public ProductData getProductData() {
+        return product_data;
     }
 }

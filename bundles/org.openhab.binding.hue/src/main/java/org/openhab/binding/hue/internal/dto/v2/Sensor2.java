@@ -12,11 +12,15 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
-import org.eclipse.jdt.annotation.NonNull;
+import java.lang.reflect.Type;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.tag.ApiType;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ApiEnum;
+import org.openhab.binding.hue.internal.dto.tag.IBase;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
+
+import com.google.gson.reflect.TypeToken;
 
 /**
  * DTO for an API v2 sensor.
@@ -24,7 +28,10 @@ import org.openhab.binding.hue.internal.dto.tag.Sensor;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Sensor2 extends BaseObject implements Sensor {
+public class Sensor2 extends BaseObject implements ISensor {
+    public static final Type GSON_TYPE = new TypeToken<Resources<Sensor2>>() {
+    }.getType();
+
     private @Nullable Boolean enabled;
     private @Nullable LightLevel light;
     private @Nullable Button button;
@@ -52,47 +59,46 @@ public class Sensor2 extends BaseObject implements Sensor {
         }
     }
 
-    public Boolean getEnabled() {
-        return enabled != null ? enabled : false;
+    public SensorType getSensorType() {
+        return SensorType.valueOf(getType().toUpperCase());
+    }
+
+    public @Nullable Boolean getEnabled() {
+        return enabled;
     }
 
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
     }
 
-    public LightLevel getLight() {
-        return light != null ? light : new LightLevel();
+    public @Nullable LightLevel getLightLevel() {
+        return light;
     }
 
-    public Button getButton() {
-        return button != null ? button : new Button();
+    public @Nullable Button getButton() {
+        return button;
     }
 
-    public Temperature getTemperature() {
-        return temperature != null ? temperature : new Temperature();
+    public @Nullable Temperature getTemperature() {
+        return temperature;
     }
 
-    public Motion getMotion() {
-        return motion != null ? motion : new Motion();
+    public @Nullable Motion getMotion() {
+        return motion;
     }
 
-    public Power getPower_state() {
-        return power_state != null ? power_state : new Power();
-    }
-
-    @Override
-    public @NonNull ApiType apiVersion() {
-        return ApiType.V2;
+    public @Nullable Power getPowerState() {
+        return power_state;
     }
 
     @Override
-    public Sensor2 toSensor2() {
-        return this;
+    public ApiEnum apiVersion() {
+        return ApiEnum.V2;
     }
 
     @Override
-    public boolean sameState(Sensor other) {
+    public boolean isSame(IBase other) {
         // TODO
-        return false;
+        return ISensor.super.isSame(other);
     }
 }

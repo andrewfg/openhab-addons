@@ -10,17 +10,18 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.hue.internal.dto.v2;
+package org.openhab.binding.hue.internal.dto.tag;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * DTO for API v2 button state.
+ * Interface used as a 'tag' for passing references to instances of different light state update DTO classes in an API
+ * agnostic manner.
+ * <p>
+ * See {@link ILight} for description and example how to use this.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
-
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
-    }
+@NonNullByDefault
+public interface IUpdate extends IBase {
 }

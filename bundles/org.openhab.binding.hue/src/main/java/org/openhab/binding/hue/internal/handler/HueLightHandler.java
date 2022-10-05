@@ -28,7 +28,7 @@ import org.openhab.binding.hue.internal.dto.ColorTemperature;
 import org.openhab.binding.hue.internal.dto.FullLight;
 import org.openhab.binding.hue.internal.dto.State;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Light;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
 import org.openhab.binding.hue.internal.dto.v2.Light2;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
@@ -86,7 +86,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
 
     private @NonNullByDefault({}) String lightId;
 
-    private @Nullable Light lastLight;
+    private @Nullable ILight lastLight;
     private long endBypassTime = 0L;
 
     private @Nullable Integer lastSentColorTemp;
@@ -142,18 +142,18 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
             HueClient bridgeHandler = getHueClient();
             if (bridgeHandler != null) {
                 if (bridgeStatus == ThingStatus.ONLINE) {
-                    Light light = bridgeHandler.getLightById(lightId);
+                    ILight light = bridgeHandler.getLightById(lightId);
                     if (light != null) {
                         switch (light.apiVersion()) {
 
                             case V1:
-                                final FullLight fullLight = light.toFullLight();
+                                final FullLight fullLight = light.as(FullLight.class);
                                 initializeProperties(fullLight);
                                 initializeCapabilities(fullLight);
                                 break;
 
                             case V2:
-                                final Light2 light2 = light.toLight2();
+                                final Light2 light2 = light.as(Light2.class);
                                 // TODO initialize properties if possible
                                 // Light2 has the same capabilities as a default FullLight
                                 initializeCapabilities(new FullLight());
@@ -262,7 +262,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
             return;
         }
 
-        final Light light = lastLight == null ? bridgeHandler.getLightById(lightId) : lastLight;
+        final ILight light = lastLight == null ? bridgeHandler.getLightById(lightId) : lastLight;
         if (light == null) {
             logger.debug("Hue light not known on bridge. Cannot handle command.");
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -273,7 +273,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
         switch (light.apiVersion()) {
 
             case V1:
-                final FullLight fullLight = light.toFullLight();
+                final FullLight fullLight = light.as(FullLight.class);
                 Integer lastColorTemp;
                 StateUpdate newState = null;
                 switch (channel) {
@@ -403,7 +403,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
                 break;
 
             case V2:
-                final Light2 light2 = light.toLight2();
+                final Light2 light2 = light.as(Light2.class);
                 Light2 newLight = new Light2();
                 switch (channel) {
                     case CHANNEL_COLORTEMPERATURE:
@@ -553,7 +553,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
     }
 
     @Override
-    public boolean onLightStateChanged(Light light) {
+    public boolean onLightStateChanged(ILight light) {
         logger.trace("onLightStateChanged() was called");
 
         if (System.currentTimeMillis() <= endBypassTime) {
@@ -561,8 +561,8 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
             return false;
         }
 
-        final Light lastLight = this.lastLight;
-        if (lastLight == null || !lastLight.sameState(light)) {
+        final ILight lastLight = this.lastLight;
+        if (lastLight == null || !lastLight.isSame(light)) {
             this.lastLight = lastLight;
         } else {
             return true;
@@ -573,7 +573,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
         switch (light.apiVersion()) {
 
             case V1:
-                final FullLight fullLight = light.toFullLight();
+                final FullLight fullLight = light.as(FullLight.class);
                 State state = fullLight.getState();
 
                 initializeProperties(fullLight);
@@ -619,12 +619,12 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
                 return true;
 
             case V2:
-                Light2 light2 = light.toLight2();
+                Light2 light2 = light.as(Light2.class);
                 updateStatus(ThingStatus.ONLINE);
                 updateState(CHANNEL_COLOR, light2.getColor());
-                updateState(CHANNEL_BRIGHTNESS, light2.getBrightnessPercent());
+                updateState(CHANNEL_BRIGHTNESS, light2.getBrightnessState());
                 updateState(CHANNEL_SWITCH, light2.getSwitch());
-                updateState(CHANNEL_COLORTEMPERATURE, light2.getColorTemperaturePercent());
+                updateState(CHANNEL_COLORTEMPERATURE, light2.getColorTemperatureState());
                 updateState(CHANNEL_COLORTEMPERATURE_ABS, light2.getColorTemperatureKelvin());
 
                 return true;
@@ -636,7 +636,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
     public void channelLinked(ChannelUID channelUID) {
         HueClient handler = getHueClient();
         if (handler != null) {
-            Light light = handler.getLightById(lightId);
+            ILight light = handler.getLightById(lightId);
             if (light != null) {
                 onLightStateChanged(light);
             }
@@ -654,7 +654,7 @@ public class HueLightHandler extends BaseThingHandler implements HueLightActions
     }
 
     @Override
-    public void onLightAdded(Light light) {
+    public void onLightAdded(ILight light) {
         onLightStateChanged(light);
     }
 

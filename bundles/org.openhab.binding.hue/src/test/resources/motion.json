@@ -1,0 +1,19 @@
+{
+	"errors": [],
+	"data": [
+		{
+			"enabled": false,
+			"motion": {
+				"motion": true,
+				"motion_valid": true
+			},
+			"type": "motion",
+			"id": "myId",
+			"id_v1": "myId_v1",
+			"owner": {
+				"rid": "112853f9-c4c4-4d65-ba96-b4c2ab26d94d",
+				"rtype": "device"
+			}
+		}
+	]
+}

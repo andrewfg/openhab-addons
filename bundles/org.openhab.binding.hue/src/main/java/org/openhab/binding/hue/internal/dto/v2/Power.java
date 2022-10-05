@@ -29,7 +29,7 @@ public class Power {
         return battery_state != null ? BatteryState.valueOf(battery_state.toUpperCase()) : BatteryState.NORMAL;
     }
 
-    public int getBattery_level() {
+    public int getBatteryLevel() {
         return battery_level != null ? battery_level.intValue() : 100;
     }
 }

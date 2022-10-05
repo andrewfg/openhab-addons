@@ -15,12 +15,13 @@ package org.openhab.binding.hue.internal.dto.tag;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * Enum for the API version.
- * 
+ * Interface used as a 'tag' for passing references to instances of different light group DTO classes in an API agnostic
+ * manner.
+ * <p>
+ * See {@link ILight} for description and example how to use this.
+ *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public enum ApiType {
-    V1,
-    V2;
+public interface IGroup extends IBase {
 }

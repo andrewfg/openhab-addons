@@ -48,9 +48,11 @@ import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.dto.State;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
-import org.openhab.binding.hue.internal.dto.tag.Update;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.dto.tag.IUpdate;
+import org.openhab.binding.hue.internal.dto.v2.Light2;
+import org.openhab.binding.hue.internal.dto.v2.Sensor2;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.DeviceOffException;
 import org.openhab.binding.hue.internal.exceptions.EntityNotAvailableException;
@@ -113,8 +115,8 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     private final TranslationProvider i18nProvider;
     private final LocaleProvider localeProvider;
 
-    private final Map<String, Light> lastLightStates = new ConcurrentHashMap<>();
-    private final Map<String, Sensor> lastSensorStates = new ConcurrentHashMap<>();
+    private final Map<String, ILight> lastLightStates = new ConcurrentHashMap<>();
+    private final Map<String, ISensor> lastSensorStates = new ConcurrentHashMap<>();
     private final Map<String, FullGroup> lastGroupStates = new ConcurrentHashMap<>();
 
     private @Nullable HueDeviceDiscoveryService discoveryService;
@@ -197,19 +199,19 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         // TODO
         @Override
         protected void doConnectedRun() throws IOException, ApiException {
-            Map<String, Sensor> lastSensorStateCopy = new HashMap<>(lastSensorStates);
+            Map<String, ISensor> lastSensorStateCopy = new HashMap<>(lastSensorStates);
 
             final HueDeviceDiscoveryService discovery = discoveryService;
 
-            for (final Sensor sensor : hueBridge.getSensors()) {
+            for (final ISensor sensor : hueBridge.getSensors()) {
                 String sensorId;
                 switch (sensor.apiVersion()) {
                     case V1:
-                        sensorId = sensor.toFullSensor().getId();
+                        sensorId = sensor.as(FullSensor.class).getId();
                         break;
                     case V2:
                     default:
-                        sensorId = sensor.toSensor2().getId();
+                        sensorId = sensor.as(Sensor2.class).getId();
                         break;
                 }
 
@@ -256,9 +258,9 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
 
         private void updateLights() throws IOException, ApiException {
             // TODO
-            Map<String, Light> lastLightStateCopy = new HashMap<>(lastLightStates);
+            Map<String, ILight> lastLightStateCopy = new HashMap<>(lastLightStates);
 
-            List<Light> lights;
+            List<ILight> lights;
             if (ApiVersionUtils.supportsFullLights(hueBridge.getVersion())) {
                 lights = hueBridge.getFullLights();
             } else {
@@ -267,15 +269,15 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
 
             final HueDeviceDiscoveryService discovery = discoveryService;
 
-            for (final Light light : lights) {
+            for (final ILight light : lights) {
                 final String lightId;
                 switch (light.apiVersion()) {
                     case V1:
-                        lightId = light.toFullLight().getId();
+                        lightId = light.as(FullLight.class).getId();
                         break;
                     case V2:
                     default:
-                        lightId = light.toLight2().getId();
+                        lightId = light.as(Light2.class).getId();
                         break;
                 }
                 final LightStatusListener lightStatusListener = lightStatusListeners.get(lightId);
@@ -326,13 +328,13 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
                 State colorRef = null;
                 HSBType firstColorHsb = null;
                 for (String lightId : fullGroup.getLightIds()) {
-                    Light lightX = lastLightStates.get(lightId);
-                    if (lightX != null) {
-                        switch (lightX.apiVersion()) {
+                    ILight light = lastLightStates.get(lightId);
+                    if (light != null) {
+                        switch (light.apiVersion()) {
 
                             case V1:
-                                FullLight fullLight = lightX.toFullLight();
-                                final State lightState = fullLight.toFullLight().getState();
+                                FullLight fullLight = light.as(FullLight.class);
+                                final State lightState = fullLight.getState();
                                 logger.trace("Group {}: light {}: on {} bri {} hue {} sat {} temp {} mode {} XY {}",
                                         fullGroup.getName(), fullLight.getName(), lightState.isOn(),
                                         lightState.getBrightness(), lightState.getHue(), lightState.getSaturation(),
@@ -472,7 +474,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public void updateLightState(LightStatusListener listener, Light light, Update update, long fadeTime) {
+    public void updateLightState(LightStatusListener listener, ILight light, IUpdate update, long fadeTime) {
         if (hueBridge != null) {
             listener.setPollBypass(BYPASS_MIN_DURATION_BEFORE_CMD);
             hueBridge.setLightState(light, update).thenAccept(result -> {
@@ -494,12 +496,12 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public void updateSensorState(Sensor sensor, Update update) {
+    public void updateSensorState(ISensor sensor, IUpdate update) {
         if (hueBridge != null) {
             switch (sensor.apiVersion()) {
 
                 case V1:
-                    StateUpdate stateUpdate = update.toStateUpdate();
+                    StateUpdate stateUpdate = update.as(StateUpdate.class);
                     hueBridge.setSensorState(sensor, stateUpdate).thenAccept(result -> {
                         try {
                             hueBridge.handleErrors(result);
@@ -521,7 +523,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public void updateSensorConfig(Sensor sensor, ConfigUpdate configUpdate) {
+    public void updateSensorConfig(ISensor sensor, ConfigUpdate configUpdate) {
         if (hueBridge != null) {
             hueBridge.updateSensorConfig(sensor, configUpdate).thenAccept(result -> {
                 try {
@@ -539,7 +541,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public void updateGroupState(FullGroup group, Update update, long fadeTime) {
+    public void updateGroupState(FullGroup group, IUpdate update, long fadeTime) {
         if (hueBridge != null) {
             setGroupPollBypass(group, BYPASS_MIN_DURATION_BEFORE_CMD);
             hueBridge.setGroupState(group, update).thenAccept(result -> {
@@ -578,13 +580,13 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         });
     }
 
-    private void handleLightUpdateException(LightStatusListener listener, Light light, Update update, long fadeTime,
+    private void handleLightUpdateException(LightStatusListener listener, ILight light, IUpdate update, long fadeTime,
             Throwable e) {
         switch (light.apiVersion()) {
 
             case V1:
-                FullLight fullLight = light.toFullLight();
-                StateUpdate stateUpdate = update.toStateUpdate();
+                FullLight fullLight = light.as(FullLight.class);
+                StateUpdate stateUpdate = update.as(StateUpdate.class);
 
                 if (e instanceof DeviceOffException) {
                     if (stateUpdate.getColorTemperature() != null && stateUpdate.getBrightness() == null) {
@@ -612,7 +614,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         }
     }
 
-    private void handleSensorUpdateException(Sensor sensor, Throwable e) {
+    private void handleSensorUpdateException(ISensor sensor, Throwable e) {
         switch (sensor.apiVersion()) {
 
             case V1:
@@ -965,7 +967,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         final String lightId = lightStatusListener.getLightId();
         if (!lightStatusListeners.containsKey(lightId)) {
             lightStatusListeners.put(lightId, lightStatusListener);
-            final Light lastLightState = lastLightStates.get(lightId);
+            final ILight lastLightState = lastLightStates.get(lightId);
             if (lastLightState != null) {
                 lightStatusListener.onLightAdded(lastLightState);
             }
@@ -985,7 +987,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         final String sensorId = sensorStatusListener.getSensorId();
         if (!sensorStatusListeners.containsKey(sensorId)) {
             sensorStatusListeners.put(sensorId, sensorStatusListener);
-            final Sensor lastSensorState = lastSensorStates.get(sensorId);
+            final ISensor lastSensorState = lastSensorStates.get(sensorId);
             if (lastSensorState != null) {
                 sensorStatusListener.onSensorAdded(lastSensorState);
             }
@@ -1044,12 +1046,12 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
     }
 
     @Override
-    public @Nullable Light getLightById(String lightId) {
+    public @Nullable ILight getLightById(String lightId) {
         return lastLightStates.get(lightId);
     }
 
     @Override
-    public @Nullable Sensor getSensorById(String sensorId) {
+    public @Nullable ISensor getSensorById(String sensorId) {
         return lastSensorStates.get(sensorId);
     }
 
@@ -1058,15 +1060,15 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
         return lastGroupStates.get(groupId);
     }
 
-    public List<Light> getFullLights() {
-        List<Light> ret = withReAuthentication("search for new lights", () -> {
+    public List<ILight> getFullLights() {
+        List<ILight> ret = withReAuthentication("search for new lights", () -> {
             return hueBridge.getFullLights();
         });
         return ret != null ? ret : List.of();
     }
 
-    public List<Sensor> getFullSensors() {
-        List<Sensor> ret = withReAuthentication("search for new sensors", () -> {
+    public List<ISensor> getFullSensors() {
+        List<ISensor> ret = withReAuthentication("search for new sensors", () -> {
             return hueBridge.getSensors();
         });
         return ret != null ? ret : List.of();

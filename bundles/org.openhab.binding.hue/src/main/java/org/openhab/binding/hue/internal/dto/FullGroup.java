@@ -16,6 +16,8 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
+import org.openhab.binding.hue.internal.dto.tag.IGroup;
+
 import com.google.gson.reflect.TypeToken;
 
 /**
@@ -25,7 +27,7 @@ import com.google.gson.reflect.TypeToken;
  * @author Denis Dudnik - moved Jue library source code inside the smarthome Hue binding
  * @author Laurent Garnier - field state added
  */
-public class FullGroup extends Group {
+public class FullGroup extends Group implements IGroup {
     public static final Type GSON_TYPE = new TypeToken<Map<String, FullGroup>>() {
     }.getType();
 

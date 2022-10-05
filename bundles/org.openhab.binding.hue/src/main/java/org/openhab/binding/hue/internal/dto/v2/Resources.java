@@ -12,15 +12,25 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import java.util.List;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
- * DTO for API v2 button state.
+ * DTO for API v2 to retrieve a list of generic resources from the bridge.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
+@NonNullByDefault
+public class Resources<T extends BaseObject> {
+    private @NonNullByDefault({}) List<ErrorClass> errors;
+    private @NonNullByDefault({}) List<T> data;
 
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
+    public List<ErrorClass> getErrors() {
+        return errors;
+    }
+
+    public List<T> getResources() {
+        return data;
     }
 }

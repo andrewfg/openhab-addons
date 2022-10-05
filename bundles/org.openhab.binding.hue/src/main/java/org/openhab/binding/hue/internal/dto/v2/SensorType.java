@@ -24,5 +24,6 @@ public enum SensorType {
     MOTION,
     LIGHT_LEVEL,
     TEMPERATURE,
-    BUTTON;
+    BUTTON,
+    DEVICE_POWER;
 }

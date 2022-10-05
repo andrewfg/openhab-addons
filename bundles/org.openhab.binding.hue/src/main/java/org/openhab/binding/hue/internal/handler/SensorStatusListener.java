@@ -14,7 +14,7 @@ package org.openhab.binding.hue.internal.handler;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 
 /**
  * The {@link SensorStatusListener} is notified when a sensor status has changed or a sensor has been removed or added.
@@ -39,7 +39,7 @@ public interface SensorStatusListener {
      * @param sensor The sensor which received the state update.
      * @return The sensor handler returns true if it accepts the new state.
      */
-    boolean onSensorStateChanged(Sensor sensor);
+    boolean onSensorStateChanged(ISensor sensor);
 
     /**
      * This method is called whenever a sensor is removed.
@@ -56,5 +56,5 @@ public interface SensorStatusListener {
      *
      * @param sensor The added sensor
      */
-    void onSensorAdded(Sensor sensor);
+    void onSensorAdded(ISensor sensor);
 }

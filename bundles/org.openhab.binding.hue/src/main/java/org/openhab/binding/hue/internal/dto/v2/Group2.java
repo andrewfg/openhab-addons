@@ -12,15 +12,21 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import java.lang.reflect.Type;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.hue.internal.dto.tag.IGroup;
+
+import com.google.gson.reflect.TypeToken;
+
 /**
- * DTO for API v2 button state.
+ * DTO for an API v2 light group.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
+@NonNullByDefault
+public class Group2 extends BaseObject implements IGroup {
+    public static final Type GSON_TYPE = new TypeToken<Resources<Group2>>() {
+    }.getType();
 
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
-    }
 }

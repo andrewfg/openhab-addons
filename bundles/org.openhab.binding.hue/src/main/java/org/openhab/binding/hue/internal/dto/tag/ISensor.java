@@ -10,27 +10,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.hue.internal.dto.v2;
-
-import java.util.List;
+package org.openhab.binding.hue.internal.dto.tag;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * DTO for API v2 get array of devices request
+ * /**
+ * Interface used as a 'tag' for passing references to instances of different Sensor DTO classes in an API agnostic
+ * manner.
+ * <p>
+ * See {@link ILight} for description and example how to use this.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Devices {
-    private @NonNullByDefault({}) List<ErrorClass> errors;
-    private @NonNullByDefault({}) List<DeviceV2> data;
-
-    public List<ErrorClass> getErrors() {
-        return errors;
-    }
-
-    public List<DeviceV2> getData() {
-        return data;
-    }
+public interface ISensor extends IBase {
 }

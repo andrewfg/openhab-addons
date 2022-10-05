@@ -10,17 +10,17 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.hue.internal.dto.v2;
+package org.openhab.binding.hue.internal.dto.tag;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * DTO for API v2 button state.
- *
+ * Enum for the API version.
+ * 
  * @author Andrew Fiddian-Green - Initial contribution
  */
-public class Button {
-    private String last_event;
-
-    public ButtonEvent getLastEvent() {
-        return ButtonEvent.valueOf(last_event.toUpperCase());
-    }
+@NonNullByDefault
+public enum ApiEnum {
+    V1,
+    V2;
 }

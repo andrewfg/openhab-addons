@@ -27,7 +27,7 @@ import java.util.Set;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DecimalType;
@@ -55,14 +55,14 @@ public class DimmerSwitchHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
+    protected void doSensorStateChanged(ISensor sensor, Configuration config) {
         ZoneId zoneId = ZoneId.systemDefault();
         ZonedDateTime now = ZonedDateTime.now(zoneId), timestamp = now;
 
         switch (sensor.apiVersion()) {
 
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 Object lastUpdated = fullSensor.getState().get(FullSensor.STATE_LAST_UPDATED);
                 if (lastUpdated != null) {
                     try {

@@ -13,6 +13,7 @@
 package org.openhab.binding.hue.internal.dto.v2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * DTO for colour temperature of a light in API v2.
@@ -21,34 +22,34 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  */
 @NonNullByDefault
 public class ColorTemperature2 {
-    private int mirek;
+    private @Nullable Integer mirek;
+    private @Nullable MirekSchema mirek_schema;
 
     public static int MIN = 153;
     public static int MAX = 500;
-
-    private void check(int value) {
-        if (value < MIN || value > MAX) {
-            throw new NumberFormatException(String.format("mirek value '%d' not in range %d .. %d", value, MIN, MAX));
-        }
-    }
 
     private int getReciprocal(int value) {
         return Math.round(1000000f / value);
     }
 
-    public int getMirek() {
-        check(mirek);
+    public @Nullable Integer getMirek() {
         return mirek;
     }
 
     public void setMirek(int mirek) {
-        check(mirek);
         this.mirek = mirek;
     }
 
-    public int getPercent() {
-        int percent = Math.round(100f * (getMirek() - MIN) / (MAX - MIN));
-        return Math.round(Math.max(0, Math.min(100, percent)));
+    public @Nullable Integer getPercent() {
+        Integer mirek = this.mirek;
+        if (mirek != null) {
+            MirekSchema mirekSchema = mirek_schema;
+            int min = mirekSchema != null ? mirekSchema.getMirekMinimum() : MIN;
+            int max = mirekSchema != null ? mirekSchema.getMirekMaximum() : MAX;
+            int percent = Math.round(100f * (mirek - min) / (max - min));
+            return Math.round(Math.max(0, Math.min(100, percent)));
+        }
+        return null;
     }
 
     public void setPercent(int percent) {
@@ -56,8 +57,12 @@ public class ColorTemperature2 {
         setMirek(MIN + Math.round(offset));
     }
 
-    public int getKelvin() {
-        return getReciprocal(getMirek());
+    public @Nullable Integer getKelvin() {
+        Integer mirek = this.mirek;
+        if (mirek != null) {
+            return getReciprocal(mirek);
+        }
+        return null;
     }
 
     public void setKelvin(int kelvin) {

@@ -12,11 +12,14 @@
  */
 package org.openhab.binding.hue.internal.dto.v2;
 
+import java.lang.reflect.Type;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.tag.ApiType;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Update;
+import org.openhab.binding.hue.internal.dto.tag.ApiEnum;
+import org.openhab.binding.hue.internal.dto.tag.IBase;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.IUpdate;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -24,6 +27,10 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.types.Command;
+import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
+
+import com.google.gson.reflect.TypeToken;
 
 /**
  * DTO for an API v2 light.
@@ -31,14 +38,14 @@ import org.openhab.core.types.Command;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Light2 extends BaseObject implements Light, Update {
+public class Light2 extends BaseObject implements ILight, IUpdate {
+    public static final Type GSON_TYPE = new TypeToken<Resources<Light2>>() {
+    }.getType();
+
     private @Nullable OnState on;
     private @Nullable Dimming dimming;
     private @Nullable ColorTemperature2 color_temperature;
     private @Nullable ColorXy color;
-
-    private transient HSBType colorObject = HSBType.WHITE;
-    private transient boolean colorInitialized = false;
 
     private static final int DELTA = 30;
 
@@ -76,9 +83,8 @@ public class Light2 extends BaseObject implements Light, Update {
      *
      * @return OnOffType with the on status.
      */
-    public OnOffType getSwitch() {
-        getColor();
-        return OnOffType.from(on != null ? on.isOn() : false);
+    public State getSwitch() {
+        return on != null ? OnOffType.from(on.isOn()) : UnDefType.UNDEF;
     }
 
     /**
@@ -98,8 +104,8 @@ public class Light2 extends BaseObject implements Light, Update {
      *
      * @return a PercentType with the brightness 0..100
      */
-    public PercentType getBrightnessPercent() {
-        return getColor().getBrightness();
+    public State getBrightnessState() {
+        return dimming != null ? new PercentType(dimming.getBrightness()) : UnDefType.UNDEF;
     }
 
     /**
@@ -110,17 +116,17 @@ public class Light2 extends BaseObject implements Light, Update {
      * @param old the current percent value
      * @return the new PercenType value, or null if the command was not recognised
      */
-    private static @Nullable PercentType evaluatePercent(Command command, PercentType current) {
+    private static State evaluateState(Command command, State current) {
         if (command instanceof PercentType) {
             return (PercentType) command;
         } else if (command instanceof OnOffType) {
             return OnOffType.ON.equals(command) ? PercentType.HUNDRED : PercentType.ZERO;
-        } else if (command instanceof IncreaseDecreaseType) {
+        } else if (command instanceof IncreaseDecreaseType && current instanceof PercentType) {
             int sign = IncreaseDecreaseType.INCREASE.equals(command) ? 1 : -1;
-            int percent = current.intValue() + (sign * DELTA);
+            int percent = ((PercentType) current).intValue() + (sign * DELTA);
             return new PercentType(Math.min(100, Math.max(0, percent)));
         }
-        return null;
+        return UnDefType.UNDEF;
     }
 
     /**
@@ -130,13 +136,12 @@ public class Light2 extends BaseObject implements Light, Update {
      *            IncreaseDecreaseType to increment the percentage value by a fixed amount
      */
     public void setBrightness(Command command) {
-        PercentType percent = evaluatePercent(command, getBrightnessPercent());
-        if (percent != null) {
-            if (PercentType.ZERO.equals(percent)) {
+        State state = evaluateState(command, getBrightnessState());
+        if (state instanceof PercentType) {
+            dimming = dimming != null ? dimming : new Dimming();
+            dimming.setBrightness(((PercentType) state).intValue());
+            if (PercentType.ZERO.equals(state)) {
                 setSwitch(OnOffType.OFF);
-            } else {
-                HSBType oldColor = getColor();
-                setColor(new HSBType(oldColor.getHue(), oldColor.getSaturation(), percent));
             }
         }
     }
@@ -147,7 +152,7 @@ public class Light2 extends BaseObject implements Light, Update {
      * @return the mirek value
      */
     public int getColorTemperature() {
-        return color_temperature != null ? color_temperature.getMirek() : ColorTemperature2.MIN;
+        return color_temperature != null ? color_temperature.getMirek() : -1;
     }
 
     /**
@@ -155,8 +160,15 @@ public class Light2 extends BaseObject implements Light, Update {
      *
      * @return a PercentType with the colour temperature percentage
      */
-    public PercentType getColorTemperaturePercent() {
-        return color_temperature != null ? new PercentType(color_temperature.getPercent()) : PercentType.ZERO;
+    public State getColorTemperatureState() {
+        ColorTemperature2 colorTemp = color_temperature;
+        if (colorTemp != null) {
+            Integer percent = colorTemp.getPercent();
+            if (percent != null) {
+                return new PercentType(percent);
+            }
+        }
+        return UnDefType.UNDEF;
     }
 
     /**
@@ -164,8 +176,15 @@ public class Light2 extends BaseObject implements Light, Update {
      *
      * @return a DecimalType with the colour temperature in Kelvin
      */
-    public DecimalType getColorTemperatureKelvin() {
-        return color_temperature != null ? new DecimalType(color_temperature.getKelvin()) : DecimalType.ZERO;
+    public State getColorTemperatureKelvin() {
+        ColorTemperature2 colorTemp = color_temperature;
+        if (colorTemp != null) {
+            Integer kelvin = colorTemp.getKelvin();
+            if (kelvin != null) {
+                return new DecimalType(kelvin);
+            }
+        }
+        return UnDefType.UNDEF;
     }
 
     /**
@@ -178,9 +197,9 @@ public class Light2 extends BaseObject implements Light, Update {
     public void setColorTemperature(Command command) {
         ColorTemperature2 colorTemperature = color_temperature != null ? color_temperature : new ColorTemperature2();
         this.color_temperature = colorTemperature;
-        PercentType percent = evaluatePercent(command, getColorTemperaturePercent());
-        if (percent != null) {
-            colorTemperature.setPercent(percent.intValue());
+        State state = evaluateState(command, getColorTemperatureState());
+        if (state instanceof PercentType) {
+            colorTemperature.setPercent(((PercentType) state).intValue());
         } else if (command instanceof DecimalType) {
             colorTemperature.setKelvin(((DecimalType) command).intValue());
         }
@@ -191,16 +210,8 @@ public class Light2 extends BaseObject implements Light, Update {
      *
      * @return an HSBType containing the current color.
      */
-    public HSBType getColor() {
-        if (!colorInitialized) {
-            HSBType oldColor = colorObject;
-            PercentType brightness = dimming != null ? new PercentType(dimming.getBrightness()) : PercentType.ZERO;
-            if (color != null) {
-                oldColor = hsbFromXY(color.getXY());
-            }
-            colorObject = new HSBType(oldColor.getHue(), oldColor.getSaturation(), brightness);
-        }
-        return colorObject;
+    public State getColor() {
+        return color != null ? hsbFromXY(color.getXY()) : UnDefType.UNDEF;
     }
 
     /**
@@ -211,16 +222,14 @@ public class Light2 extends BaseObject implements Light, Update {
      *            case the brightness is increased/decreased by a certain amount.
      */
     public void setColor(Command command) {
-        PercentType percent = evaluatePercent(command, getBrightnessPercent());
-        if (percent != null) {
-            setBrightness(command);
-        } else if (command instanceof HSBType) {
-            colorObject = (HSBType) command;
+        if (command instanceof HSBType) {
             color = color != null ? color : new ColorXy();
-            color.setXY(xyFromHsb(colorObject));
-            dimming = dimming != null ? dimming : new Dimming();
-            dimming.setBrightness(colorObject.getBrightness().intValue());
-            colorInitialized = true;
+            color.setXY(xyFromHsb((HSBType) command));
+        } else {
+            State state = evaluateState(command, getBrightnessState());
+            if (state instanceof PercentType) {
+                setBrightness(command);
+            }
         }
     }
 
@@ -228,7 +237,6 @@ public class Light2 extends BaseObject implements Light, Update {
         if (command instanceof StringType) {
             // TODO in API V2 the alerts enum is different than in V1!
         }
-
     }
 
     public void setEffect(Command command) {
@@ -238,25 +246,19 @@ public class Light2 extends BaseObject implements Light, Update {
     }
 
     @Override
-    public boolean sameState(Light other) {
-        Light2 two = other.toLight2();
-        return getSwitch().equals(two.getSwitch()) && getBrightnessPercent().equals(two.getBrightnessPercent())
-                && getColorTemperaturePercent().equals(two.getColorTemperaturePercent())
-                && getColor().equals(two.getColor());
+    public ApiEnum apiVersion() {
+        return ApiEnum.V2;
     }
 
     @Override
-    public ApiType apiVersion() {
-        return ApiType.V2;
-    }
-
-    @Override
-    public Light2 toLight2() {
-        return this;
-    }
-
-    @Override
-    public Light2 toLight2Update() {
-        return this;
+    public boolean isSame(IBase other) {
+        try {
+            Light2 two = other.as(Light2.class);
+            return getSwitch().equals(two.getSwitch()) && getBrightnessState().equals(two.getBrightnessState())
+                    && getColorTemperatureState().equals(two.getColorTemperatureState())
+                    && getColor().equals(two.getColor());
+        } catch (ClassCastException e) {
+        }
+        return false;
     }
 }

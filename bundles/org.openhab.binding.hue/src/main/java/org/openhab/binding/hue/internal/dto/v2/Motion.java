@@ -28,7 +28,7 @@ public class Motion {
         return motion;
     }
 
-    public boolean isMotion_valid() {
+    public boolean isMotionValid() {
         return motion_valid;
     }
 }

@@ -24,7 +24,7 @@ public class Dimming {
     private float brightness;
 
     public int getBrightness() {
-        return (int) brightness;
+        return Math.round(brightness);
     }
 
     public void setBrightness(int brightness) {

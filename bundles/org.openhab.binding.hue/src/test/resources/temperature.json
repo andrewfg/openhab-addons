@@ -1,0 +1,19 @@
+{
+	"errors": [],
+	"data": [
+		{
+			"enabled": true,
+			"temperature": {
+				"temperature": 23.4,
+				"temperature_valid": true
+			},
+			"type": "temperature",
+			"id": "myId",
+			"id_v1": "myId_v1",
+			"owner": {
+				"rid": "112853f9-c4c4-4d65-ba96-b4c2ab26d94d",
+				"rtype": "device"
+			}
+		}
+	]
+}

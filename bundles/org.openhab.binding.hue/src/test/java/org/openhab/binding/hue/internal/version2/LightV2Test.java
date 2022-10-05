@@ -18,9 +18,11 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.hue.internal.dto.v2.Light2;
 import org.openhab.core.library.types.DecimalType;
+import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
+import org.openhab.core.types.State;
 
 import com.google.gson.Gson;
 
@@ -84,12 +86,14 @@ public class LightV2Test {
         assertEquals("c6b028c8-076e-4817-92b1-bcb0cbb78783", light.getId());
         assertEquals("/lights/21", light.getIdV1());
         assertEquals(OnOffType.ON, light.getSwitch());
-        assertEquals(100, light.getBrightnessPercent().intValue());
-        assertEquals(61, light.getColorTemperaturePercent().intValue());
-        assertEquals(2732, light.getColorTemperatureKelvin().intValue());
-        float[] xy = Light2.xyFromHsb(light.getColor());
-        assertEquals(0.4575, xy[0], 0.01);
-        assertEquals(0.4099, xy[1], 0.01);
+        assertEquals(PercentType.HUNDRED, light.getBrightnessState());
+        assertEquals(new PercentType(61), light.getColorTemperatureState());
+        assertEquals(new DecimalType(2732), light.getColorTemperatureKelvin());
+        State state = light.getColor();
+        assertTrue(state instanceof HSBType);
+        float[] xy = Light2.xyFromHsb((HSBType) state);
+        assertEquals(0.4575, xy[0], 0.015); // note rounding !!
+        assertEquals(0.4099, xy[1], 0.015); // note rounding !!
     }
 
     @Test
@@ -103,17 +107,17 @@ public class LightV2Test {
         light.setSwitch(OnOffType.OFF);
         assertEquals(OnOffType.OFF, light.getSwitch());
         light.setBrightness(PercentType.HUNDRED);
-        assertEquals(100, light.getBrightnessPercent().intValue());
+        assertEquals(PercentType.HUNDRED, light.getBrightnessState());
         light.setColorTemperature(new PercentType(61));
-        assertEquals(61, light.getColorTemperaturePercent().intValue());
+        assertEquals(new PercentType(61), light.getColorTemperatureState());
         light.setColorTemperature(new DecimalType(2732));
-        assertEquals(2732, light.getColorTemperatureKelvin().intValue());
+        assertEquals(new DecimalType(2732), light.getColorTemperatureKelvin());
         light.setColor(Light2.hsbFromXY(new float[] { 0.4575f, 0.4099f }));
-        float[] xy = Light2.xyFromHsb(light.getColor());
-        assertEquals(0.4575, xy[0], 0.01);
-        assertEquals(0.4099, xy[1], 0.01);
-        // String json = gson.toJson(light);
-        // System.out.println(json);
+        State state = light.getColor();
+        assertTrue(state instanceof HSBType);
+        float[] xy = Light2.xyFromHsb((HSBType) state);
+        assertEquals(0.4575, xy[0], 0.015); // note rounding !!
+        assertEquals(0.4099, xy[1], 0.015); // note rounding !!
     }
 
     @Test
@@ -122,12 +126,12 @@ public class LightV2Test {
         assertNotNull(lightA);
         Light2 lightB = gson.fromJson(json, Light2.class);
         assertNotNull(lightB);
-        assertTrue(lightA.sameState(lightB));
+        assertTrue(lightA.isSame(lightB));
         lightA.setBrightness(IncreaseDecreaseType.INCREASE);
-        assertTrue(lightA.sameState(lightB));
+        assertTrue(lightA.isSame(lightB));
         lightA.setBrightness(IncreaseDecreaseType.DECREASE);
-        assertFalse(lightA.sameState(lightB));
+        assertFalse(lightA.isSame(lightB));
         lightA.setBrightness(OnOffType.ON);
-        assertTrue(lightA.sameState(lightB));
+        assertTrue(lightA.isSame(lightB));
     }
 }

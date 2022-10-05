@@ -46,9 +46,9 @@ import org.openhab.binding.hue.internal.dto.FullLight;
 import org.openhab.binding.hue.internal.dto.Group;
 import org.openhab.binding.hue.internal.dto.HueObject;
 import org.openhab.binding.hue.internal.dto.Scene;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
-import org.openhab.binding.hue.internal.dto.tag.Update;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.dto.tag.IUpdate;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.UnauthorizedException;
 import org.openhab.core.i18n.CommunicationException;
@@ -158,7 +158,7 @@ public abstract class HueBridge {
      * @throws IOException
      * @throws ApiException
      */
-    public abstract List<Light> getFullLights() throws IOException, ApiException;
+    public abstract List<ILight> getFullLights() throws IOException, ApiException;
 
     /**
      * Returns a list of lights known to the bridge.
@@ -178,7 +178,7 @@ public abstract class HueBridge {
      * @throws ConfigurationException
      * @throws CommunicationException
      */
-    public abstract List<Sensor> getSensors()
+    public abstract List<ISensor> getSensors()
             throws IOException, ApiException, ConfigurationException, CommunicationException;
 
     /**
@@ -208,7 +208,7 @@ public abstract class HueBridge {
      * @param light light
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setLightState(Light light, Update update);
+    public abstract CompletableFuture<HueResult> setLightState(ILight light, IUpdate update);
 
     /**
      * Changes the state of a clip sensor.
@@ -216,7 +216,7 @@ public abstract class HueBridge {
      * @param sensor sensor
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setSensorState(Sensor sensor, Update update);
+    public abstract CompletableFuture<HueResult> setSensorState(ISensor sensor, IUpdate update);
 
     /**
      * Changes the config of a sensor.
@@ -224,7 +224,7 @@ public abstract class HueBridge {
      * @param sensor sensor
      * @param update changes to the config
      */
-    public abstract CompletableFuture<HueResult> updateSensorConfig(Sensor sensor, ConfigUpdate update);
+    public abstract CompletableFuture<HueResult> updateSensorConfig(ISensor sensor, ConfigUpdate update);
 
     /**
      * Returns the list of groups, including the unmodifiable all lights group.
@@ -244,7 +244,7 @@ public abstract class HueBridge {
      * @param group group
      * @param update changes to the state
      */
-    public abstract CompletableFuture<HueResult> setGroupState(Group group, Update update);
+    public abstract CompletableFuture<HueResult> setGroupState(Group group, IUpdate update);
 
     /**
      * Returns the list of scenes that are not recyclable.

@@ -29,8 +29,8 @@ import org.openhab.binding.hue.internal.dto.FullGroup;
 import org.openhab.binding.hue.internal.dto.FullHueObject;
 import org.openhab.binding.hue.internal.dto.FullLight;
 import org.openhab.binding.hue.internal.dto.FullSensor;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueGroupHandler;
 import org.openhab.binding.hue.internal.handler.HueLightHandler;
@@ -149,15 +149,15 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
     public void startScan() {
         final HueBridgeHandler handler = hueBridgeHandler;
         if (handler != null) {
-            List<Light> lights = handler.getFullLights();
-            for (Light l : lights) {
+            List<ILight> lights = handler.getFullLights();
+            for (ILight l : lights) {
                 // TODO
-                addLightDiscovery(l.toFullLight());
+                addLightDiscovery(l.as(FullLight.class));
             }
-            List<Sensor> sensors = handler.getFullSensors();
-            for (Sensor s : sensors) {
+            List<ISensor> sensors = handler.getFullSensors();
+            for (ISensor s : sensors) {
                 // TODO
-                addSensorDiscovery(s.toFullSensor());
+                addSensorDiscovery(s.as(FullSensor.class));
             }
             List<FullGroup> groups = handler.getFullGroups();
             for (FullGroup g : groups) {
@@ -177,11 +177,11 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         }
     }
 
-    public void addLightDiscovery(Light light) {
+    public void addLightDiscovery(ILight light) {
         switch (light.apiVersion()) {
 
             case V1:
-                FullLight fullLight = light.toFullLight();
+                FullLight fullLight = light.as(FullLight.class);
                 ThingUID thingUID = getThingUID(fullLight);
                 ThingTypeUID thingTypeUID = getThingTypeUID(fullLight);
 
@@ -214,11 +214,11 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         }
     }
 
-    public void removeLightDiscovery(Light light) {
+    public void removeLightDiscovery(ILight light) {
         ThingUID thingUID = null;
         switch (light.apiVersion()) {
             case V1:
-                thingUID = getThingUID(light.toFullLight());
+                thingUID = getThingUID(light.as(FullLight.class));
                 break;
             case V2:
                 // TODO
@@ -247,10 +247,10 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         return thingTypeId != null ? new ThingTypeUID(BINDING_ID, thingTypeId) : null;
     }
 
-    public void addSensorDiscovery(Sensor sensor) {
+    public void addSensorDiscovery(ISensor sensor) {
         switch (sensor.apiVersion()) {
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 ThingUID thingUID = getThingUID(fullSensor);
                 ThingTypeUID thingTypeUID = getThingTypeUID(fullSensor);
 
@@ -282,11 +282,11 @@ public class HueDeviceDiscoveryService extends AbstractDiscoveryService implemen
         }
     }
 
-    public void removeSensorDiscovery(Sensor sensor) {
+    public void removeSensorDiscovery(ISensor sensor) {
         ThingUID thingUID = null;
         switch (sensor.apiVersion()) {
             case V1:
-                thingUID = getThingUID(sensor.toFullSensor());
+                thingUID = getThingUID(sensor.as(FullSensor.class));
                 break;
             case V2:
                 // TODO

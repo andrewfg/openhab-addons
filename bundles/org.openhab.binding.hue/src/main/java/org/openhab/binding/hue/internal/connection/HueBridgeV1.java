@@ -44,9 +44,9 @@ import org.openhab.binding.hue.internal.dto.Scene;
 import org.openhab.binding.hue.internal.dto.SearchForLightsRequest;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
 import org.openhab.binding.hue.internal.dto.SuccessResponse;
-import org.openhab.binding.hue.internal.dto.tag.Light;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
-import org.openhab.binding.hue.internal.dto.tag.Update;
+import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.dto.tag.IUpdate;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.DeviceOffException;
 import org.openhab.binding.hue.internal.exceptions.EntityNotAvailableException;
@@ -119,7 +119,7 @@ public class HueBridgeV1 extends HueBridge {
      * @throws UnauthorizedException thrown if the user no longer exists
      */
     @Override
-    public List<Light> getFullLights() throws IOException, ApiException {
+    public List<ILight> getFullLights() throws IOException, ApiException {
         if (ApiVersionUtils.supportsFullLights(getVersion())) {
             Type gsonType = FullLight.GSON_TYPE;
             // TODO
@@ -166,7 +166,7 @@ public class HueBridgeV1 extends HueBridge {
      * @throws UnauthorizedException thrown if the user no longer exists
      */
     @Override
-    public List<Sensor> getSensors() throws IOException, ApiException, ConfigurationException, CommunicationException {
+    public List<ISensor> getSensors() throws IOException, ApiException, ConfigurationException, CommunicationException {
         requireAuthentication();
 
         HueResult result = get(getRelativeURL("sensors"));
@@ -174,7 +174,7 @@ public class HueBridgeV1 extends HueBridge {
         handleErrors(result);
 
         Map<String, FullSensor> sensorMap = safeFromJson(result.body, FullSensor.GSON_TYPE);
-        List<Sensor> sensors = new ArrayList<>();
+        List<ISensor> sensors = new ArrayList<>();
         sensorMap.forEach((id, sensor) -> {
             sensor.setId(id);
             sensors.add(sensor);
@@ -225,9 +225,9 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> setLightState(Light light, Update update) {
-        FullLight fullLight = light.toFullLight();
-        StateUpdate stateUpdate = update.toStateUpdate();
+    public CompletableFuture<HueResult> setLightState(ILight light, IUpdate update) {
+        FullLight fullLight = light.as(FullLight.class);
+        StateUpdate stateUpdate = update.as(StateUpdate.class);
         requireAuthentication();
 
         return putAsync(getRelativeURL("lights/" + enc(fullLight.getId()) + "/state"), stateUpdate.toJson(),
@@ -245,9 +245,9 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> setSensorState(Sensor sensor, Update update) {
-        FullSensor fullSensor = sensor.toFullSensor();
-        StateUpdate stateUpdate = update.toStateUpdate();
+    public CompletableFuture<HueResult> setSensorState(ISensor sensor, IUpdate update) {
+        FullSensor fullSensor = sensor.as(FullSensor.class);
+        StateUpdate stateUpdate = update.as(StateUpdate.class);
         requireAuthentication();
 
         return putAsync(getRelativeURL("sensors/" + enc(fullSensor.getId()) + "/state"), stateUpdate.toJson(),
@@ -264,8 +264,8 @@ public class HueBridgeV1 extends HueBridge {
      * @throws IOException if the bridge cannot be reached
      */
     @Override
-    public CompletableFuture<HueResult> updateSensorConfig(Sensor sensor, ConfigUpdate update) {
-        FullSensor fullSensor = sensor.toFullSensor();
+    public CompletableFuture<HueResult> updateSensorConfig(ISensor sensor, ConfigUpdate update) {
+        FullSensor fullSensor = sensor.as(FullSensor.class);
         requireAuthentication();
 
         return putAsync(getRelativeURL("sensors/" + enc(fullSensor.getId()) + "/config"), update.toJson(),
@@ -317,8 +317,8 @@ public class HueBridgeV1 extends HueBridge {
      * @throws EntityNotAvailableException thrown if the specified group no longer exists
      */
     @Override
-    public CompletableFuture<HueResult> setGroupState(Group group, Update update) {
-        StateUpdate stateUpdate = update.toStateUpdate();
+    public CompletableFuture<HueResult> setGroupState(Group group, IUpdate update) {
+        StateUpdate stateUpdate = update.as(StateUpdate.class);
         requireAuthentication();
 
         return putAsync(getRelativeURL("groups/" + enc(group.getId()) + "/action"), stateUpdate.toJson(),

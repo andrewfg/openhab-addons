@@ -23,7 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.LightLevelConfigUpdate;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
-import org.openhab.binding.hue.internal.dto.tag.Sensor;
+import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DecimalType;
@@ -66,11 +66,11 @@ public class LightLevelHandler extends HueSensorHandler {
     }
 
     @Override
-    protected void doSensorStateChanged(Sensor sensor, Configuration config) {
+    protected void doSensorStateChanged(ISensor sensor, Configuration config) {
         switch (sensor.apiVersion()) {
 
             case V1:
-                FullSensor fullSensor = sensor.toFullSensor();
+                FullSensor fullSensor = sensor.as(FullSensor.class);
                 Object lightLevel = fullSensor.getState().get(STATE_LIGHT_LEVEL);
                 if (lightLevel != null) {
                     BigDecimal value = new BigDecimal(String.valueOf(lightLevel));

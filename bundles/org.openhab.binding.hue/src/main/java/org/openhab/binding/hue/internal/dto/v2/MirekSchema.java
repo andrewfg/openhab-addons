@@ -13,22 +13,23 @@
 package org.openhab.binding.hue.internal.dto.v2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * DTO for API v2 device data.
+ * DTO for API v2 mirek schema.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class DeviceV2 extends BaseObject {
-    private @NonNullByDefault({}) ProductData product_data;
-    private @NonNullByDefault({}) MetaData metadata;
+public class MirekSchema {
+    private @Nullable Integer mirek_minimum;
+    private @Nullable Integer mirek_maximum;
 
-    public ProductData getProductData() {
-        return product_data;
+    public int getMirekMinimum() {
+        return mirek_minimum != null ? mirek_minimum : ColorTemperature2.MIN;
     }
 
-    public MetaData getMetadata() {
-        return metadata;
+    public int getMirekMaximum() {
+        return mirek_maximum != null ? mirek_maximum : ColorTemperature2.MAX;
     }
 }
