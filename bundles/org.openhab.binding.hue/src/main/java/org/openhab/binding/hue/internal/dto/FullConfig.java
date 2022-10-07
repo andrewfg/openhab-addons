@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.v2.interfaces.ILight;
 
 /**
  * Container for all data on a bridge.

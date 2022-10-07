@@ -29,7 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.FullSensor;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
 import org.openhab.binding.hue.internal.dto.StateUpdate;
-import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.v2.interfaces.ISensor;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;

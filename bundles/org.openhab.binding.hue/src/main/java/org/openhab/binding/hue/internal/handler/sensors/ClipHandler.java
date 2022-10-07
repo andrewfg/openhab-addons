@@ -21,8 +21,8 @@ import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.hue.internal.dto.SensorConfigUpdate;
-import org.openhab.binding.hue.internal.dto.tag.ISensor;
 import org.openhab.binding.hue.internal.handler.HueSensorHandler;
+import org.openhab.binding.hue.internal.v2.interfaces.ISensor;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingTypeUID;

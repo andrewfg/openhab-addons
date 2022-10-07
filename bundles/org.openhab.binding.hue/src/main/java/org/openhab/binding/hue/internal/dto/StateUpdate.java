@@ -14,7 +14,7 @@ package org.openhab.binding.hue.internal.dto;
 
 import org.openhab.binding.hue.internal.dto.State.AlertMode;
 import org.openhab.binding.hue.internal.dto.State.Effect;
-import org.openhab.binding.hue.internal.dto.tag.IUpdate;
+import org.openhab.binding.hue.internal.v2.interfaces.IUpdate;
 
 /**
  * Collection of updates to the state of a light.

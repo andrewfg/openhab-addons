@@ -2,18 +2,18 @@
 	"errors": [],
 	"data": [
 		{
+			"id": "f5f8010d-8356-4604-88dc-4f73912cbb6a",
+			"id_v1": "/sensors/33",
+			"owner": {
+				"rid": "70660557-692d-4d37-8b6b-e3ec63716a72",
+				"rtype": "device"
+			},
 			"enabled": true,
 			"temperature": {
-				"temperature": 23.4,
+				"temperature": 17.26,
 				"temperature_valid": true
 			},
-			"type": "temperature",
-			"id": "myId",
-			"id_v1": "myId_v1",
-			"owner": {
-				"rid": "112853f9-c4c4-4d65-ba96-b4c2ab26d94d",
-				"rtype": "device"
-			}
+			"type": "temperature"
 		}
 	]
 }

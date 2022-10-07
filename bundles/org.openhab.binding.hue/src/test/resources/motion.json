@@ -2,18 +2,18 @@
 	"errors": [],
 	"data": [
 		{
-			"enabled": false,
+			"id": "97244487-dd25-4f4c-b829-8eb5ffb82c29",
+			"id_v1": "/sensors/30",
+			"owner": {
+				"rid": "70660557-692d-4d37-8b6b-e3ec63716a72",
+				"rtype": "device"
+			},
+			"enabled": true,
 			"motion": {
 				"motion": true,
 				"motion_valid": true
 			},
-			"type": "motion",
-			"id": "myId",
-			"id_v1": "myId_v1",
-			"owner": {
-				"rid": "112853f9-c4c4-4d65-ba96-b4c2ab26d94d",
-				"rtype": "device"
-			}
+			"type": "motion"
 		}
 	]
 }

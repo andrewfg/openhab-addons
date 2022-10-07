@@ -17,9 +17,9 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.discovery.HueDeviceDiscoveryService;
 import org.openhab.binding.hue.internal.dto.ConfigUpdate;
 import org.openhab.binding.hue.internal.dto.FullGroup;
-import org.openhab.binding.hue.internal.dto.tag.ILight;
-import org.openhab.binding.hue.internal.dto.tag.ISensor;
-import org.openhab.binding.hue.internal.dto.tag.IUpdate;
+import org.openhab.binding.hue.internal.v2.interfaces.ILight;
+import org.openhab.binding.hue.internal.v2.interfaces.ISensor;
+import org.openhab.binding.hue.internal.v2.interfaces.IUpdate;
 
 /**
  * Access to the Hue system for light handlers.

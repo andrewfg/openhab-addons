@@ -19,8 +19,8 @@ import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.tag.IBase;
-import org.openhab.binding.hue.internal.dto.tag.ILight;
+import org.openhab.binding.hue.internal.v2.interfaces.IBaseResource;
+import org.openhab.binding.hue.internal.v2.interfaces.ILight;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -55,7 +55,7 @@ public class FullLight extends FullHueObject implements ILight {
     }
 
     @Override
-    public boolean isSame(IBase other) {
+    public boolean isSame(IBaseResource other) {
         FullLight two = other.as(FullLight.class);
         return Objects.equals(getState(), two.getState());
     }

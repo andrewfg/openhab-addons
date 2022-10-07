@@ -16,7 +16,7 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
-import org.openhab.binding.hue.internal.dto.tag.IGroup;
+import org.openhab.binding.hue.internal.v2.interfaces.IGroup;
 
 import com.google.gson.reflect.TypeToken;
 

@@ -16,8 +16,7 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.hue.internal.dto.tag.IBase;
-import org.openhab.binding.hue.internal.dto.tag.ISensor;
+import org.openhab.binding.hue.internal.v2.interfaces.ISensor;
 
 import com.google.gson.reflect.TypeToken;
 
@@ -62,11 +61,5 @@ public class FullSensor extends FullHueObject implements ISensor {
 
     public Map<String, Object> getConfig() {
         return config;
-    }
-
-    @Override
-    public boolean isSame(IBase other) {
-        // TODO
-        return ISensor.super.isSame(other);
     }
 }

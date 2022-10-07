@@ -1,0 +1,48 @@
+/**
+ * Copyright (c) 2010-2022 Contributors to the openHAB project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+package org.openhab.binding.hue.internal.v2.dto;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.hue.internal.v2.enums.ResourceType;
+
+/**
+ * DTO that contains an API reference element.
+ *
+ * The V2 API is set up in such a way that all resources of the same type are grouped together under the
+ * /resource/<resourcetype> endpoint, but all those resources commonly reference each other, which is done in a
+ * standardized way by indicating the resource type (rtype) and resource id (rid).
+ *
+ * A typical usage is in a single physical device that hosts multiple services. An existing example is the Philips Hue
+ * Motion sensor which has a motion, light_level, and temperature service, but theoretically any combination can be
+ * supported such as an integrated device with two independently controllable light points and a motion sensor.
+ *
+ * This means that the information of the device itself can be found under the /device resource endpoint, but it then
+ * contains a services array which references for example the light and motion resources, for which the details can be
+ * found under the /light and /motion resource endpoints respectively. Other services the device might have, such as a
+ * ZigBee radio (zigbee_connectivy) or battery (device_power) are modeled in the same way.
+ *
+ * @author Andrew Fiddian-Green - Initial contribution
+ */
+@NonNullByDefault
+public class Reference {
+    private @NonNullByDefault({}) String rid;
+    private @NonNullByDefault({}) String rtype;
+
+    public String getReferenceId() {
+        return rid;
+    }
+
+    public ResourceType getReferenceResourceType() {
+        return ResourceType.of(rtype);
+    }
+}
