@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.hue.internal;
 
+import java.util.Set;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.thing.ThingTypeUID;
 
@@ -83,14 +85,13 @@ public class HueBindingConstants {
     // List all triggers
     public static final String EVENT_DIMMER_SWITCH = "dimmer_switch_event";
     public static final String EVENT_TAP_SWITCH = "tap_switch_event";
+    public static final String EVENT_LAST = "last_event";
 
     // Binding configuration properties
     public static final String REMOVAL_GRACE_PERIOD = "removalGracePeriod";
 
     // Bridge config properties
     public static final String HOST = "ipAddress";
-    public static final String PORT = "port";
-    public static final String PROTOCOL = "protocol";
     public static final String USER_NAME = "userName";
 
     // Thing configuration properties
@@ -102,4 +103,35 @@ public class HueBindingConstants {
     public static final String GROUP_ID = "groupId";
 
     public static final String NORMALIZE_ID_REGEX = "[^a-zA-Z0-9_]";
+
+    //
+    public static final String TEXT_OFFLINE_COMMUNICATION_ERROR = "@text/offline.communication-error";
+    public static final String TEXT_OFFLINE_CONFIGURATION_ERROR_INVALID_SSL_CERIFICATE = "@text/offline.conf-error-invalid-ssl-certificate";
+
+    // Config status messages
+    public static final String IP_ADDRESS_MISSING = "missing-ip-address-configuration";
+
+    // thing types for CLIP 2
+    public static final ThingTypeUID THING_TYPE_UID_BRIDGE2 = new ThingTypeUID(BINDING_ID, "clip2");
+    public static final ThingTypeUID THING_TYPE_UID_RESOURCE = new ThingTypeUID(BINDING_ID, "resource");
+
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES2 = Set.of(THING_TYPE_UID_BRIDGE2,
+            THING_TYPE_UID_RESOURCE);
+
+    // channels for CLIP 2
+    public static final String CHANNEL_BUTTON_LAST_EVENT = "button_last_event";
+    public static final String CHANNEL_TEMPERATURE_ENABLED = "temperature_enabled";
+    public static final String CHANNEL_MOTION = "motion";
+    public static final String CHANNEL_MOTION_ENABLED = "motion_enabled";
+    public static final String CHANNEL_LIGHT_LEVEL_ENABLED = "light_level_enabled";
+    public static final String CHANNEL_ZIGBEE_STATUS = "zigbee_status";
+
+    // property names for CLIP 2
+    public static final String PROPERTY_RESOURCE_ID = "resourceId";
+    public static final String PROPERTY_RESOURCE_TYPE = "resourceType";
+    public static final String PROPERTY_RESOURCE_NAME = "resourceName";
+    public static final String PROPERTY_RESOURCE_ARCHETYPE = "resourceArchetyep";
+    public static final String PROPERTY_PRODUCT_NAME = "productName";
+    public static final String PROPERTY_PRODUCT_ARCHETYPE = "productArchetype";
+    public static final String PROPERTY_PRODUCT_CERTIFIED = "productCertified";
 }
