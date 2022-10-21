@@ -13,6 +13,7 @@
 package org.openhab.binding.hue.internal.clip2.dto;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
 
 /**
@@ -35,10 +36,10 @@ import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
  */
 @NonNullByDefault
 public class Reference {
-    private @NonNullByDefault({}) String rid;
+    private @Nullable String rid;
     private @NonNullByDefault({}) String rtype;
 
-    public String getId() {
+    public @Nullable String getId() {
         return rid;
     }
 

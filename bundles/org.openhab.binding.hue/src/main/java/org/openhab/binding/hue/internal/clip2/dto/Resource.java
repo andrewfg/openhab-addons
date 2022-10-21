@@ -13,6 +13,7 @@
 package org.openhab.binding.hue.internal.clip2.dto;
 
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -30,9 +31,9 @@ import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
 /**
- * Complete Resource object information DTO for CLIP 2.
+ * Complete Resource information DTO for CLIP 2.
  *
- * Note: all dto fields are @Nullable because some cases do not (must not) use them.
+ * Note: all fields are @Nullable because some cases do not (must not) use them.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -558,17 +559,32 @@ public class Resource {
      * + Button Field Getters & Setters
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    public State getButtonValueState() {
-        Button button = this.button;
-        if (button != null) {
-            int lastEventValue = button.getLastEvent().ordinal();
-            int controlIdValue = 1000;
+
+    /**
+     * Put this resource's control id in the given map of control ids.
+     *
+     * @param controlIds the map of control ids to be updated.
+     */
+    public void putControlId(Map<String, Integer> controlIds) {
+        if (!hasSparseData) {
             MetaData metadata = this.metadata;
-            if (metadata != null) {
-                controlIdValue = metadata.getControlIdValue() * 1000;
-            }
-            return new DecimalType(controlIdValue + lastEventValue);
+            controlIds.put(getId(), metadata != null ? metadata.getControlId() : 0);
         }
-        return UnDefType.UNDEF;
+    }
+
+    /**
+     * Get the state corresponding to a button's last event value multiplied by the controlId found for it in the given
+     * controlIds map. States are decimal values formatted like '1002' where the first digit is the button's controlId
+     * and the last digit is the ordinal value of the button's last event.
+     *
+     * @param controlIds the map of control ids to be referenced.
+     * @return the state.
+     */
+    public State getButtonEventState(Map<String, Integer> controlIds) {
+        Button button = this.button;
+        return button != null
+                ? new DecimalType(
+                        (controlIds.getOrDefault(getId(), 0).intValue() * 1000) + button.getLastEvent().ordinal())
+                : UnDefType.UNDEF;
     }
 }

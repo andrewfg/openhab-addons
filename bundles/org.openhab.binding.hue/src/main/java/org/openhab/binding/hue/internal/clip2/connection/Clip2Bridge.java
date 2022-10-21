@@ -41,7 +41,6 @@ import org.openhab.binding.hue.internal.clip2.dto.Event;
 import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
 import org.openhab.binding.hue.internal.clip2.dto.Resources;
-import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.clip2.handler.Clip2BridgeHandler;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.osgi.service.jaxrs.client.SseEventSourceFactory;
@@ -92,12 +91,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         this.eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
     }
 
-    /*
-     * ++++++++++++++++++++++++++++++++++
-     * + Public Methods
-     * ++++++++++++++++++++++++++++++++++
-     */
-
     /**
      * Close the SSE connection.
      */
@@ -116,7 +109,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Filter to add the application key header to SSE requests.
+     * ClientRequestFilter filter to add the application key header to SSE requests.
      */
     @Override
     public void filter(@Nullable ClientRequestContext requestContext) {
@@ -126,7 +119,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Host name verifier for SSE requests.
+     * HostnameVerifier to validate the host name for SSE requests.
      */
     @Override
     public boolean verify(@Nullable String hostName, @Nullable SSLSession sslSession) {
@@ -160,49 +153,34 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * HTTP GET a Resources object containing multiple Resource instances from the server
+     * HTTP GET a Resources object, for a given resource Reference, from the server. The reference is a class comprising
+     * a resource type and an id. If the id is a specific resource id then only one resource is returned, whereas if it
+     * is null then all resources of the given resource type are returned.
      *
-     * @param resourceType the type of resource to get
-     * @return a list of resources, may be an empty list
-     * @throws ApiException if something fails
+     * @param reference a Reference class instance.
+     * @return the resources object.
+     * @throws ApiException if something fails.
      */
-    public Resources getResources(ResourceType resourceType) throws ApiException {
-        return doHTTP(HttpMethod.GET, getFullPath(resourceType, null), null);
+    public Resources getResources(Reference reference) throws ApiException {
+        return doHTTP(HttpMethod.GET, getFullPath(reference), null);
     }
 
     /**
-     * HTTP GET a Resources object containing a single Resource from the server
+     * HTTP PUT a Resource object to the server.
      *
-     * @param resourceType the type of resource to get
-     * @param resourceId the id of the resource to get
-     * @return the resource, or null
-     * @throws ApiException if something fails
-     */
-    public @Nullable Resources getResource(Reference reference) throws ApiException {
-        return doHTTP(HttpMethod.GET, getFullPath(reference.getType(), reference.getId()), null);
-    }
-
-    /**
-     * HTTP PUT a Resource object to the server
-     *
-     * @param resource the resource to put
-     * @throws ApiException if something fails
+     * @param resource the resource to put.
+     * @throws ApiException if something fails.
      */
     public void putResource(Resource resource) throws ApiException {
-        doHTTP(HttpMethod.PUT, getFullPath(resource.getType(), resource.getId()), resource);
+        Reference reference = new Reference().setId(resource.getId()).setType(resource.getType());
+        doHTTP(HttpMethod.PUT, getFullPath(reference), resource);
     }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++
-     * + Private Methods
-     * ++++++++++++++++++++++++++++++++++
-     */
 
     /**
      * Build an exception message around another exception.
      *
-     * @param e the exception
-     * @return the message
+     * @param e the exception.
+     * @return the message.
      */
     private String exceptionMessageFrom(Exception e) {
         return String.format("%s, %s", e.getClass().getSimpleName(), e.getMessage()).toLowerCase();
@@ -263,14 +241,17 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Build a full path to a server end point
+     * Build a full path to a server end point, based on a Reference class instance. If the reference contains only a
+     * resource type, the method returns the end point url to get all resources of the given resource type. Whereas if
+     * it also contains an id, the method returns the end point url to get the specific single resource with that type
+     * and id.
      *
-     * @param resourceType the type of resource to get/put
-     * @param id the id of the resource to get/put, may be null to get/put all
-     * @return the full path
+     * @param reference a Reference class instance.
+     * @return the full path.
      */
-    private String getFullPath(ResourceType resourceType, @Nullable String id) {
-        String url = baseUrl + resourceType.name().toLowerCase();
+    private String getFullPath(Reference reference) {
+        String url = baseUrl + reference.getType().name().toLowerCase();
+        String id = reference.getId();
         return id == null || id.isEmpty() ? url : url + "/" + id;
     }
 
@@ -278,11 +259,11 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * Execute an HTTP GET or PUT command. It sends the pay-load Resource object (if any) and returns the reply
      * Resources object.
      *
-     * @param method HTTP GET or PUT
-     * @param url the URL of the server end point
-     * @param resource the Resource object to send; may be null
-     * @return the Resources object containing the response
-     * @throws ApiException if anything goes wrong
+     * @param method HTTP GET or PUT.
+     * @param url the URL of the server end point.
+     * @param resource the Resource object to send; may be null.
+     * @return the Resources object containing the response.
+     * @throws ApiException if anything goes wrong.
      */
     private Resources doHTTP(HttpMethod method, String url, @Nullable Resource resource) throws ApiException {
         logger.trace("doHTTP() method:{}, url:{}", method, url);

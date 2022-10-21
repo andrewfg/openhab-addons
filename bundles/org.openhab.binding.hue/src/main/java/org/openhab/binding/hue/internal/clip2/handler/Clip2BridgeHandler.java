@@ -182,7 +182,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public @Nullable Resources getResources(Reference reference) {
         try {
-            return getClip2Bridge().getResource(reference);
+            return getClip2Bridge().getResources(reference);
         } catch (ApiException e) {
             logger.debug("getResources() {}, {}", e.getClass().getSimpleName(), e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
@@ -246,7 +246,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void updateProperties() throws ApiException {
-        Resources resources = getClip2Bridge().getResources(ResourceType.DEVICE);
+        Resources resources = getClip2Bridge().getResources(new Reference().setType(ResourceType.DEVICE));
         List<Resource> devices = resources.getResources();
         if (devices.isEmpty()) {
             throw new ApiException("updateProperties() bridge contains no devices");
@@ -294,8 +294,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void pollResources() throws ApiException {
+        Reference reference = new Reference();
         for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
-            for (Resource resource : getClip2Bridge().getResources(resourceType).getResources()) {
+            for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType)).getResources()) {
                 notify(resource);
             }
         }
