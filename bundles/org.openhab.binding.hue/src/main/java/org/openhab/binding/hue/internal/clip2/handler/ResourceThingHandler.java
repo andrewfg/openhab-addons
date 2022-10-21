@@ -319,24 +319,25 @@ public class ResourceThingHandler extends BaseThingHandler {
      * up the final list of channels in the thing.
      */
     private void getAllResources() {
-        if (disposing) {
-            return;
+        if (!disposing) {
+            getPrimaryResources();
+            setLookups();
+            getContributorResources();
+            setChannels();
         }
-        getPrimaryResource();
-        setLookups();
-        getContributorResources();
-        setChannels();
     }
 
     /**
      * Execute a series of HTTP GET commands for device / scene resource types to fetch the primary resource data for
      * the thing state.
      */
-    private void getPrimaryResource() {
-        logger.debug("getPrimaryResource() called");
-        Reference reference = new Reference().setId(thisResource.getId());
-        for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
-            getResource(reference.setType(resourceType));
+    private void getPrimaryResources() {
+        if (!disposing) {
+            logger.debug("getPrimaryResources() called");
+            Reference reference = new Reference().setId(thisResource.getId());
+            for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
+                getResources(reference.setType(resourceType));
+            }
         }
     }
 
@@ -345,29 +346,33 @@ public class ResourceThingHandler extends BaseThingHandler {
      * state.
      */
     private void getContributorResources() {
-        logger.debug("getContributorResources() called for {} contributors", contributorResources.size());
-        Reference reference = new Reference();
-        for (Entry<String, Resource> entry : contributorResources.entrySet()) {
-            getResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
+        if (!disposing) {
+            logger.debug("getContributorResources() called for {} contributors", contributorResources.size());
+            Reference reference = new Reference();
+            for (Entry<String, Resource> entry : contributorResources.entrySet()) {
+                getResources(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
+            }
         }
     }
 
     /**
-     * Execute an HTTP GET command to fetch the data for one referenced resource.
+     * Execute an HTTP GET command to fetch the resources data for referenced resource.
      *
      * @param reference to the required resource.
      */
-    private synchronized void getResource(Reference reference) {
-        Clip2BridgeHandler handler = getBridgeHandler();
-        if (handler == null) {
-            return;
-        }
-        logger.trace("getResource() called");
-        Resources resources = handler.getResources(reference);
-        if (resources != null) {
-            List<Resource> resourceList = resources.getResources();
-            for (Resource resource : resourceList) {
-                notify(resource);
+    private synchronized void getResources(Reference reference) {
+        if (!disposing) {
+            Clip2BridgeHandler handler = getBridgeHandler();
+            if (handler == null) {
+                return;
+            }
+            logger.trace("getResources() called");
+            Resources resources = handler.getResources(reference);
+            if (resources != null) {
+                List<Resource> resourceList = resources.getResources();
+                for (Resource resource : resourceList) {
+                    notify(resource);
+                }
             }
         }
     }
@@ -376,13 +381,16 @@ public class ResourceThingHandler extends BaseThingHandler {
      * Initialize the lookup maps of resources that contribute to the thing state.
      */
     private void setLookups() {
-        List<Reference> references = thisResource.getServiceReferences();
-        contributorResources.clear();
-        commandResourceIds.clear();
-        contributorResources.putAll(
-                references.stream().collect(Collectors.toMap(Reference::getId, r -> new Resource(r.getType()))));
-        commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
-                references.stream().collect(Collectors.toMap(Reference::getType, Reference::getId, (r1, r2) -> r1)));
+        if (!disposing) {
+            List<Reference> references = thisResource.getServiceReferences();
+            contributorResources.clear();
+            commandResourceIds.clear();
+            contributorResources.putAll(
+                    references.stream().collect(Collectors.toMap(Reference::getId, r -> new Resource(r.getType()))));
+            commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
+                    references.stream()
+                            .collect(Collectors.toMap(Reference::getType, Reference::getId, (r1, r2) -> r1)));
+        }
     }
 
     /**
@@ -391,11 +399,13 @@ public class ResourceThingHandler extends BaseThingHandler {
      * set).
      */
     private void setChannels() {
-        for (Channel channel : thing.getChannels()) {
-            String channelId = channel.getUID().getId();
-            if (!supportedChannelIds.contains(channelId)) {
-                logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
-                updateThing(editThing().withoutChannels(channel).build());
+        if (!disposing) {
+            for (Channel channel : thing.getChannels()) {
+                String channelId = channel.getUID().getId();
+                if (!supportedChannelIds.contains(channelId)) {
+                    logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
+                    updateThing(editThing().withoutChannels(channel).build());
+                }
             }
         }
     }
