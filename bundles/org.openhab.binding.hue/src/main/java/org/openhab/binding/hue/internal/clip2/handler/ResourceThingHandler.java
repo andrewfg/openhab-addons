@@ -62,6 +62,8 @@ public class ResourceThingHandler extends BaseThingHandler {
     private final Map<ResourceType, String> commandResourceIds = new ConcurrentHashMap<>();
     private final Set<String> supportedChannelIds = ConcurrentHashMap.newKeySet(16); // 16 = thing max channel count
 
+    private boolean disposing;
+
     public ResourceThingHandler(Thing thing) {
         super(thing);
     }
@@ -83,8 +85,14 @@ public class ResourceThingHandler extends BaseThingHandler {
         supportedChannelIds.clear();
         commandResourceIds.clear();
         contributorResources.clear();
+        disposing = false;
 
         scheduler.submit(this::getAllResources);
+    }
+
+    @Override
+    public void dispose() {
+        disposing = true;
     }
 
     @Override
@@ -154,7 +162,10 @@ public class ResourceThingHandler extends BaseThingHandler {
      * @param newResource the resource containing the new state.
      */
     public synchronized void notify(Resource newResource) {
-        //
+        if (disposing) {
+            return;
+        }
+
         if ((thing.getStatus() != ThingStatus.ONLINE) && thisResource.getId().equals(newResource.getId())
                 && (newResource.getType() != thisResource.getType())) {
             //
@@ -164,7 +175,7 @@ public class ResourceThingHandler extends BaseThingHandler {
             thisResource = newResource;
 
             if (thisResource.getType() == ResourceType.SCENE) {
-                updateState(true, HueBindingConstants.CHANNEL_SCENE, OnOffType.OFF);
+                updateState(HueBindingConstants.CHANNEL_SCENE, OnOffType.OFF, true);
             }
 
             // actualise the properties
@@ -208,56 +219,52 @@ public class ResourceThingHandler extends BaseThingHandler {
         Resource contributorResource = contributorResources.get(newResource.getId());
         if (contributorResource != null) {
             //
-            logger.debug("notify() updating channels");
+            logger.trace("notify() updating channels");
 
-            boolean fullUpdate = newResource.getType() == contributorResource.getType();
-            if (!fullUpdate) {
-                newResource.setType(contributorResource.getType());
-            }
-
+            boolean fullUpdate = newResource.hasFullState();
             switch (newResource.getType()) {
                 case BUTTON:
                     supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
                     fullUpdate = false; // if device has multiple buttons, retain last valid state
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT,
-                            newResource.getButtonValueState());
+                    updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT, newResource.getButtonValueState(),
+                            fullUpdate);
                     break;
 
                 case DEVICE_POWER:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_BATTERY_LEVEL,
-                            newResource.getBatteryLevelState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_BATTERY_LOW, newResource.getBatteryLowState());
+                    updateState(HueBindingConstants.CHANNEL_BATTERY_LEVEL, newResource.getBatteryLevelState(),
+                            fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_BATTERY_LOW, newResource.getBatteryLowState(), fullUpdate);
                     break;
 
                 case LIGHT:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_COLORTEMPERATURE,
-                            newResource.getColorTemperatureState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS,
-                            newResource.getColorTemperatureKelvinState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_COLOR, newResource.getColorState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_BRIGHTNESS, newResource.getBrightnessState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_SWITCH, newResource.getSwitch());
+                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE, newResource.getColorTemperatureState(),
+                            fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS,
+                            newResource.getColorTemperatureKelvinState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_COLOR, newResource.getColorState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_BRIGHTNESS, newResource.getBrightnessState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_SWITCH, newResource.getSwitch(), fullUpdate);
                     break;
 
                 case LIGHT_LEVEL:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_LIGHT_LEVEL, newResource.getLightLevelState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_LIGHT_LEVEL_ENABLED,
-                            newResource.getEnabledState());
+                    updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL, newResource.getLightLevelState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL_ENABLED, newResource.getEnabledState(),
+                            fullUpdate);
                     break;
 
                 case MOTION:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_MOTION, newResource.getMotionState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_MOTION_ENABLED, newResource.getEnabledState());
+                    updateState(HueBindingConstants.CHANNEL_MOTION, newResource.getMotionState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_MOTION_ENABLED, newResource.getEnabledState(), fullUpdate);
                     break;
 
                 case TEMPERATURE:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_TEMPERATURE, newResource.getTemperatureState());
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_TEMPERATURE_ENABLED,
-                            newResource.getEnabledState());
+                    updateState(HueBindingConstants.CHANNEL_TEMPERATURE, newResource.getTemperatureState(), fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_TEMPERATURE_ENABLED, newResource.getEnabledState(),
+                            fullUpdate);
                     break;
 
                 case ZIGBEE_CONNECTIVITY:
-                    updateState(fullUpdate, HueBindingConstants.CHANNEL_ZIGBEE_STATUS, newResource.getZigBeeState());
+                    updateState(HueBindingConstants.CHANNEL_ZIGBEE_STATUS, newResource.getZigBeeState(), fullUpdate);
                     break;
 
                 default:
@@ -290,16 +297,17 @@ public class ResourceThingHandler extends BaseThingHandler {
     /**
      * Update the channel state, and if appropriate add the channel id to the set of supportedChannelIds.
      *
-     * @param fullUpdate if true always update the state, otherwise only update if state is not 'UNDEF'.
-     * @param channelID the id of the channel
+     * @param channelID the id of the channel.
      * @param state the new state of the channel.
+     * @param fullUpdate if true always update the channel, otherwise only update if state is not 'UNDEF'.
      */
-    private void updateState(boolean fullUpdate, String channelID, State state) {
-        logger.trace("updateState() fullUpdate:{}, channelID:{}, state:{}", fullUpdate, channelID, state);
-        if (fullUpdate || (state != UnDefType.UNDEF)) {
+    private void updateState(String channelID, State state, boolean fullUpdate) {
+        logger.trace("updateState() channelID:{}, state:{}, fullUpdate:{}", channelID, state, fullUpdate);
+        boolean isDefined = state != UnDefType.UNDEF;
+        if (fullUpdate || isDefined) {
             updateState(channelID, state);
         }
-        if (fullUpdate && (state != UnDefType.UNDEF)) {
+        if (fullUpdate && isDefined) {
             supportedChannelIds.add(channelID);
         }
     }
@@ -310,6 +318,9 @@ public class ResourceThingHandler extends BaseThingHandler {
      *
      */
     private void getAllResources() {
+        if (disposing) {
+            return;
+        }
         getPrimaryResource();
         setLookups();
         getContributorResources();
@@ -350,7 +361,7 @@ public class ResourceThingHandler extends BaseThingHandler {
         if (handler == null) {
             return;
         }
-        logger.debug("getResource() called");
+        logger.trace("getResource() called");
         Resources resources = handler.getResources(reference);
         if (resources != null) {
             List<Resource> resourceList = resources.getResources();

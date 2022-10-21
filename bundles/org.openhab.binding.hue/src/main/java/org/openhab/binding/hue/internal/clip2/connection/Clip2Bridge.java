@@ -12,18 +12,21 @@
  */
 package org.openhab.binding.hue.internal.clip2.connection;
 
+import java.io.Closeable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import javax.net.ssl.SSLContext;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
+import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.client.ClientRequestContext;
+import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.sse.InboundSseEvent;
 import javax.ws.rs.sse.SseEventSource;
 
@@ -46,7 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.JsonParseException;
 
 /**
  * Class that handles HTTP and SSE connections to/from a Hue Bridge running CLIP 2.
@@ -54,33 +57,37 @@ import com.google.gson.JsonSyntaxException;
  * @author Andrew Fiddian-Green - Initial Contribution
  */
 @NonNullByDefault
-public class Clip2Bridge {
+public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFilter {
 
     private final Logger logger = LoggerFactory.getLogger(Clip2Bridge.class);
 
-    private static final String FORMAT_URL_RESOURCE = "https://%s:443/clip/v2/resource/";
-    private static final String FORMAT_URL_EVENTS = "https://%s:443/eventstream/clip/v2";
+    private static final String FORMAT_URL_RESOURCE = "https://%s/clip/v2/resource/";
+    private static final String FORMAT_URL_EVENTS = "https://%s/eventstream/clip/v2";
+    private static final String HUE_APPLICATION_KEY = "hue-application-key";
+    private static final String APPLICATION_JSON = "application/json";
 
     private final HttpClient httpClient;
     private final ClientBuilder clientBuilder;
     private final SseEventSourceFactory eventSourceFactory;
     private final String applicationKey;
+    private final String hostName;
     private final String baseUrl;
     private final String eventUrl;
+    private final Clip2BridgeHandler bridgeHandler;
     private final Duration timeout = Duration.of(5, ChronoUnit.SECONDS);
     private final Gson gson = new Gson();
 
+    private @Nullable Client sseClient;
     private @Nullable SseEventSource eventSource;
-    private @Nullable Clip2BridgeHandler bridgeHandler;
-
-    private @Nullable ScheduledFuture<?> refreshTask;
 
     public Clip2Bridge(HttpClient httpClient, ClientBuilder clientBuilder, SseEventSourceFactory eventSourceFactory,
-            String hostName, String applicationKey) {
+            Clip2BridgeHandler bridgeHandler, String hostName, String applicationKey) {
         this.httpClient = httpClient;
         this.clientBuilder = clientBuilder;
         this.eventSourceFactory = eventSourceFactory;
         this.applicationKey = applicationKey;
+        this.bridgeHandler = bridgeHandler;
+        this.hostName = hostName;
         this.baseUrl = String.format(FORMAT_URL_RESOURCE, hostName);
         this.eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
     }
@@ -92,46 +99,68 @@ public class Clip2Bridge {
      */
 
     /**
-     * (Re-)open the SSE connection
-     *
-     * @param bridgeHandler the bridge handler that shall be called back
-     * @throws ApiException if something failed
+     * Close the SSE connection.
      */
-    public void sseOpen(Clip2BridgeHandler bridgeHandler) throws ApiException {
-        this.bridgeHandler = bridgeHandler;
-
-        SseEventSource eventSource = this.eventSource;
-        if (eventSource == null || !eventSource.isOpen()) {
-            SSLContext context = httpClient.getSslContextFactory().getSslContext();
-            WebTarget target = clientBuilder.sslContext(context).build().target(eventUrl);
-            eventSource = eventSourceFactory.newSource(target);
-            eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
-            eventSource.open();
-            this.eventSource = eventSource;
-        }
-    }
-
-    /**
-     * Close the SSE connection
-     */
-    public void sseClose() {
-        bridgeHandler = null;
-
-        ScheduledFuture<?> refreshTask = this.refreshTask;
-        if (refreshTask != null) {
-            refreshTask.cancel(false);
-            this.refreshTask = null;
-        }
-
+    @Override
+    public void close() {
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
             eventSource.close();
             this.eventSource = null;
         }
+        Client sseClient = this.sseClient;
+        if (sseClient != null) {
+            sseClient.close();
+            this.sseClient = null;
+        }
     }
 
     /**
-     * Http Get a Resources object containing multiple Resource instances from the server
+     * Filter to add the application key header to SSE requests.
+     */
+    @Override
+    public void filter(@Nullable ClientRequestContext requestContext) {
+        if (requestContext != null) {
+            requestContext.getHeaders().add(HUE_APPLICATION_KEY, applicationKey);
+        }
+    }
+
+    /**
+     * Host name verifier for SSE requests.
+     */
+    @Override
+    public boolean verify(@Nullable String hostName, @Nullable SSLSession sslSession) {
+        return this.hostName.equals(hostName);
+    }
+
+    /**
+     * Open the SSE connection.
+     */
+    public void openSse() {
+        Client sseClient = this.sseClient;
+        SseEventSource eventSource = this.eventSource;
+        if (sseClient != null && eventSource != null && eventSource.isOpen()) {
+            return;
+        }
+        close();
+        sseClient = clientBuilder //
+                .sslContext(httpClient.getSslContextFactory().getSslContext()) //
+                .register(this) //
+                .hostnameVerifier(this) //
+                .readTimeout(0, TimeUnit.SECONDS) //
+                .build();
+        eventSource = eventSourceFactory //
+                .newBuilder(sseClient.target(eventUrl)) //
+                .reconnectingEvery(3, TimeUnit.MINUTES) //
+                .build();
+        eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
+        eventSource.open();
+        this.sseClient = sseClient;
+        this.eventSource = eventSource;
+    }
+
+    /**
+     * HTTP GET a Resources object containing multiple Resource instances from the server
      *
      * @param resourceType the type of resource to get
      * @return a list of resources, may be an empty list
@@ -142,7 +171,7 @@ public class Clip2Bridge {
     }
 
     /**
-     * Http Get a Resources object containing a single Resource from the server
+     * HTTP GET a Resources object containing a single Resource from the server
      *
      * @param resourceType the type of resource to get
      * @param resourceId the id of the resource to get
@@ -154,7 +183,7 @@ public class Clip2Bridge {
     }
 
     /**
-     * Http Put a Resource object to the server
+     * HTTP PUT a Resource object to the server
      *
      * @param resource the resource to put
      * @throws ApiException if something fails
@@ -170,28 +199,34 @@ public class Clip2Bridge {
      */
 
     /**
-     * Build an exception message from another exception.
+     * Build an exception message around another exception.
      *
      * @param e the exception
      * @return the message
      */
-    private static String exceptionMessageFrom(Exception e) {
+    private String exceptionMessageFrom(Exception e) {
         return String.format("%s, %s", e.getClass().getSimpleName(), e.getMessage()).toLowerCase();
     }
 
     /**
-     * Sse calls this method when an Sse event comes in. The method forwards the event payload as a list of Resources to
-     * the bridge handler.
+     * SSE calls this method when an event comes in.
+     * It forwards the event data as a list of Resources to the bridge handler.
      *
-     * @param inboundSseEvent the incoming Sse event
+     * @param inboundSseEvent the incoming SSE event.
      */
     private void onSseEvent(InboundSseEvent inboundSseEvent) {
+        if (inboundSseEvent.isEmpty()) {
+            return;
+        }
+        String json = inboundSseEvent.readData();
+        if (json == null) {
+            return;
+        }
+        logger.trace("onSseEvent() data:{}", json);
         List<Event> eventList;
         try {
-            String json = inboundSseEvent.readData();
-            logger.trace("onSseEvent() data:{}", json);
             eventList = gson.fromJson(json, Event.EVENT_LIST_TYPE);
-        } catch (JsonSyntaxException e) {
+        } catch (JsonParseException e) {
             logger.debug("onSseEvent() {}", exceptionMessageFrom(e));
             return;
         }
@@ -207,18 +242,22 @@ public class Clip2Bridge {
             logger.debug("onSseEvent() resource list is empty");
             return;
         }
-        Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
-        if (bridgeHandler == null) {
-            logger.debug("onSseEvent() bridge handler is null");
-            return;
-        }
         bridgeHandler.onSseEvent(resourceList);
     }
 
+    /**
+     * Log SSE errors.
+     *
+     * @param e the exception that caused the error.
+     */
     private void onSseError(Throwable e) {
         logger.debug("onSseError() exception '{}' - {}", e.getClass().getSimpleName(), e.getMessage());
     }
 
+    /**
+     * Log when an SSE session has completed.
+     *
+     */
     private void onSseComplete() {
         logger.debug("onSseComplete() disconnected from event stream");
     }
@@ -236,23 +275,23 @@ public class Clip2Bridge {
     }
 
     /**
-     * Execute an HTTP GET/PUT command. It sends the pay-load Resource object (if any) and returns the reply Resources
-     * object.
+     * Execute an HTTP GET or PUT command. It sends the pay-load Resource object (if any) and returns the reply
+     * Resources object.
      *
      * @param method HTTP GET or PUT
      * @param url the URL of the server end point
-     * @param bodyResource the Resource object to send, may be null
+     * @param resource the Resource object to send; may be null
      * @return the Resources object containing the response
      * @throws ApiException if anything goes wrong
      */
-    private Resources doHTTP(HttpMethod method, String url, @Nullable Resource bodyResource) throws ApiException {
+    private Resources doHTTP(HttpMethod method, String url, @Nullable Resource resource) throws ApiException {
         logger.trace("doHTTP() method:{}, url:{}", method, url);
         Request request = httpClient.newRequest(url).method(method).timeout(timeout.getSeconds(), TimeUnit.SECONDS);
-        request.header("hue-application-key", applicationKey);
-        if (bodyResource != null) {
-            String json = gson.toJson(bodyResource);
+        request.header(HUE_APPLICATION_KEY, applicationKey);
+        if (resource != null) {
+            String json = gson.toJson(resource);
             logger.trace("doHTTP() request:{}", json);
-            request.content(new StringContentProvider(json), "application/json");
+            request.content(new StringContentProvider(json), APPLICATION_JSON);
         }
         ContentResponse contentResponse;
         try {
@@ -274,7 +313,7 @@ public class Clip2Bridge {
                 }
             }
             return resources;
-        } catch (JsonSyntaxException e) {
+        } catch (JsonParseException e) {
             throw new ApiException(exceptionMessageFrom(e));
         }
     }
