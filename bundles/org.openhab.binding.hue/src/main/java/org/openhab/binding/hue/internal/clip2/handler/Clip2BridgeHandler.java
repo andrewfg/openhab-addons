@@ -104,7 +104,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         serviceRegistration = FrameworkUtil.getBundle(getClass()).getBundleContext()
                 .registerService(TlsTrustManagerProvider.class.getName(), tlsTrustManagerProvider, null);
 
-        clip2Bridge = new Clip2Bridge(httpClient, clientBuilder, eventSourceFactory, ipAddress, applicationKey);
+        clip2Bridge = new Clip2Bridge(httpClient, clientBuilder, eventSourceFactory, this, ipAddress, applicationKey);
 
         try {
             // test server connection by trying to retrieve bridge device properties
@@ -148,7 +148,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
         Clip2Bridge clip2Bridge = this.clip2Bridge;
         if (clip2Bridge != null) {
-            clip2Bridge.sseClose();
+            clip2Bridge.close();
             this.clip2Bridge = null;
         }
         ServiceRegistration<?> serviceRegistration = this.serviceRegistration;
@@ -166,9 +166,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     public void onSseEvent(List<Resource> resources) {
         try {
             for (Resource resource : resources) {
-                if (resource.getType() == ResourceType.UPDATE) {
-                    notify(resource);
-                }
+                notify(resource.markAsSparse());
             }
         } catch (ApiException e) {
             logger.debug("onSseEvent() {}, {}", e.getClass().getSimpleName(), e.getMessage());
@@ -231,7 +229,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private void doRefresh() {
         try {
             pollResources();
-            getClip2Bridge().sseOpen(this);
+            getClip2Bridge().openSse();
             if (thing.getStatus() != ThingStatus.ONLINE) {
                 updateStatus(ThingStatus.ONLINE);
             }

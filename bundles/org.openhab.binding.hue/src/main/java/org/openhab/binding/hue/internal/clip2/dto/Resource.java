@@ -41,6 +41,20 @@ public class Resource {
 
     /*
      * ++++++++++++++++++++++++++++++++++++++++
+     * + Transient Field
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+
+    /**
+     * The SSE event mechanism sends resources in a sparse (skeleton) format that only includes state fields whose
+     * values have changed. A sparse resource does not contain the full state of the resource. And the absence of any
+     * field from such a resource does not indicate that the field value is UNDEF, but rather that the value is the same
+     * as what it was previously set to by the last non-sparse resource.
+     */
+    private transient boolean hasSparseData;
+
+    /*
+     * ++++++++++++++++++++++++++++++++++++++++
      * + Common Fields
      * ++++++++++++++++++++++++++++++++++++++++
      */
@@ -107,6 +121,21 @@ public class Resource {
      * ++++++++++++++++++++++++++++++++++++++++
      */
     private @Nullable String status;
+
+    /*
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Transient Field Getters & Setters
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+
+    public boolean hasFullState() {
+        return !hasSparseData;
+    }
+
+    public Resource markAsSparse() {
+        hasSparseData = true;
+        return this;
+    }
 
     /*
      * ++++++++++++++++++++++++++++++++++++++++
