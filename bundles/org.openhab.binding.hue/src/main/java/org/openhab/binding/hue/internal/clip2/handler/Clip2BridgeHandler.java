@@ -71,6 +71,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private @Nullable ScheduledFuture<?> refreshTask;
     private @Nullable ServiceRegistration<?> serviceRegistration;
 
+    private boolean disposing;
+
     public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
             SseEventSourceFactory eventSourceFactory) {
         super(bridge);
@@ -118,6 +120,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
 
         updateStatus(ThingStatus.ONLINE);
+        disposing = false;
 
         /*
          * Normally the handler should rely on the bridge sending SSE push updates. But in case SSE events may have been
@@ -128,7 +131,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
          */
         ScheduledFuture<?> refreshTask = this.refreshTask;
         if (refreshTask != null) {
-            refreshTask.cancel(false);
+            refreshTask.cancel(true);
         }
         this.refreshTask = scheduler.scheduleWithFixedDelay(this::doRefresh, 10, config.refreshSeconds,
                 TimeUnit.SECONDS);
@@ -141,6 +144,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     @Override
     public void dispose() {
+        disposing = true;
         ScheduledFuture<?> refreshTask = this.refreshTask;
         if (refreshTask != null) {
             refreshTask.cancel(false);
@@ -164,12 +168,14 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param resources a list of incoming resource objects.
      */
     public void onSseEvent(List<Resource> resources) {
-        try {
-            for (Resource resource : resources) {
-                notify(resource.markAsSparse());
+        if (!disposing) {
+            try {
+                for (Resource resource : resources) {
+                    notify(resource.markAsSparse());
+                }
+            } catch (ApiException e) {
+                logger.debug("onSseEvent() {}, {}", e.getClass().getSimpleName(), e.getMessage());
             }
-        } catch (ApiException e) {
-            logger.debug("onSseEvent() {}, {}", e.getClass().getSimpleName(), e.getMessage());
         }
     }
 
@@ -181,12 +187,14 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @return the resource, or null if something fails.
      */
     public @Nullable Resources getResources(Reference reference) {
-        try {
-            return getClip2Bridge().getResources(reference);
-        } catch (ApiException e) {
-            logger.debug("getResources() {}, {}", e.getClass().getSimpleName(), e.getMessage());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "@text/offline.communication-error");
+        if (!disposing) {
+            try {
+                return getClip2Bridge().getResources(reference);
+            } catch (ApiException e) {
+                logger.debug("getResources() {}, {}", e.getClass().getSimpleName(), e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            }
         }
         return null;
     }
@@ -198,12 +206,14 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something fails.
      */
     public void putResource(Resource resource) {
-        try {
-            getClip2Bridge().putResource(resource);
-        } catch (ApiException e) {
-            logger.debug("putResource() {}, {}", e.getClass().getSimpleName(), e.getMessage());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "@text/offline.communication-error");
+        if (!disposing) {
+            try {
+                getClip2Bridge().putResource(resource);
+            } catch (ApiException e) {
+                logger.debug("putResource() {}, {}", e.getClass().getSimpleName(), e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            }
         }
     }
 
@@ -227,16 +237,18 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void doRefresh() {
-        try {
-            pollResources();
-            getClip2Bridge().openSse();
-            if (thing.getStatus() != ThingStatus.ONLINE) {
-                updateStatus(ThingStatus.ONLINE);
+        if (!disposing) {
+            try {
+                pollResources();
+                getClip2Bridge().openSse();
+                if (thing.getStatus() != ThingStatus.ONLINE) {
+                    updateStatus(ThingStatus.ONLINE);
+                }
+            } catch (ApiException e) {
+                logger.debug("doRefresh() exception '{}' - {}", e.getClass().getSimpleName(), e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
             }
-        } catch (ApiException e) {
-            logger.debug("doRefresh() exception '{}' - {}", e.getClass().getSimpleName(), e.getMessage());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "@text/offline.communication-error");
         }
     }
 
@@ -294,10 +306,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void pollResources() throws ApiException {
-        Reference reference = new Reference();
-        for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
-            for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType)).getResources()) {
-                notify(resource);
+        if (!disposing) {
+            Reference reference = new Reference();
+            for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
+                for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType))
+                        .getResources()) {
+                    notify(resource);
+                }
             }
         }
     }
@@ -309,10 +324,12 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void notify(Resource resource) throws ApiException {
-        for (Thing thing : getThing().getThings()) {
-            ThingHandler handler = thing.getHandler();
-            if (handler instanceof ResourceThingHandler) {
-                ((ResourceThingHandler) handler).notify(resource);
+        if (!disposing) {
+            for (Thing thing : getThing().getThings()) {
+                ThingHandler handler = thing.getHandler();
+                if (handler instanceof ResourceThingHandler) {
+                    ((ResourceThingHandler) handler).notify(resource);
+                }
             }
         }
     }
