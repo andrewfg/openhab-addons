@@ -36,7 +36,7 @@ public class MetaData {
         return name != null ? name : "";
     }
 
-    public int getControlIdValue() {
+    public int getControlId() {
         Integer control_id = this.control_id;
         return control_id != null ? control_id.intValue() : 0;
     }

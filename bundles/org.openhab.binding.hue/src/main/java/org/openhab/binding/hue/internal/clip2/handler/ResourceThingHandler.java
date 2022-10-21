@@ -60,6 +60,7 @@ public class ResourceThingHandler extends BaseThingHandler {
     private Resource thisResource = new Resource(null);
     private final Map<String, Resource> contributorResources = new ConcurrentHashMap<>();
     private final Map<ResourceType, String> commandResourceIds = new ConcurrentHashMap<>();
+    private final Map<String, Integer> controlIds = new ConcurrentHashMap<>();
     private final Set<String> supportedChannelIds = ConcurrentHashMap.newKeySet(16); // 16 = thing max channel count
 
     private boolean disposing;
@@ -85,6 +86,7 @@ public class ResourceThingHandler extends BaseThingHandler {
         supportedChannelIds.clear();
         commandResourceIds.clear();
         contributorResources.clear();
+        controlIds.clear();
         disposing = false;
 
         scheduler.submit(this::getAllResources);
@@ -225,9 +227,9 @@ public class ResourceThingHandler extends BaseThingHandler {
             switch (newResource.getType()) {
                 case BUTTON:
                     supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
-                    fullUpdate = false; // if device has multiple buttons, retain last valid state
-                    updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT, newResource.getButtonValueState(),
-                            fullUpdate);
+                    newResource.putControlId(controlIds);
+                    updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT,
+                            newResource.getButtonEventState(controlIds), fullUpdate);
                     break;
 
                 case DEVICE_POWER:
@@ -315,7 +317,6 @@ public class ResourceThingHandler extends BaseThingHandler {
     /**
      * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
      * up the final list of channels in the thing.
-     *
      */
     private void getAllResources() {
         if (disposing) {
