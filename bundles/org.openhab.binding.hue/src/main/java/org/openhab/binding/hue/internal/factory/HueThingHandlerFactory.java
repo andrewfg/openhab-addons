@@ -103,8 +103,12 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
         this.i18nProvider = i18nProvider;
         this.localeProvider = localeProvider;
         this.clientBuilder = clientBuilder;
+        this.eventSourceFactory = eventSourceFactory;
     }
 
+    @Override
+    public @Nullable Thing createThing(ThingTypeUID thingTypeUID, Configuration configuration,
+            @Nullable ThingUID thingUID, @Nullable ThingUID bridgeUID) {
         // create CLIP 2 things
         if (HueBindingConstants.THING_TYPE_UID_BRIDGE2.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, null);
