@@ -27,6 +27,7 @@ import org.openhab.binding.hue.internal.clip2.dto.Button;
 import org.openhab.binding.hue.internal.clip2.dto.Event;
 import org.openhab.binding.hue.internal.clip2.dto.LightLevel;
 import org.openhab.binding.hue.internal.clip2.dto.MetaData;
+import org.openhab.binding.hue.internal.clip2.dto.MirekSchema;
 import org.openhab.binding.hue.internal.clip2.dto.Motion;
 import org.openhab.binding.hue.internal.clip2.dto.Power;
 import org.openhab.binding.hue.internal.clip2.dto.ProductData;
@@ -44,6 +45,7 @@ import org.openhab.binding.hue.internal.dto.ApiVersion;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
+import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
@@ -143,7 +145,7 @@ class Clip2DtoTests {
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getSwitch());
                 assertEquals(PercentType.HUNDRED, item.getBrightnessState());
-                assertEquals(UnDefType.UNDEF, item.getColorTemperatureState());
+                assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState(new MirekSchema()));
                 State state = item.getColorState();
                 assertTrue(state instanceof HSBType);
                 float[] xy = Resource.xyFromHsb((HSBType) state);
@@ -160,7 +162,32 @@ class Clip2DtoTests {
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getSwitch());
                 assertEquals(new PercentType(57), item.getBrightnessState());
-                assertEquals(new PercentType(96), item.getColorTemperatureState());
+                MirekSchema mirekSchema = item.getMirekSchema();
+                assertNotNull(mirekSchema);
+                assertEquals(153, mirekSchema.getMirekMinimum());
+                assertEquals(454, mirekSchema.getMirekMaximum());
+
+                // test color temperature percent value on light's own scale
+                assertEquals(new PercentType(96), item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(QuantityType.valueOf("2257 K"), item.getColorTemperatureKelvinState());
+
+                // test color temperature percent value on the default (full) scale
+                assertEquals(new PercentType(84), item.getColorTemperaturePercentState(new MirekSchema()));
+                assertEquals(QuantityType.valueOf("2257 K"), item.getColorTemperatureKelvinState());
+
+                // change colour temperature
+                item.setColorTemperaturePercent(PercentType.ZERO, mirekSchema);
+                assertEquals(PercentType.ZERO, item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(QuantityType.valueOf("6536 K"), item.getColorTemperatureKelvinState());
+
+                item.setColorTemperaturePercent(PercentType.HUNDRED, mirekSchema);
+                assertEquals(PercentType.HUNDRED, item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(QuantityType.valueOf("2203 K"), item.getColorTemperatureKelvinState());
+
+                item.setColorTemperatureKelvin(QuantityType.valueOf("4000 K"));
+                assertEquals(new PercentType(32), item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(QuantityType.valueOf("4000 K"), item.getColorTemperatureKelvinState());
+
                 assertEquals(UnDefType.UNDEF, item.getColorState());
                 Alerts alert = item.getAlert();
                 assertNotNull(alert);

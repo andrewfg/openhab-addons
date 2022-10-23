@@ -25,7 +25,9 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.clip2.config.ResourceConfig;
+import org.openhab.binding.hue.internal.clip2.dto.ColorTemperature2;
 import org.openhab.binding.hue.internal.clip2.dto.MetaData;
+import org.openhab.binding.hue.internal.clip2.dto.MirekSchema;
 import org.openhab.binding.hue.internal.clip2.dto.ProductData;
 import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
@@ -58,7 +60,7 @@ public class ResourceThingHandler extends BaseThingHandler {
     private final Logger logger = LoggerFactory.getLogger(ResourceThingHandler.class);
 
     private Resource thisResource = new Resource(null);
-    private final Map<String, Resource> contributorResources = new ConcurrentHashMap<>();
+    private final Map<String, Resource> contributorsCache = new ConcurrentHashMap<>();
     private final Map<ResourceType, String> commandResourceIds = new ConcurrentHashMap<>();
     private final Map<String, Integer> controlIds = new ConcurrentHashMap<>();
     private final Set<String> supportedChannelIds = ConcurrentHashMap.newKeySet(16); // 16 = thing max channel count
@@ -85,7 +87,7 @@ public class ResourceThingHandler extends BaseThingHandler {
         thisResource.setId(resourceId);
         supportedChannelIds.clear();
         commandResourceIds.clear();
-        contributorResources.clear();
+        contributorsCache.clear();
         controlIds.clear();
         disposing = false;
 
@@ -100,7 +102,7 @@ public class ResourceThingHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
-            scheduler.submit(this::getContributorResources);
+            scheduler.submit(this::getContributorsCache);
             return;
         }
 
@@ -112,7 +114,12 @@ public class ResourceThingHandler extends BaseThingHandler {
         Resource newResource;
         switch (channelUID.getId()) {
             case HueBindingConstants.CHANNEL_COLORTEMPERATURE:
-                newResource = new Resource(ResourceType.LIGHT).setColorTemperature(command);
+                newResource = new Resource(ResourceType.LIGHT).setColorTemperaturePercent(command,
+                        mirekSchemaFrom(ResourceType.LIGHT));
+                break;
+
+            case HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS:
+                newResource = new Resource(ResourceType.LIGHT).setColorTemperatureKelvin(command);
                 break;
 
             case HueBindingConstants.CHANNEL_COLOR:
@@ -218,7 +225,7 @@ public class ResourceThingHandler extends BaseThingHandler {
             return;
         }
 
-        Resource contributorResource = contributorResources.get(newResource.getId());
+        Resource contributorResource = contributorsCache.get(newResource.getId());
         if (contributorResource != null) {
             //
             logger.trace("notify() updating channels");
@@ -239,8 +246,8 @@ public class ResourceThingHandler extends BaseThingHandler {
                     break;
 
                 case LIGHT:
-                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE, newResource.getColorTemperatureState(),
-                            fullUpdate);
+                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE,
+                            newResource.getColorTemperaturePercentState(mirekSchemaFrom(newResource)), fullUpdate);
                     updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS,
                             newResource.getColorTemperatureKelvinState(), fullUpdate);
                     updateState(HueBindingConstants.CHANNEL_COLOR, newResource.getColorState(), fullUpdate);
@@ -274,7 +281,7 @@ public class ResourceThingHandler extends BaseThingHandler {
             }
 
             // update contributor resource current state
-            contributorResources.put(contributorResource.getId(), newResource);
+            contributorsCache.put(contributorResource.getId(), newResource);
         }
     }
 
@@ -320,20 +327,20 @@ public class ResourceThingHandler extends BaseThingHandler {
      */
     private void getAllResources() {
         if (!disposing) {
-            getPrimaryResources();
+            getPrimaryResource();
             setLookups();
-            getContributorResources();
+            getContributorsCache();
             setChannels();
         }
     }
 
     /**
-     * Execute a series of HTTP GET commands for device / scene resource types to fetch the primary resource data for
+     * Execute a series of HTTP GET commands for device or scene resource types to fetch the primary resource data for
      * the thing state.
      */
-    private void getPrimaryResources() {
+    private void getPrimaryResource() {
         if (!disposing) {
-            logger.debug("getPrimaryResources() called");
+            logger.debug("getPrimaryResource() called");
             Reference reference = new Reference().setId(thisResource.getId());
             for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
                 getResources(reference.setType(resourceType));
@@ -342,14 +349,14 @@ public class ResourceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Execute a series of HTTP GET commands to fetch the resource data for all resources that contribute to the thing
-     * state.
+     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
+     * thing state.
      */
-    private void getContributorResources() {
+    private void getContributorsCache() {
         if (!disposing) {
-            logger.debug("getContributorResources() called for {} contributors", contributorResources.size());
+            logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
             Reference reference = new Reference();
-            for (Entry<String, Resource> entry : contributorResources.entrySet()) {
+            for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
                 getResources(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
             }
         }
@@ -383,9 +390,9 @@ public class ResourceThingHandler extends BaseThingHandler {
     private void setLookups() {
         if (!disposing) {
             List<Reference> references = thisResource.getServiceReferences();
-            contributorResources.clear();
+            contributorsCache.clear();
             commandResourceIds.clear();
-            contributorResources.putAll(
+            contributorsCache.putAll(
                     references.stream().collect(Collectors.toMap(Reference::getId, r -> new Resource(r.getType()))));
             commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
                     references.stream()
@@ -408,5 +415,43 @@ public class ResourceThingHandler extends BaseThingHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Check the if the given resource has a MirekSchema, and if not check the contributors cache to see if it contains
+     * a resource that matches the passed resource's id. In either case return that respective schema. And if not,
+     * return a default schema comprising the default static mirek MIN and MAX constant values.
+     *
+     * @param resource the reference resource.
+     * @return the MirekSchema.
+     */
+    private MirekSchema mirekSchemaFrom(Resource resource) {
+        MirekSchema schema = resource.getMirekSchema();
+        if (schema == null) {
+            Resource cacheResource = contributorsCache.get(resource.getId());
+            if (cacheResource != null) {
+                ColorTemperature2 colorTemperature = cacheResource.getColorTemperature();
+                if (colorTemperature != null) {
+                    schema = colorTemperature.getMirekSchema();
+                }
+            }
+        }
+        return schema != null ? schema : new MirekSchema();
+    }
+
+    /**
+     * Check the commandResourceIds to see if we have a command resource id for the given resource type, and if so
+     * return its respective MirekSchema, and if not return a default schema comprising the default static mirek MIN and
+     * MAX constant values.
+     *
+     * @param resourceType the reference resource type.
+     * @return the MirekSchema.
+     */
+    private MirekSchema mirekSchemaFrom(ResourceType resourceType) {
+        String resourceId = commandResourceIds.get(resourceType);
+        if (resourceId != null) {
+            return mirekSchemaFrom(new Resource(resourceType).setId(resourceId));
+        }
+        return new MirekSchema();
     }
 }
