@@ -22,13 +22,10 @@ import org.eclipse.jdt.annotation.Nullable;
  */
 @NonNullByDefault
 public class ColorTemperature2 {
-    private @NonNullByDefault({}) Integer mirek;
+    private @Nullable Integer mirek;
     private @Nullable MirekSchema mirek_schema;
 
-    private static int MIN = 153;
-    private static int MAX = 500;
-
-    private int getReciprocal(int value) {
+    private float getReciprocal(float value) {
         return Math.round(1000000f / value);
     }
 
@@ -36,36 +33,52 @@ public class ColorTemperature2 {
         return mirek;
     }
 
-    public void setMirek(int mirek) {
-        this.mirek = mirek;
+    public void setMirek(float mirek) {
+        this.mirek = Math.round(mirek);
     }
 
-    public @Nullable Integer getPercent() {
+    /**
+     * Convert the mirek value to a percentage value based on the passed MirekSchema argument.
+     *
+     * @param mirekSchema the reference MirekSchema.
+     * @return the percentage of the mirekSchema range.
+     */
+    public @Nullable Integer getPercent(MirekSchema mirekSchema) {
         Integer mirek = this.mirek;
         if (mirek != null) {
-            MirekSchema mirekSchema = mirek_schema;
-            int min = mirekSchema != null ? mirekSchema.getMirekMinimum() : MIN;
-            int max = mirekSchema != null ? mirekSchema.getMirekMaximum() : MAX;
-            int percent = Math.round(100f * (mirek - min) / (max - min));
+            float min = mirekSchema.getMirekMinimum();
+            float max = mirekSchema.getMirekMaximum();
+            float percent = (100f * (mirek.floatValue() - min)) / (max - min);
             return Math.round(Math.max(0, Math.min(100, percent)));
         }
         return null;
     }
 
-    public void setPercent(int percent) {
-        float offset = (percent / 100f) * (MAX - MIN);
-        setMirek(MIN + Math.round(offset));
+    /**
+     * Convert the percentage value to a mirek value based on the passed MirekSchema argument.
+     *
+     * @param mirekSchema the reference MirekSchema.
+     */
+    public void setPercent(int percent, MirekSchema mirekSchema) {
+        float min = mirekSchema.getMirekMinimum();
+        float max = mirekSchema.getMirekMaximum();
+        float offset = (max - min) * Float.valueOf(percent) / 100f;
+        setMirek(min + offset);
     }
 
-    public @Nullable Integer getKelvin() {
+    public @Nullable Float getKelvin() {
         Integer mirek = this.mirek;
         if (mirek != null) {
-            return getReciprocal(mirek);
+            return getReciprocal(mirek.floatValue());
         }
         return null;
     }
 
-    public void setKelvin(int kelvin) {
+    public void setKelvin(float kelvin) {
         setMirek(getReciprocal(kelvin));
+    }
+
+    public @Nullable MirekSchema getMirekSchema() {
+        return mirek_schema;
     }
 }

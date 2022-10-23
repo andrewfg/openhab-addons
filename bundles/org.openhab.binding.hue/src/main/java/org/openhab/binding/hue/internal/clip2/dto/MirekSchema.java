@@ -21,8 +21,11 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  */
 @NonNullByDefault
 public class MirekSchema {
-    private int mirek_minimum;
-    private int mirek_maximum;
+    public static final int MIN = 153;
+    public static final int MAX = 500;
+
+    private int mirek_minimum = MIN;
+    private int mirek_maximum = MAX;
 
     public int getMirekMinimum() {
         return mirek_minimum;

@@ -25,7 +25,9 @@ import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
+import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
+import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
@@ -242,6 +244,7 @@ public class Resource {
      * Set the light on status.
      *
      * @param command and OnOffType with either on / off.
+     * @return this resource instance.
      */
     public Resource setSwitch(Command command) {
         if (command instanceof OnOffType) {
@@ -289,6 +292,7 @@ public class Resource {
      *
      * @param command either a PercentType with the new value, an OnOffType to set it at 0 / 100 percent, or an
      *            IncreaseDecreaseType to increment the percentage value by a fixed amount.
+     * @return this resource instance.
      */
     public Resource setBrightness(Command command) {
         State state = getPercentType(command, getBrightnessState());
@@ -304,31 +308,28 @@ public class Resource {
         return this;
     }
 
-    /**
-     * Get the colour temperature as a raw mirek value.
-     *
-     * @return the mirek value.
-     */
-    public int getColorTemperature() {
-        ColorTemperature2 colorTemp = color_temperature;
+    public @Nullable ColorTemperature2 getColorTemperature() {
+        return color_temperature;
+    }
+
+    public @Nullable MirekSchema getMirekSchema() {
+        ColorTemperature2 colorTemp = this.color_temperature;
         if (colorTemp != null) {
-            Integer mirek = colorTemp.getMirek();
-            if (mirek != null) {
-                return mirek.intValue();
-            }
+            return colorTemp.getMirekSchema();
         }
-        return -1;
+        return null;
     }
 
     /**
-     * Get the colour temperature in percent.
+     * Get the colour temperature in percent based on the passed MirekSchema scale.
      *
+     * @param mirekSchema the MirekSchema to be used in the scaling.
      * @return a PercentType with the colour temperature percentage.
      */
-    public State getColorTemperatureState() {
+    public State getColorTemperaturePercentState(MirekSchema mirekSchema) {
         ColorTemperature2 colorTemp = color_temperature;
         if (colorTemp != null) {
-            Integer percent = colorTemp.getPercent();
+            Integer percent = colorTemp.getPercent(mirekSchema);
             if (percent != null) {
                 return new PercentType(percent);
             }
@@ -339,41 +340,63 @@ public class Resource {
     /**
      * Get the colour temperature in Kelvin.
      *
-     * @return a DecimalType with the colour temperature in Kelvin.
+     * @return a QuantityType<Temperature> with the colour temperature in Kelvin.
      */
     public State getColorTemperatureKelvinState() {
         ColorTemperature2 colorTemp = color_temperature;
         if (colorTemp != null) {
-            Integer kelvin = colorTemp.getKelvin();
+            Float kelvin = colorTemp.getKelvin();
             if (kelvin != null) {
-                return new DecimalType(kelvin);
+                return new QuantityType<>(kelvin, Units.KELVIN);
             }
         }
         return UnDefType.UNDEF;
     }
 
     /**
-     * Set the colour temperature in percent or in Kelvin depending on the command type.
+     * Set the colour temperature in percent based on the passed MirekSchema scale.
      *
-     * @param command either a DecimalType in which case the colour temperature is set in Kelvin, a PercentType in which
-     *            case the colour temperature is set in percent, an OnOff type in which case it is set to 0/100, an
-     *            IncreaseDecreaseType in which case it is increased/decreased by a certain amount.
+     * @param command a PercentType command value.
+     * @param mirekSchema the MirekSchema to be used in the scaling.
+     * @return this resource instance.
      */
-    public Resource setColorTemperature(Command command) {
-        ColorTemperature2 color_temperature = this.color_temperature;
-        color_temperature = color_temperature != null ? color_temperature : new ColorTemperature2();
-        State state = getPercentType(command, getColorTemperatureState());
-        if (state instanceof PercentType) {
-            color_temperature.setPercent(((PercentType) state).intValue());
-        } else if (command instanceof DecimalType) {
-            color_temperature.setKelvin(((DecimalType) command).intValue());
+    public Resource setColorTemperaturePercent(Command command, MirekSchema mirekSchema) {
+        if (command instanceof PercentType) {
+            ColorTemperature2 color_temperature = this.color_temperature;
+            color_temperature = color_temperature != null ? color_temperature : new ColorTemperature2();
+            color_temperature.setPercent(((PercentType) command).intValue(), mirekSchema);
+            this.color_temperature = color_temperature;
         }
-        this.color_temperature = color_temperature;
         return this;
     }
 
     /**
-     * Get the colour.
+     * Set the colour temperature in Kelvin.
+     *
+     * @param command should be a QuantityType(Temperature> (but it can also handle DecimalType).
+     * @return this resource instance.
+     */
+    public Resource setColorTemperatureKelvin(Command command) {
+        Integer kelvin = null;
+        if (command instanceof QuantityType<?>) {
+            QuantityType<?> temperature = ((QuantityType<?>) command).toUnit(Units.KELVIN);
+            if (temperature != null) {
+                kelvin = Math.round(temperature.floatValue());
+            }
+        } else if (command instanceof DecimalType) {
+            kelvin = Math.round(((DecimalType) command).intValue());
+        }
+        if (kelvin != null) {
+            ColorTemperature2 color_temperature = this.color_temperature;
+            color_temperature = color_temperature != null ? color_temperature : new ColorTemperature2();
+            color_temperature.setKelvin(kelvin);
+            this.color_temperature = color_temperature;
+        }
+        return this;
+    }
+
+    /**
+     * Get the color.
      *
      * @return an HSBType containing the current color.
      */
@@ -383,11 +406,10 @@ public class Resource {
     }
 
     /**
-     * Set the colour or the brightness depending on the command type.
+     * Set the colour.
      *
-     * @param command either an HSBType with the new color value, a PercentType in which case the brightness is set in
-     *            percent, an OnOff type in which case the brightness is set to 0/100, an IncreaseDecreaseType in which
-     *            case the brightness is increased/decreased by a certain amount.
+     * @param command an HSBType with the new color value
+     * @return this resource instance.
      */
     public Resource setColor(Command command) {
         if (command instanceof HSBType) {
@@ -395,11 +417,6 @@ public class Resource {
             color = color != null ? color : new ColorXy();
             color.setXY(xyFromHsb((HSBType) command));
             this.color = color;
-        } else {
-            State state = getPercentType(command, getBrightnessState());
-            if (state instanceof PercentType) {
-                setBrightness(command);
-            }
         }
         return this;
     }
@@ -564,12 +581,14 @@ public class Resource {
      * Put this resource's control id in the given map of control ids.
      *
      * @param controlIds the map of control ids to be updated.
+     * @return this resource instance.
      */
-    public void putControlId(Map<String, Integer> controlIds) {
+    public Resource putControlId(Map<String, Integer> controlIds) {
         if (!hasSparseData) {
             MetaData metadata = this.metadata;
             controlIds.put(getId(), metadata != null ? metadata.getControlId() : 0);
         }
+        return this;
     }
 
     /**
