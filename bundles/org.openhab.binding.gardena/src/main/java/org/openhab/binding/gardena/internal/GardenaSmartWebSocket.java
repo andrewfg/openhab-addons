@@ -51,32 +51,40 @@ public class GardenaSmartWebSocket {
     private final GardenaSmartWebSocketListener socketEventListener;
     private final long WEBSOCKET_IDLE_TIMEOUT = 300;
 
-    private WebSocketSession session;
-    private WebSocketClient webSocketClient;
+    private @Nullable WebSocketSession session;
+    private final WebSocketClient webSocketClient;
     private boolean closing;
     private Instant lastPong = Instant.now();
-    private ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduler;
     private @Nullable ScheduledFuture<?> connectionTracker;
-    private ByteBuffer pingPayload = ByteBuffer.wrap("ping".getBytes(StandardCharsets.UTF_8));
+    private final static ByteBuffer pingPayload = ByteBuffer.wrap("ping".getBytes(StandardCharsets.UTF_8));
     private @Nullable PostOAuth2Response token;
-    private String socketId;
-    private String locationID;
+    private final String socketId;
+    private final String locationID;
 
     /**
-     * Starts the websocket session.
+     * Creates the websocket session.
      */
     public GardenaSmartWebSocket(GardenaSmartWebSocketListener socketEventListener, WebSocketClient webSocketClient,
-            ScheduledExecutorService scheduler, String url, @Nullable PostOAuth2Response token, String socketId,
-            String locationID) throws Exception {
+            ScheduledExecutorService scheduler, @Nullable PostOAuth2Response token, String socketId,
+            String locationID) {
         this.socketEventListener = socketEventListener;
         this.webSocketClient = webSocketClient;
         this.scheduler = scheduler;
         this.token = token;
         this.socketId = socketId;
         this.locationID = locationID;
+    }
 
+    /**
+     * Starts the websocket session.
+     * The connectionTracker will then be opened after the session makes its first callback.
+     */
+    public synchronized GardenaSmartWebSocket start(String url) throws Exception {
+        stop();
         session = (WebSocketSession) webSocketClient.connect(this, new URI(url)).get();
         logger.debug("Connecting to Gardena Webservice ({})", socketId);
+        return this;
     }
 
     /**
@@ -87,13 +95,18 @@ public class GardenaSmartWebSocket {
         final ScheduledFuture<?> connectionTracker = this.connectionTracker;
         if (connectionTracker != null) {
             connectionTracker.cancel(true);
+            this.connectionTracker = null;
         }
 
         logger.debug("Closing Gardena Webservice ({})", socketId);
-        try {
-            session.close();
-        } catch (Exception ex) {
-            // ignore
+        WebSocketSession session = this.session;
+        if (session != null) {
+            try {
+                session.close();
+            } catch (Exception ex) {
+                // ignore
+            }
+            this.session = null;
         }
     }
 
@@ -107,11 +120,6 @@ public class GardenaSmartWebSocket {
 
     public String getLocationID() {
         return this.locationID;
-    }
-
-    public void restart(String newUrl) throws Exception {
-        logger.debug("Reconnecting to Gardena Webservice ({})", socketId);
-        session = (WebSocketSession) webSocketClient.connect(this, new URI(newUrl)).get();
     }
 
     @OnWebSocketConnect
@@ -170,17 +178,24 @@ public class GardenaSmartWebSocket {
      */
     private synchronized void sendKeepAlivePing() {
         final PostOAuth2Response accessToken = token;
+        final WebSocketSession session = this.session;
+        if (session == null || !session.isOpen()) {
+            ScheduledFuture<?> connectionTracker = this.connectionTracker;
+            if (connectionTracker != null) {
+                connectionTracker.cancel(true);
+                this.connectionTracker = null;
+            }
+            return;
+        }
         if ((Instant.now().getEpochSecond() - lastPong.getEpochSecond() > WEBSOCKET_IDLE_TIMEOUT) || accessToken == null
                 || accessToken.isAccessTokenExpired()) {
             session.close(1000, "Timeout manually closing dead connection (" + socketId + ")");
         } else {
-            if (session.isOpen()) {
-                try {
-                    logger.trace("Sending ping ({})", socketId);
-                    session.getRemote().sendPing(pingPayload);
-                } catch (IOException ex) {
-                    logger.debug("Error while sending ping: {}", ex.getMessage());
-                }
+            try {
+                logger.trace("Sending ping ({})", socketId);
+                session.getRemote().sendPing(pingPayload);
+            } catch (IOException ex) {
+                logger.debug("Error while sending ping: {}", ex.getMessage());
             }
         }
     }

@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -90,7 +91,8 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
     private final GardenaSmartEventListener eventListener;
 
     private final HttpClient httpClient;
-    private final Map<String, GardenaSmartWebSocket> webSockets = new HashMap<>();
+    private final Map<String, GardenaSmartWebSocket> webSockets = new ConcurrentHashMap<>();
+    private final Object webSocketsLock = new Object();
     private @Nullable PostOAuth2Response token;
     private boolean initialized = false;
     private final WebSocketClient webSocketClient;
@@ -160,18 +162,21 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
      * Starts the websockets for each location.
      */
     private void startWebsockets() throws Exception {
-        LocationsResponse locationsResponse = this.locationsResponse;
-        if (locationsResponse != null) {
-            for (LocationDataItem location : locationsResponse.data) {
-                WebSocketCreatedResponse webSocketCreatedResponse = getWebsocketInfo(location.id);
-                Location locationAttributes = location.attributes;
-                WebSocket webSocketAttributes = webSocketCreatedResponse.data.attributes;
-                if (locationAttributes == null || webSocketAttributes == null) {
-                    continue;
+        synchronized (webSocketsLock) {
+            LocationsResponse locationsResponse = this.locationsResponse;
+            if (locationsResponse != null) {
+                for (LocationDataItem location : locationsResponse.data) {
+                    WebSocketCreatedResponse webSocketCreatedResponse = getWebsocketInfo(location.id);
+                    Location locationAttributes = location.attributes;
+                    WebSocket webSocketAttributes = webSocketCreatedResponse.data.attributes;
+                    if (locationAttributes == null || webSocketAttributes == null) {
+                        continue;
+                    }
+                    String socketId = id + "-" + locationAttributes.name;
+                    webSockets.put(location.id,
+                            new GardenaSmartWebSocket(this, webSocketClient, scheduler, token, socketId, location.id)
+                                    .start(webSocketAttributes.url));
                 }
-                String socketId = id + "-" + locationAttributes.name;
-                webSockets.put(location.id, new GardenaSmartWebSocket(this, webSocketClient, scheduler,
-                        webSocketAttributes.url, token, socketId, location.id));
             }
         }
     }
@@ -180,10 +185,12 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
      * Stops all websockets.
      */
     private void stopWebsockets() {
-        for (GardenaSmartWebSocket webSocket : webSockets.values()) {
-            webSocket.stop();
+        synchronized (webSocketsLock) {
+            for (Entry<String, GardenaSmartWebSocket> entry : webSockets.entrySet()) {
+                entry.getValue().stop();
+                webSockets.remove(entry.getKey());
+            }
         }
-        webSockets.clear();
     }
 
     /**
@@ -393,24 +400,24 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
 
     @Override
     public void onWebSocketClose(String id) {
-        restartWebsocket(webSockets.get(id));
+        restartWebsocket(id);
     }
 
     @Override
     public void onWebSocketError(String id) {
-        restartWebsocket(webSockets.get(id));
+        restartWebsocket(id);
     }
 
-    private void restartWebsocket(@Nullable GardenaSmartWebSocket socket) {
-        synchronized (this) {
-            if (socket != null && !socket.isClosing()) {
-                // close socket, if still open
-                logger.info("Restarting GardenaSmart Webservice ({})", socket.getSocketID());
-                socket.stop();
-            } else {
-                // if socket is already closing, exit function and do not restart socket
+    private void restartWebsocket(String socketId) {
+        GardenaSmartWebSocket socket;
+        synchronized (webSocketsLock) {
+            socket = webSockets.get(socketId);
+            if (socket == null || socket.isClosing()) {
                 return;
             }
+            // close socket, if still open
+            logger.info("Restarting GardenaSmart Webservice id:{}", socketId);
+            socket.stop();
         }
 
         try {
@@ -418,13 +425,14 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
             WebSocketCreatedResponse webSocketCreatedResponse = getWebsocketInfo(socket.getLocationID());
             // only restart single socket, do not restart binding
             WebSocket webSocketAttributes = webSocketCreatedResponse.data.attributes;
-            if (webSocketAttributes != null) {
-                socket.restart(webSocketAttributes.url);
+            if (webSocketAttributes == null) {
+                throw new IllegalStateException("webSocketAttributes is null");
             }
+            socket.start(webSocketAttributes.url);
         } catch (Exception ex) {
             // restart binding on error
-            logger.warn("Restarting GardenaSmart Webservice failed ({}): {}, restarting binding", socket.getSocketID(),
-                    ex.getMessage());
+            logger.warn("Restarting GardenaSmart Webservice socketId:{}, exception:{}, message:{}, restarting binding",
+                    socketId, ex.getClass().getSimpleName(), ex.getMessage());
             eventListener.onError();
         }
     }
