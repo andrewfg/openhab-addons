@@ -94,29 +94,27 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
         }
 
         ThingUID bridgeUID = bridgeHandler.getThing().getUID();
-        for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
-            Resources resources = bridgeHandler.getResources(new ResourceReference().setType(resourceType));
-            if (resources != null) {
-                for (Resource resource : resources.getResources()) {
-                    MetaData metaData = resource.getMetaData();
-                    if (metaData != null) {
-                        if (metaData.getArchetype() == Archetype.BRIDGE_V2) {
-                            // the bridge device resource itself is already in the bridge thing handler
-                            continue;
-                        }
-                        String resId = resource.getId();
-                        String resType = resource.getType().toString();
-                        String label = metaData.getName();
-                        ThingUID thingUID = new ThingUID(HueBindingConstants.THING_TYPE_UID_RESOURCE, bridgeUID, resId);
-
-                        DiscoveryResult thing = DiscoveryResultBuilder.create(thingUID).withBridge(bridgeUID)
-                                .withLabel(label).withProperty(HueBindingConstants.PROPERTY_RESOURCE_ID, resId)
-                                .withProperty(HueBindingConstants.PROPERTY_RESOURCE_TYPE, resType)
-                                .withProperty(HueBindingConstants.PROPERTY_RESOURCE_NAME, label)
-                                .withRepresentationProperty(HueBindingConstants.PROPERTY_RESOURCE_ID).build();
-
-                        thingDiscovered(thing);
+        Resources resources = bridgeHandler.getResources(new ResourceReference().setType(ResourceType.DEVICE));
+        if (resources != null) {
+            for (Resource resource : resources.getResources()) {
+                MetaData metaData = resource.getMetaData();
+                if (metaData != null) {
+                    if (metaData.getArchetype() == Archetype.BRIDGE_V2) {
+                        // the bridge device resource itself is already in the bridge thing handler
+                        continue;
                     }
+                    String resId = resource.getId();
+                    String resType = resource.getType().toString();
+                    String label = metaData.getName();
+                    ThingUID thingUID = new ThingUID(HueBindingConstants.THING_TYPE_UID_RESOURCE, bridgeUID, resId);
+
+                    DiscoveryResult thing = DiscoveryResultBuilder.create(thingUID).withBridge(bridgeUID)
+                            .withLabel(label).withProperty(HueBindingConstants.PROPERTY_RESOURCE_ID, resId)
+                            .withProperty(HueBindingConstants.PROPERTY_RESOURCE_TYPE, resType)
+                            .withProperty(HueBindingConstants.PROPERTY_RESOURCE_NAME, label)
+                            .withRepresentationProperty(HueBindingConstants.PROPERTY_RESOURCE_ID).build();
+
+                    thingDiscovered(thing);
                 }
             }
         }
