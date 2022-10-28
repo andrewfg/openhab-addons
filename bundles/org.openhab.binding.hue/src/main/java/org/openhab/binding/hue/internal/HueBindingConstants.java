@@ -125,6 +125,7 @@ public class HueBindingConstants {
     public static final String CHANNEL_MOTION_ENABLED = "motion_enabled";
     public static final String CHANNEL_LIGHT_LEVEL_ENABLED = "light_level_enabled";
     public static final String CHANNEL_ZIGBEE_STATUS = "zigbee_status";
+    public static final String CHANNEL_SCENE_RECALL = "scene_recall";
 
     // property names for CLIP 2
     public static final String PROPERTY_RESOURCE_ID = "resourceId";
@@ -134,4 +135,6 @@ public class HueBindingConstants {
     public static final String PROPERTY_PRODUCT_NAME = "productName";
     public static final String PROPERTY_PRODUCT_ARCHETYPE = "productArchetype";
     public static final String PROPERTY_PRODUCT_CERTIFIED = "productCertified";
+
+    public static final String CHANNEL_GROUP_SCENES = "scenes";
 }

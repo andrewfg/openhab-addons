@@ -38,8 +38,8 @@ import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpMethod;
 import org.openhab.binding.hue.internal.clip2.dto.Event;
-import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
+import org.openhab.binding.hue.internal.clip2.dto.ResourceReference;
 import org.openhab.binding.hue.internal.clip2.dto.Resources;
 import org.openhab.binding.hue.internal.clip2.handler.Clip2BridgeHandler;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
@@ -161,7 +161,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @return the resources object.
      * @throws ApiException if something fails.
      */
-    public Resources getResources(Reference reference) throws ApiException {
+    public Resources getResources(ResourceReference reference) throws ApiException {
         return doHTTP(HttpMethod.GET, getFullPath(reference), null);
     }
 
@@ -172,7 +172,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @throws ApiException if something fails.
      */
     public void putResource(Resource resource) throws ApiException {
-        Reference reference = new Reference().setId(resource.getId()).setType(resource.getType());
+        ResourceReference reference = new ResourceReference().setId(resource.getId()).setType(resource.getType());
         doHTTP(HttpMethod.PUT, getFullPath(reference), resource);
     }
 
@@ -249,7 +249,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @param reference a Reference class instance.
      * @return the full path.
      */
-    private String getFullPath(Reference reference) {
+    private String getFullPath(ResourceReference reference) {
         String url = baseUrl + reference.getType().name().toLowerCase();
         String id = reference.getId();
         return id == null || id.isEmpty() ? url : url + "/" + id;

@@ -21,10 +21,10 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  */
 @NonNullByDefault
 public class ActionEntry {
-    private @NonNullByDefault({}) Reference target;
+    private @NonNullByDefault({}) ResourceReference target;
     private @NonNullByDefault({}) Resource action;
 
-    public Reference getTarget() {
+    public ResourceReference getTarget() {
         return target;
     }
 

@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -29,8 +28,8 @@ import org.openhab.binding.hue.internal.clip2.dto.ColorTemperature2;
 import org.openhab.binding.hue.internal.clip2.dto.MetaData;
 import org.openhab.binding.hue.internal.clip2.dto.MirekSchema;
 import org.openhab.binding.hue.internal.clip2.dto.ProductData;
-import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
+import org.openhab.binding.hue.internal.clip2.dto.ResourceReference;
 import org.openhab.binding.hue.internal.clip2.dto.Resources;
 import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
 import org.openhab.core.library.types.OnOffType;
@@ -72,31 +71,89 @@ public class ResourceThingHandler extends BaseThingHandler {
     }
 
     @Override
-    public void initialize() {
-        ResourceConfig config = getConfigAs(ResourceConfig.class);
-
-        String resourceId = config.resourceId;
-        if (resourceId == null || resourceId.isEmpty()) {
-            logger.debug("initialize() configuration resourceId is bad");
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/TODO");
-            return;
-        }
-
-        updateStatus(ThingStatus.UNKNOWN);
-
-        thisResource.setId(resourceId);
-        supportedChannelIds.clear();
-        commandResourceIds.clear();
-        contributorsCache.clear();
-        controlIds.clear();
-        disposing = false;
-
-        scheduler.submit(this::getAllResources);
-    }
-
-    @Override
     public void dispose() {
         disposing = true;
+    }
+
+    /**
+     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
+     * up the final list of channels in the thing.
+     */
+    private void getAllResources() {
+        if (!disposing) {
+            getPrimaryResource();
+            setLookups();
+            getContributorsCache();
+            setChannels();
+        }
+    }
+
+    /**
+     * Get the bridge handler.
+     *
+     * @return the bridge handler or null if the bridge is bad.
+     */
+    private @Nullable Clip2BridgeHandler getBridgeHandler() {
+        Bridge bridge = getBridge();
+        if (bridge != null) {
+            BridgeHandler handler = bridge.getHandler();
+            if (handler instanceof Clip2BridgeHandler) {
+                return (Clip2BridgeHandler) handler;
+            }
+        }
+        logger.debug("getBridgeHandler() bridge handler missing");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
+        return null;
+    }
+
+    /**
+     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
+     * thing state.
+     */
+    private void getContributorsCache() {
+        if (!disposing) {
+            logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
+            ResourceReference reference = new ResourceReference();
+            for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
+                getResources(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
+            }
+        }
+    }
+
+    /**
+     * Execute a series of HTTP GET commands for device or scene resource types to fetch the primary resource data for
+     * the thing state.
+     */
+    private void getPrimaryResource() {
+        if (!disposing) {
+            logger.debug("getPrimaryResource() called");
+            ResourceReference reference = new ResourceReference().setId(thisResource.getId());
+            for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
+                getResources(reference.setType(resourceType));
+            }
+        }
+    }
+
+    /**
+     * Execute an HTTP GET command to fetch the resources data for referenced resource.
+     *
+     * @param reference to the required resource.
+     */
+    private synchronized void getResources(ResourceReference reference) {
+        if (!disposing) {
+            Clip2BridgeHandler handler = getBridgeHandler();
+            if (handler == null) {
+                return;
+            }
+            logger.trace("getResources() called");
+            Resources resources = handler.getResources(reference);
+            if (resources != null) {
+                List<Resource> resourceList = resources.getResources();
+                for (Resource resource : resourceList) {
+                    notify(resource);
+                }
+            }
+        }
     }
 
     @Override
@@ -146,15 +203,6 @@ public class ResourceThingHandler extends BaseThingHandler {
                 newResource = new Resource(ResourceType.LIGHT_LEVEL).setEnabled(command);
                 break;
 
-            case HueBindingConstants.CHANNEL_SCENE:
-                if (command == OnOffType.ON) {
-                    newResource = new Resource(ResourceType.SCENE).setRecall(command);
-                    scheduler.schedule(() -> updateState(HueBindingConstants.CHANNEL_SCENE, OnOffType.OFF), 3,
-                            TimeUnit.SECONDS);
-                    break;
-                }
-                return; // <= nota bene !!
-
             default:
                 return; // <= nota bene !!
         }
@@ -163,6 +211,67 @@ public class ResourceThingHandler extends BaseThingHandler {
         if (resourceId != null) {
             handler.putResource(newResource.setId(resourceId));
         }
+    }
+
+    @Override
+    public void initialize() {
+        ResourceConfig config = getConfigAs(ResourceConfig.class);
+
+        String resourceId = config.resourceId;
+        if (resourceId == null || resourceId.isEmpty()) {
+            logger.debug("initialize() configuration resourceId is bad");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/TODO");
+            return;
+        }
+
+        updateStatus(ThingStatus.UNKNOWN);
+
+        thisResource.setId(resourceId);
+        supportedChannelIds.clear();
+        commandResourceIds.clear();
+        contributorsCache.clear();
+        controlIds.clear();
+        disposing = false;
+
+        scheduler.submit(this::getAllResources);
+    }
+
+    /**
+     * Check the if the given resource has a MirekSchema, and if not check the contributors cache to see if it contains
+     * a resource that matches the passed resource's id. In either case return that respective schema. And if not,
+     * return a default schema comprising the default static mirek MIN and MAX constant values.
+     *
+     * @param resource the reference resource.
+     * @return the MirekSchema.
+     */
+    private MirekSchema mirekSchemaFrom(Resource resource) {
+        MirekSchema schema = resource.getMirekSchema();
+        if (schema == null) {
+            Resource cacheResource = contributorsCache.get(resource.getId());
+            if (cacheResource != null) {
+                ColorTemperature2 colorTemperature = cacheResource.getColorTemperature();
+                if (colorTemperature != null) {
+                    schema = colorTemperature.getMirekSchema();
+                }
+            }
+        }
+        return schema != null ? schema : new MirekSchema();
+    }
+
+    /**
+     * Check the commandResourceIds to see if we have a command resource id for the given resource type, and if so
+     * return its respective MirekSchema, and if not return a default schema comprising the default static mirek MIN and
+     * MAX constant values.
+     *
+     * @param resourceType the reference resource type.
+     * @return the MirekSchema.
+     */
+    private MirekSchema mirekSchemaFrom(ResourceType resourceType) {
+        String resourceId = commandResourceIds.get(resourceType);
+        if (resourceId != null) {
+            return mirekSchemaFrom(new Resource(resourceType).setId(resourceId));
+        }
+        return new MirekSchema();
     }
 
     /**
@@ -286,21 +395,36 @@ public class ResourceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Get the bridge handler.
-     *
-     * @return the bridge handler or null if the bridge is bad.
+     * Set the active list of channels by removing any that had initially been created by the thing XML declaration, but
+     * which in fact did not have data returned from the bridge (i.e. channels which are not in the supportedChannelIds
+     * set).
      */
-    private @Nullable Clip2BridgeHandler getBridgeHandler() {
-        Bridge bridge = getBridge();
-        if (bridge != null) {
-            BridgeHandler handler = bridge.getHandler();
-            if (handler instanceof Clip2BridgeHandler) {
-                return (Clip2BridgeHandler) handler;
+    private void setChannels() {
+        if (!disposing) {
+            for (Channel channel : thing.getChannels()) {
+                String channelId = channel.getUID().getId();
+                if (!supportedChannelIds.contains(channelId)) {
+                    logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
+                    updateThing(editThing().withoutChannels(channel).build());
+                }
             }
         }
-        logger.debug("getBridgeHandler() bridge handler missing");
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
-        return null;
+    }
+
+    /**
+     * Initialize the lookup maps of resources that contribute to the thing state.
+     */
+    private void setLookups() {
+        if (!disposing) {
+            List<ResourceReference> references = thisResource.getServiceReferences();
+            contributorsCache.clear();
+            commandResourceIds.clear();
+            contributorsCache.putAll(references.stream()
+                    .collect(Collectors.toMap(ResourceReference::getId, r -> new Resource(r.getType()))));
+            commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
+                    references.stream().collect(
+                            Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
+        }
     }
 
     /**
@@ -319,139 +443,5 @@ public class ResourceThingHandler extends BaseThingHandler {
         if (fullUpdate && isDefined) {
             supportedChannelIds.add(channelID);
         }
-    }
-
-    /**
-     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
-     * up the final list of channels in the thing.
-     */
-    private void getAllResources() {
-        if (!disposing) {
-            getPrimaryResource();
-            setLookups();
-            getContributorsCache();
-            setChannels();
-        }
-    }
-
-    /**
-     * Execute a series of HTTP GET commands for device or scene resource types to fetch the primary resource data for
-     * the thing state.
-     */
-    private void getPrimaryResource() {
-        if (!disposing) {
-            logger.debug("getPrimaryResource() called");
-            Reference reference = new Reference().setId(thisResource.getId());
-            for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
-                getResources(reference.setType(resourceType));
-            }
-        }
-    }
-
-    /**
-     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
-     * thing state.
-     */
-    private void getContributorsCache() {
-        if (!disposing) {
-            logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
-            Reference reference = new Reference();
-            for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
-                getResources(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
-            }
-        }
-    }
-
-    /**
-     * Execute an HTTP GET command to fetch the resources data for referenced resource.
-     *
-     * @param reference to the required resource.
-     */
-    private synchronized void getResources(Reference reference) {
-        if (!disposing) {
-            Clip2BridgeHandler handler = getBridgeHandler();
-            if (handler == null) {
-                return;
-            }
-            logger.trace("getResources() called");
-            Resources resources = handler.getResources(reference);
-            if (resources != null) {
-                List<Resource> resourceList = resources.getResources();
-                for (Resource resource : resourceList) {
-                    notify(resource);
-                }
-            }
-        }
-    }
-
-    /**
-     * Initialize the lookup maps of resources that contribute to the thing state.
-     */
-    private void setLookups() {
-        if (!disposing) {
-            List<Reference> references = thisResource.getServiceReferences();
-            contributorsCache.clear();
-            commandResourceIds.clear();
-            contributorsCache.putAll(
-                    references.stream().collect(Collectors.toMap(Reference::getId, r -> new Resource(r.getType()))));
-            commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
-                    references.stream()
-                            .collect(Collectors.toMap(Reference::getType, Reference::getId, (r1, r2) -> r1)));
-        }
-    }
-
-    /**
-     * Set the active list of channels by removing any that had initially been created by the thing XML declaration, but
-     * which in fact did not have data returned from the bridge (i.e. channels which are not in the supportedChannelIds
-     * set).
-     */
-    private void setChannels() {
-        if (!disposing) {
-            for (Channel channel : thing.getChannels()) {
-                String channelId = channel.getUID().getId();
-                if (!supportedChannelIds.contains(channelId)) {
-                    logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
-                    updateThing(editThing().withoutChannels(channel).build());
-                }
-            }
-        }
-    }
-
-    /**
-     * Check the if the given resource has a MirekSchema, and if not check the contributors cache to see if it contains
-     * a resource that matches the passed resource's id. In either case return that respective schema. And if not,
-     * return a default schema comprising the default static mirek MIN and MAX constant values.
-     *
-     * @param resource the reference resource.
-     * @return the MirekSchema.
-     */
-    private MirekSchema mirekSchemaFrom(Resource resource) {
-        MirekSchema schema = resource.getMirekSchema();
-        if (schema == null) {
-            Resource cacheResource = contributorsCache.get(resource.getId());
-            if (cacheResource != null) {
-                ColorTemperature2 colorTemperature = cacheResource.getColorTemperature();
-                if (colorTemperature != null) {
-                    schema = colorTemperature.getMirekSchema();
-                }
-            }
-        }
-        return schema != null ? schema : new MirekSchema();
-    }
-
-    /**
-     * Check the commandResourceIds to see if we have a command resource id for the given resource type, and if so
-     * return its respective MirekSchema, and if not return a default schema comprising the default static mirek MIN and
-     * MAX constant values.
-     *
-     * @param resourceType the reference resource type.
-     * @return the MirekSchema.
-     */
-    private MirekSchema mirekSchemaFrom(ResourceType resourceType) {
-        String resourceId = commandResourceIds.get(resourceType);
-        if (resourceId != null) {
-            return mirekSchemaFrom(new Resource(resourceType).setId(resourceId));
-        }
-        return new MirekSchema();
     }
 }

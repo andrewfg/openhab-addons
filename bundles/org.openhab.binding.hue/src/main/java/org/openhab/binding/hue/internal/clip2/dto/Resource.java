@@ -64,7 +64,7 @@ public class Resource {
     private @Nullable String type;
     private @Nullable String id;
     private @Nullable String id_v1;
-    private @Nullable Reference owner;
+    private @Nullable ResourceReference owner;
     private @Nullable MetaData metadata;
 
     /*
@@ -73,7 +73,7 @@ public class Resource {
      * ++++++++++++++++++++++++++++++++++++++++
      */
     private @Nullable ProductData product_data;
-    private @Nullable List<Reference> services;
+    private @Nullable List<ResourceReference> services;
 
     /*
      * ++++++++++++++++++++++++++++++++++++++++
@@ -95,7 +95,7 @@ public class Resource {
      * + Scene Fields
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    private @Nullable Reference group;
+    private @Nullable ResourceReference group;
     private @Nullable List<ActionEntry> actions;
     private @Nullable Recall recall;
 
@@ -116,7 +116,7 @@ public class Resource {
      * + Group Fields
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    private @Nullable List<Reference> children;
+    private @Nullable List<ResourceReference> children;
 
     /*
      * ++++++++++++++++++++++++++++++++++++++++
@@ -176,7 +176,7 @@ public class Resource {
         return id_v1 != null ? id_v1 : "";
     }
 
-    public @Nullable Reference getOwner() {
+    public @Nullable ResourceReference getOwner() {
         return owner;
     }
 
@@ -194,8 +194,8 @@ public class Resource {
         return product_data;
     }
 
-    public List<Reference> getServiceReferences() {
-        List<Reference> services = this.services;
+    public List<ResourceReference> getServiceReferences() {
+        List<ResourceReference> services = this.services;
         return services != null ? services : List.of();
     }
 
@@ -443,7 +443,7 @@ public class Resource {
         return actions;
     }
 
-    public @Nullable Reference getGroup() {
+    public @Nullable ResourceReference getGroup() {
         return group;
     }
 
@@ -551,8 +551,8 @@ public class Resource {
      * + Group Field Getters & Setters
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    public List<Reference> getChildren() {
-        List<Reference> children = this.children;
+    public List<ResourceReference> getChildren() {
+        List<ResourceReference> children = this.children;
         return children != null ? children : List.of();
     }
 

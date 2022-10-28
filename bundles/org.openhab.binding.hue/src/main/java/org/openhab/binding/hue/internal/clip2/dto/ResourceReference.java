@@ -35,7 +35,7 @@ import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Reference {
+public class ResourceReference {
     private @Nullable String rid;
     private @NonNullByDefault({}) String rtype;
 
@@ -47,12 +47,12 @@ public class Reference {
         return ResourceType.of(rtype);
     }
 
-    public Reference setId(String id) {
+    public ResourceReference setId(String id) {
         rid = id;
         return this;
     }
 
-    public Reference setType(ResourceType resourceType) {
+    public ResourceReference setType(ResourceType resourceType) {
         rtype = resourceType.name().toLowerCase();
         return this;
     }

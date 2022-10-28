@@ -28,7 +28,6 @@
 			<channel id="battery_level" typeId="system.battery-level"/>
 			<channel id="battery_low" typeId="system.low-battery"/>
 			<channel id="zigbee_status" typeId="zigbee_status"/>
-			<channel id="scene" typeId="scene_recall"/>
 		</channels>
 
 		<representation-property>resourceId</representation-property>

@@ -20,8 +20,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.clip2.dto.MetaData;
-import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
+import org.openhab.binding.hue.internal.clip2.dto.ResourceReference;
 import org.openhab.binding.hue.internal.clip2.dto.Resources;
 import org.openhab.binding.hue.internal.clip2.enums.Archetype;
 import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
@@ -95,7 +95,7 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
 
         ThingUID bridgeUID = bridgeHandler.getThing().getUID();
         for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
-            Resources resources = bridgeHandler.getResources(new Reference().setType(resourceType));
+            Resources resources = bridgeHandler.getResources(new ResourceReference().setType(resourceType));
             if (resources != null) {
                 for (Resource resource : resources.getResources()) {
                     MetaData metaData = resource.getMetaData();

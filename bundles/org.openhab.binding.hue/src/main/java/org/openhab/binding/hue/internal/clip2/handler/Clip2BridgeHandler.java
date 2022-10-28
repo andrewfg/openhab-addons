@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.hue.internal.clip2.handler;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,22 +29,29 @@ import org.openhab.binding.hue.internal.clip2.config.Clip2BridgeConfig;
 import org.openhab.binding.hue.internal.clip2.connection.Clip2Bridge;
 import org.openhab.binding.hue.internal.clip2.dto.MetaData;
 import org.openhab.binding.hue.internal.clip2.dto.ProductData;
-import org.openhab.binding.hue.internal.clip2.dto.Reference;
 import org.openhab.binding.hue.internal.clip2.dto.Resource;
+import org.openhab.binding.hue.internal.clip2.dto.ResourceReference;
 import org.openhab.binding.hue.internal.clip2.dto.Resources;
 import org.openhab.binding.hue.internal.clip2.enums.Archetype;
 import org.openhab.binding.hue.internal.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.connection.HueTlsTrustManagerProvider;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.core.io.net.http.TlsTrustManagerProvider;
+import org.openhab.core.library.CoreItemFactory;
+import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandler;
+import org.openhab.core.thing.binding.builder.ChannelBuilder;
+import org.openhab.core.thing.type.AutoUpdatePolicy;
+import org.openhab.core.thing.type.ChannelTypeUID;
 import org.openhab.core.types.Command;
+import org.openhab.core.types.RefreshType;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.jaxrs.client.SseEventSourceFactory;
@@ -59,9 +67,9 @@ import org.slf4j.LoggerFactory;
 @NonNullByDefault
 public class Clip2BridgeHandler extends BaseBridgeHandler {
 
-    private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
-
     private static final String FORMAT_HOST_PORT = "%s:443";
+
+    private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClient httpClient;
     private final ClientBuilder clientBuilder;
@@ -71,7 +79,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private @Nullable ScheduledFuture<?> refreshTask;
     private @Nullable ServiceRegistration<?> serviceRegistration;
 
+    public final ChannelTypeUID sceneChannelTypeUid = //
+            new ChannelTypeUID(HueBindingConstants.BINDING_ID, HueBindingConstants.CHANNEL_SCENE_RECALL);
+
     private boolean disposing;
+    private boolean channelsInitialized;
 
     public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
             SseEventSourceFactory eventSourceFactory) {
@@ -79,6 +91,94 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         this.httpClient = httpClient;
         this.clientBuilder = clientBuilder;
         this.eventSourceFactory = eventSourceFactory;
+    }
+
+    @Override
+    public void dispose() {
+        disposing = true;
+        ScheduledFuture<?> refreshTask = this.refreshTask;
+        if (refreshTask != null) {
+            refreshTask.cancel(false);
+            this.refreshTask = null;
+        }
+        Clip2Bridge clip2Bridge = this.clip2Bridge;
+        if (clip2Bridge != null) {
+            clip2Bridge.close();
+            this.clip2Bridge = null;
+        }
+        ServiceRegistration<?> serviceRegistration = this.serviceRegistration;
+        if (serviceRegistration != null) {
+            serviceRegistration.unregister();
+            this.serviceRegistration = null;
+        }
+    }
+
+    /**
+     * Scheduled task to refresh the Sse connection and poll state (in case any Sse events may have been lost).
+     *
+     * @throws ApiException if something failed.
+     */
+    private void doRefresh() {
+        if (!disposing) {
+            try {
+                initializeChannels();
+                pollResources();
+                getClip2Bridge().openSse();
+                updateStatus(ThingStatus.ONLINE);
+            } catch (ApiException e) {
+                logger.debug("doRefresh() exception '{}' - {}", e.getClass().getSimpleName(), e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            }
+        }
+    }
+
+    /**
+     * Get the Clip2Bridge connection and throw an exception if it is null.
+     *
+     * @return the Clip2Bridge.
+     * @throws ApiException if the Clip2Bridge is null.
+     */
+    private Clip2Bridge getClip2Bridge() throws ApiException {
+        Clip2Bridge hueBridge = this.clip2Bridge;
+        if (hueBridge != null) {
+            return hueBridge;
+        }
+        throw new ApiException("getClip2Bridge() clip2Bridge is null");
+    }
+
+    /**
+     * Execute an HTTP GET for a resources reference object from the server.
+     *
+     * @param reference containing the resourceType and (optionally) the resourceId of the resource to get. If the
+     *            resourceId is null then all resources of the given type are returned.
+     * @return the resource, or null if something fails.
+     */
+    public @Nullable Resources getResources(ResourceReference reference) {
+        if (!disposing) {
+            try {
+                return getClip2Bridge().getResources(reference);
+            } catch (ApiException e) {
+                logger.debug("getResources() error:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void handleCommand(ChannelUID channelUID, Command command) {
+        if (RefreshType.REFRESH.equals(command)) {
+            return;
+        }
+        Channel channel = thing.getChannel(channelUID.getId());
+        if (channel == null) {
+            return;
+        }
+        if (sceneChannelTypeUid.equals(channel.getChannelTypeUID()) && command == OnOffType.ON) {
+            putResource(new Resource(ResourceType.SCENE).setRecall(command));
+        }
     }
 
     @Override
@@ -121,6 +221,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
         updateStatus(ThingStatus.ONLINE);
         disposing = false;
+        channelsInitialized = false;
 
         /*
          * Normally the handler should rely on the bridge sending SSE push updates. But in case SSE events may have been
@@ -137,28 +238,49 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 TimeUnit.SECONDS);
     }
 
-    @Override
-    public void handleCommand(ChannelUID channelUID, Command command) {
-        // nothing to do..
+    /**
+     * Create the dynamic scene channels.
+     */
+    private void initializeChannels() {
+        if (channelsInitialized) {
+            return;
+        }
+        try {
+            List<Channel> channels = new ArrayList<>();
+            ResourceReference resourceReference = new ResourceReference().setType(ResourceType.SCENE);
+
+            for (Resource scene : getClip2Bridge().getResources(resourceReference).getResources()) {
+                MetaData metaData = scene.getMetaData();
+                String label = metaData != null ? metaData.getName() : scene.getId();
+
+                ChannelUID channelUid = //
+                        new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_GROUP_SCENES, scene.getId());
+
+                channels.add(ChannelBuilder.create(channelUid, CoreItemFactory.SWITCH).withType(sceneChannelTypeUid)
+                        .withLabel(label).withAutoUpdatePolicy(AutoUpdatePolicy.VETO).build());
+            }
+
+            updateThing(editThing().withChannels(channels).build());
+            channelsInitialized = true;
+        } catch (ApiException e) {
+            logger.warn("initializeSceneChannels() error:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
+        }
     }
 
-    @Override
-    public void dispose() {
-        disposing = true;
-        ScheduledFuture<?> refreshTask = this.refreshTask;
-        if (refreshTask != null) {
-            refreshTask.cancel(false);
-            this.refreshTask = null;
-        }
-        Clip2Bridge clip2Bridge = this.clip2Bridge;
-        if (clip2Bridge != null) {
-            clip2Bridge.close();
-            this.clip2Bridge = null;
-        }
-        ServiceRegistration<?> serviceRegistration = this.serviceRegistration;
-        if (serviceRegistration != null) {
-            serviceRegistration.unregister();
-            this.serviceRegistration = null;
+    /**
+     * Notify all child thing handlers about the contents of the given resource.
+     *
+     * @param resource the given resource.
+     * @throws ApiException if something failed.
+     */
+    private void notify(Resource resource) throws ApiException {
+        if (!disposing) {
+            for (Thing thing : getThing().getThings()) {
+                ThingHandler handler = thing.getHandler();
+                if (handler instanceof ResourceThingHandler) {
+                    ((ResourceThingHandler) handler).notify(resource);
+                }
+            }
         }
     }
 
@@ -174,29 +296,26 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                     notify(resource.markAsSparse());
                 }
             } catch (ApiException e) {
-                logger.debug("onSseEvent() {}, {}", e.getClass().getSimpleName(), e.getMessage());
+                logger.debug("onSseEvent() error:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
             }
         }
     }
 
     /**
-     * Execute an HTTP GET for a resources reference object from the server.
+     * Get the data for all (necessary) resources in the bridge, and notify all child thing handlers.
      *
-     * @param reference containing the resourceType and (optionally) the resourceId of the resource to get. If the
-     *            resourceId is null then all resources of the given type are returned.
-     * @return the resource, or null if something fails.
+     * @throws ApiException if something failed.
      */
-    public @Nullable Resources getResources(Reference reference) {
+    private void pollResources() throws ApiException {
         if (!disposing) {
-            try {
-                return getClip2Bridge().getResources(reference);
-            } catch (ApiException e) {
-                logger.debug("getResources() {}, {}", e.getClass().getSimpleName(), e.getMessage());
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
+            ResourceReference reference = new ResourceReference();
+            for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
+                for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType))
+                        .getResources()) {
+                    notify(resource);
+                }
             }
         }
-        return null;
     }
 
     /**
@@ -210,42 +329,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             try {
                 getClip2Bridge().putResource(resource);
             } catch (ApiException e) {
-                logger.debug("putResource() {}, {}", e.getClass().getSimpleName(), e.getMessage());
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
-            }
-        }
-    }
-
-    /**
-     * Get the Clip2Bridge connection and throw an exception if it is null.
-     *
-     * @return the Clip2Bridge.
-     * @throws ApiException if the Clip2Bridge is null.
-     */
-    private Clip2Bridge getClip2Bridge() throws ApiException {
-        Clip2Bridge hueBridge = this.clip2Bridge;
-        if (hueBridge != null) {
-            return hueBridge;
-        }
-        throw new ApiException("getClip2Bridge() clip2Bridge is null");
-    }
-
-    /**
-     * Scheduled task to refresh the Sse connection and poll state (in case any Sse events may have been lost).
-     *
-     * @throws ApiException if something failed.
-     */
-    private void doRefresh() {
-        if (!disposing) {
-            try {
-                pollResources();
-                getClip2Bridge().openSse();
-                if (thing.getStatus() != ThingStatus.ONLINE) {
-                    updateStatus(ThingStatus.ONLINE);
-                }
-            } catch (ApiException e) {
-                logger.debug("doRefresh() exception '{}' - {}", e.getClass().getSimpleName(), e.getMessage());
+                logger.debug("putResource() error:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.communication-error");
             }
@@ -258,7 +342,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void updateProperties() throws ApiException {
-        Resources resources = getClip2Bridge().getResources(new Reference().setType(ResourceType.DEVICE));
+        Resources resources = getClip2Bridge().getResources(new ResourceReference().setType(ResourceType.DEVICE));
         List<Resource> devices = resources.getResources();
         if (devices.isEmpty()) {
             throw new ApiException("updateProperties() bridge contains no devices");
@@ -296,40 +380,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 }
 
                 thing.setProperties(properties);
-            }
-        }
-    }
-
-    /**
-     * Get the data for all (necessary) resources in the bridge, and notify all child thing handlers.
-     *
-     * @throws ApiException if something failed.
-     */
-    private void pollResources() throws ApiException {
-        if (!disposing) {
-            Reference reference = new Reference();
-            for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
-                for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType))
-                        .getResources()) {
-                    notify(resource);
-                }
-            }
-        }
-    }
-
-    /**
-     * Notify all child thing handlers about the contents of the given resource.
-     *
-     * @param resource the given resource.
-     * @throws ApiException if something failed.
-     */
-    private void notify(Resource resource) throws ApiException {
-        if (!disposing) {
-            for (Thing thing : getThing().getThings()) {
-                ThingHandler handler = thing.getHandler();
-                if (handler instanceof ResourceThingHandler) {
-                    ((ResourceThingHandler) handler).notify(resource);
-                }
             }
         }
     }

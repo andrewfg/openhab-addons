@@ -63,8 +63,8 @@ public enum ResourceType {
     /*
      * NB: the order of the entries in this list is essential for proper initialisation of things!
      */
-    public static final List<ResourceType> NOTIFY_TYPES = Arrays.asList(DEVICE, SCENE, LIGHT, BUTTON, LIGHT_LEVEL,
-            MOTION, TEMPERATURE, DEVICE_POWER, ZIGBEE_CONNECTIVITY);
+    public static final List<ResourceType> NOTIFY_TYPES = Arrays.asList(DEVICE, LIGHT, BUTTON, LIGHT_LEVEL, MOTION,
+            TEMPERATURE, DEVICE_POWER, ZIGBEE_CONNECTIVITY);
 
     public static ResourceType of(@Nullable String value) {
         if (value != null) {
