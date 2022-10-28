@@ -232,8 +232,11 @@
 		<description>A switch channel that activates (recalls) the scene.</description>
 	</channel-type>
 
-	<channel-group-type id="scenes">
+	<channel-group-type id="scenes" advanced="true">
 		<label>Scenes</label>
+		<channels>
+			<channel typeId="scene_recall" id="scene_recall"/>
+		</channels>
 	</channel-group-type>
 
 </thing:thing-descriptions>
