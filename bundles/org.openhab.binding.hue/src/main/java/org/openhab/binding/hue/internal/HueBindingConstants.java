@@ -112,11 +112,10 @@ public class HueBindingConstants {
     public static final String IP_ADDRESS_MISSING = "missing-ip-address-configuration";
 
     // thing types for CLIP 2
-    public static final ThingTypeUID THING_TYPE_UID_BRIDGE2 = new ThingTypeUID(BINDING_ID, "clip2");
-    public static final ThingTypeUID THING_TYPE_UID_RESOURCE = new ThingTypeUID(BINDING_ID, "resource");
+    public static final ThingTypeUID THING_TYPE_BRIDGE2 = new ThingTypeUID(BINDING_ID, "clip2");
+    public static final ThingTypeUID THING_TYPE_RESOURCE = new ThingTypeUID(BINDING_ID, "resource");
 
-    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES2 = Set.of(THING_TYPE_UID_BRIDGE2,
-            THING_TYPE_UID_RESOURCE);
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES2 = Set.of(THING_TYPE_BRIDGE2, THING_TYPE_RESOURCE);
 
     // channels for CLIP 2
     public static final String CHANNEL_BUTTON_LAST_EVENT = "button_last_event";
@@ -125,7 +124,6 @@ public class HueBindingConstants {
     public static final String CHANNEL_MOTION_ENABLED = "motion_enabled";
     public static final String CHANNEL_LIGHT_LEVEL_ENABLED = "light_level_enabled";
     public static final String CHANNEL_ZIGBEE_STATUS = "zigbee_status";
-    public static final String CHANNEL_SCENE_RECALL = "scene_recall";
 
     // property names for CLIP 2
     public static final String PROPERTY_RESOURCE_ID = "resourceId";
@@ -135,6 +133,4 @@ public class HueBindingConstants {
     public static final String PROPERTY_PRODUCT_NAME = "productName";
     public static final String PROPERTY_PRODUCT_ARCHETYPE = "productArchetype";
     public static final String PROPERTY_PRODUCT_CERTIFIED = "productCertified";
-
-    public static final String CHANNEL_GROUP_SCENES = "scenes";
 }

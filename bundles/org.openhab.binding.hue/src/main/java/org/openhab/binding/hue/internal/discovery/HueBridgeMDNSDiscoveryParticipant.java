@@ -22,7 +22,7 @@ import javax.jmdns.ServiceInfo;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.clip2.dto.BridgeConfig;
+import org.openhab.binding.hue.internal.dto.clip2.BridgeConfig;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.config.discovery.DiscoveryResultBuilder;
@@ -130,7 +130,7 @@ public class HueBridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipa
             id = id.toLowerCase();
             // check for CLIP 2 support
             boolean supportsClip2 = BridgeConfig.supportClip2(service.getHostAddresses()[0]);
-            return supportsClip2 ? new ThingUID(THING_TYPE_UID_BRIDGE2, id) : new ThingUID(THING_TYPE_BRIDGE, id);
+            return supportsClip2 ? new ThingUID(THING_TYPE_BRIDGE2, id) : new ThingUID(THING_TYPE_BRIDGE, id);
         }
         return null;
     }

@@ -67,9 +67,9 @@
 		<label>Hue CLIP 2 Bridge</label>
 		<description>The Hue Bridge represents the Philips Hue Bridge.</description>
 
-		<channel-groups>
-			<channel-group id="scenes" typeId="scenes"/>
-		</channel-groups>
+		<channels>
+			<channel id="scene" typeId="scene"/>
+		</channels>
 
 		<properties>
 			<property name="vendor">Philips</property>
