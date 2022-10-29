@@ -106,7 +106,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     public List<String> consoleGetResources(ResourceType type) {
         try {
             return getClip2Bridge().getResources(new ResourceReference().setType(type)).getResources().stream()
-                    .map(r -> String.format("  - %s id: %s { %s }", type.toString(), r.getId(), r.getName()))
+                    .map(r -> String.format("  - %s id: %s - %s: '%s'", type.toString(), r.getId(), r.getProductName(),
+                            r.getName()))
                     .collect(Collectors.toList());
         } catch (ApiException e) {
         }

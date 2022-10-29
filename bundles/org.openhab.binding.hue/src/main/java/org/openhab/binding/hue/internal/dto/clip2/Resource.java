@@ -615,6 +615,22 @@ public class Resource {
                 return name;
             }
         }
-        return "undefined";
+        return getType().toString();
+    }
+
+    public String getArchetype() {
+        MetaData metaData = getMetaData();
+        if (metaData != null) {
+            return metaData.getArchetype().toString();
+        }
+        return getType().toString();
+    }
+
+    public String getProductName() {
+        ProductData productData = getProductData();
+        if (productData != null) {
+            return productData.getProductName();
+        }
+        return getType().toString();
     }
 }
