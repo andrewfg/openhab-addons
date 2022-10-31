@@ -25,6 +25,7 @@ import org.eclipse.jdt.annotation.Nullable;
 public class Clip2BridgeConfig {
     public static final String HTTP = "http";
     public static final String HTTPS = "https";
+    public static final String APPLICATION_KEY = "applicationKey";
 
     public @Nullable String ipAddress;
     public @Nullable String applicationKey;
