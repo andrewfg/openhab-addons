@@ -80,7 +80,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private @Nullable ServiceRegistration<?> serviceRegistration;
 
     private boolean disposing;
-    private Clip2BridgeConfig config = new Clip2BridgeConfig();
     private int retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
 
     public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
@@ -94,7 +93,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     /**
      * Try to connect and set the online status accordingly. If the connection attempt throws an IllegalAccessException
      * then try to register the existing application key, or create a new one, with the hub. If the connection attempt
-     * throws an ApiException then set the thing status to offline. This method is called on a scheduler thread, and it
+     * throws an ApiException then set the thing status to offline. This method is called on a scheduler thread, which
      * reschedules itself repeatedly until the thing is shutdown.
      */
     private void checkConnection() {
@@ -144,10 +143,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
         retriesRemaining = tryAgainFast ? retriesRemaining-- : FAST_SCHEDULE_MAX_TRIES;
 
+        if (disposing) {
+            return;
+        }
+
         /*
          * This method continuously schedules itself to be called again. Note: there is no need to cancel or null the
          * prior future that called this method here, since the method is self evidently terminating itself right now!
          */
+        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
         checkConnectionTask = scheduler.schedule(() -> checkConnection(),
                 tryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds, TimeUnit.MILLISECONDS);
     }
@@ -251,7 +255,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     @Override
     public void initialize() {
         Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-        this.config = config;
 
         String ipAddress = config.ipAddress;
         if (ipAddress == null || ipAddress.isEmpty()) {
@@ -398,12 +401,12 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      *
      */
     private void registerApplicationKey() throws IllegalAccessException, ApiException {
-        String newApplicationKey = getClip2Bridge().registerApplicationKey(config.applicationKey);
+        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
+        String applicationKey = getClip2Bridge().registerApplicationKey(config.applicationKey);
         getClip2Bridge().close();
-        Configuration config = editConfiguration();
-        config.put(Clip2BridgeConfig.APPLICATION_KEY, newApplicationKey);
-        updateConfiguration(config);
-        this.config = getConfigAs(Clip2BridgeConfig.class);
+        Configuration config2 = editConfiguration();
+        config2.put(Clip2BridgeConfig.APPLICATION_KEY, applicationKey);
+        updateConfiguration(config2);
     }
 
     /**
