@@ -3,14 +3,14 @@
 	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
 	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
-	<!-- Generic CLIP 2 resource thing -->
-	<thing-type id="resource">
+	<!-- CLIP 2 device thing -->
+	<thing-type id="device">
 		<supported-bridge-type-refs>
 			<bridge-type-ref id="clip2"/>
 		</supported-bridge-type-refs>
 
-		<label>Hue Resource</label>
-		<description>A Hue CLIP2 resource with channels depending on its actual capabilities.</description>
+		<label>Hue Device</label>
+		<description>A Hue CLIP2 device with channels depending on its actual capabilities.</description>
 
 		<channels>
 			<channel id="brightness" typeId="system.brightness"/>

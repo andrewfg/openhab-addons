@@ -112,10 +112,10 @@ public class HueBindingConstants {
     public static final String IP_ADDRESS_MISSING = "missing-ip-address-configuration";
 
     // thing types for CLIP 2
-    public static final ThingTypeUID THING_TYPE_BRIDGE2 = new ThingTypeUID(BINDING_ID, "clip2");
-    public static final ThingTypeUID THING_TYPE_RESOURCE = new ThingTypeUID(BINDING_ID, "resource");
+    public static final ThingTypeUID THING_TYPE_CLIP2 = new ThingTypeUID(BINDING_ID, "clip2");
+    public static final ThingTypeUID THING_TYPE_DEVICE = new ThingTypeUID(BINDING_ID, "device");
 
-    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES2 = Set.of(THING_TYPE_BRIDGE2, THING_TYPE_RESOURCE);
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES2 = Set.of(THING_TYPE_CLIP2, THING_TYPE_DEVICE);
 
     // channels for CLIP 2
     public static final String CHANNEL_BUTTON_LAST_EVENT = "button_last_event";

@@ -49,14 +49,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Handler for things based on CLIP 2 resources.
+ * Handler for things based on CLIP 2 device resources.
  *
  * @author Andrew Fiddian-Green - Initial contribution.
  */
 @NonNullByDefault
-public class ResourceThingHandler extends BaseThingHandler {
+public class DeviceThingHandler extends BaseThingHandler {
 
-    private final Logger logger = LoggerFactory.getLogger(ResourceThingHandler.class);
+    private final Logger logger = LoggerFactory.getLogger(DeviceThingHandler.class);
 
     private Resource thisResource = new Resource(null);
     private final Map<String, Resource> contributorsCache = new ConcurrentHashMap<>();
@@ -66,7 +66,7 @@ public class ResourceThingHandler extends BaseThingHandler {
 
     private boolean disposing;
 
-    public ResourceThingHandler(Thing thing) {
+    public DeviceThingHandler(Thing thing) {
         super(thing);
     }
 

@@ -29,11 +29,11 @@ import org.eclipse.jetty.client.HttpClient;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.discovery.Clip2ThingDiscoveryService;
 import org.openhab.binding.hue.internal.handler.Clip2BridgeHandler;
+import org.openhab.binding.hue.internal.handler.DeviceThingHandler;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueGroupHandler;
 import org.openhab.binding.hue.internal.handler.HueLightHandler;
 import org.openhab.binding.hue.internal.handler.HueStateDescriptionProvider;
-import org.openhab.binding.hue.internal.handler.ResourceThingHandler;
 import org.openhab.binding.hue.internal.handler.sensors.ClipHandler;
 import org.openhab.binding.hue.internal.handler.sensors.DimmerSwitchHandler;
 import org.openhab.binding.hue.internal.handler.sensors.GeofencePresenceHandler;
@@ -110,9 +110,9 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
     public @Nullable Thing createThing(ThingTypeUID thingTypeUID, Configuration configuration,
             @Nullable ThingUID thingUID, @Nullable ThingUID bridgeUID) {
         // create CLIP 2 things
-        if (HueBindingConstants.THING_TYPE_BRIDGE2.equals(thingTypeUID)) {
+        if (HueBindingConstants.THING_TYPE_CLIP2.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, null);
-        } else if (HueBindingConstants.THING_TYPE_RESOURCE.equals(thingTypeUID)) {
+        } else if (HueBindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
         } else
         // etc. ..
@@ -182,13 +182,13 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
     protected @Nullable ThingHandler createHandler(Thing thing) {
         // create CLIP 2 handlers
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
-        if (HueBindingConstants.THING_TYPE_BRIDGE2.equals(thingTypeUID)) {
+        if (HueBindingConstants.THING_TYPE_CLIP2.equals(thingTypeUID)) {
             Clip2BridgeHandler handler = new Clip2BridgeHandler((Bridge) thing, httpClient, clientBuilder,
                     eventSourceFactory);
             createDiscoveryService(handler);
             return handler;
-        } else if (HueBindingConstants.THING_TYPE_RESOURCE.equals(thingTypeUID)) {
-            return new ResourceThingHandler(thing);
+        } else if (HueBindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {
+            return new DeviceThingHandler(thing);
         } else
         // etc. ..
         if (HueBridgeHandler.SUPPORTED_THING_TYPES.contains(thing.getThingTypeUID())) {

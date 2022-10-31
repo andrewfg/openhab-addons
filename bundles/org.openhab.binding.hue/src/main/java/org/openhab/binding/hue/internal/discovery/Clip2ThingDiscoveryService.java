@@ -48,7 +48,7 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
     private @Nullable ScheduledFuture<?> discoveryTask;
 
     public Clip2ThingDiscoveryService(Clip2BridgeHandler bridgeHandler) {
-        super(Set.of(HueBindingConstants.THING_TYPE_RESOURCE), DISCOVERY_TIMEOUT);
+        super(Set.of(HueBindingConstants.THING_TYPE_DEVICE), DISCOVERY_TIMEOUT);
         this.bridgeHandler = bridgeHandler;
     }
 
@@ -106,7 +106,7 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
                     String resId = resource.getId();
                     String resType = resource.getType().toString();
                     String label = resource.getName();
-                    ThingUID thingUID = new ThingUID(HueBindingConstants.THING_TYPE_RESOURCE, bridgeUID, resId);
+                    ThingUID thingUID = new ThingUID(HueBindingConstants.THING_TYPE_DEVICE, bridgeUID, resId);
 
                     DiscoveryResult thing = DiscoveryResultBuilder.create(thingUID).withBridge(bridgeUID)
                             .withLabel(label).withProperty(HueBindingConstants.PROPERTY_RESOURCE_ID, resId)

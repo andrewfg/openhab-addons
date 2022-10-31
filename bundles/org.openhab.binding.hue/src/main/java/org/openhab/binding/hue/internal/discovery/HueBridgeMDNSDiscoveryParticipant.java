@@ -130,7 +130,7 @@ public class HueBridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipa
             id = id.toLowerCase();
             // check for CLIP 2 support
             boolean supportsClip2 = BridgeConfig.supportClip2(service.getHostAddresses()[0]);
-            return supportsClip2 ? new ThingUID(THING_TYPE_BRIDGE2, id) : new ThingUID(THING_TYPE_BRIDGE, id);
+            return supportsClip2 ? new ThingUID(THING_TYPE_CLIP2, id) : new ThingUID(THING_TYPE_BRIDGE, id);
         }
         return null;
     }
