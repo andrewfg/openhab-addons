@@ -86,6 +86,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     private final Gson gson = new Gson();
 
     private String applicationKey;
+    private boolean closing;
 
     private @Nullable Client sseClient;
     private @Nullable SseEventSource eventSource;
@@ -108,6 +109,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      */
     @Override
     public void close() {
+        closing = true;
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
             eventSource.close();
@@ -242,7 +244,9 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      *
      */
     private void onSseComplete() {
-        bridgeHandler.onSseComplete();
+        if (!closing) {
+            bridgeHandler.onSseComplete();
+        }
     }
 
     /**
@@ -251,7 +255,9 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @param e the exception that caused the error.
      */
     private void onSseError(Throwable e) {
-        bridgeHandler.onSseError(e);
+        if (!closing) {
+            bridgeHandler.onSseError(e);
+        }
     }
 
     /**
@@ -261,6 +267,9 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @param inboundSseEvent the incoming SSE event.
      */
     private void onSseEvent(InboundSseEvent inboundSseEvent) {
+        if (closing) {
+            return;
+        }
         if (inboundSseEvent.isEmpty()) {
             return;
         }
@@ -295,26 +304,22 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * Open the SSE connection.
      */
     public void openSse() {
-        Client sseClient = this.sseClient;
-        SseEventSource eventSource = this.eventSource;
-        if (sseClient != null && eventSource != null && eventSource.isOpen()) {
-            return;
-        }
         close();
-        sseClient = clientBuilder //
+        Client sseClient = clientBuilder //
                 .sslContext(httpClient.getSslContextFactory().getSslContext()) //
                 .register(this) //
                 .hostnameVerifier(this) //
                 .readTimeout(0, TimeUnit.SECONDS) //
                 .build();
-        eventSource = eventSourceFactory //
+        SseEventSource eventSource = eventSourceFactory //
                 .newBuilder(sseClient.target(eventUrl)) //
-                .reconnectingEvery(3, TimeUnit.MINUTES) //
+                .reconnectingEvery(1, TimeUnit.SECONDS) //
                 .build();
         eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
         eventSource.open();
         this.sseClient = sseClient;
         this.eventSource = eventSource;
+        closing = false;
     }
 
     /**

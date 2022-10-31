@@ -67,7 +67,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private static final String FORMAT_HOST_PORT = "%s:443";
     private static final int FAST_SCHEDULE_MILLI_SECONDS = 500; //
-    private static final int FAST_SCHEDULE_MAX_ATTEMPTS = 600; // i.e. 5 minutes
+    private static final int FAST_SCHEDULE_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
 
     private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
@@ -81,7 +81,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private boolean disposing;
     private Clip2BridgeConfig config = new Clip2BridgeConfig();
-    private int retryAttemptsRemaining = FAST_SCHEDULE_MAX_ATTEMPTS;
+    private int retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
 
     public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
             SseEventSourceFactory eventSourceFactory) {
@@ -98,59 +98,58 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * reschedules itself repeatedly until the thing is shutdown.
      */
     private void checkConnection() {
-        if (!disposing) {
-
-            // check connection to the hub
-            ThingStatusDetail errorStatus = ThingStatusDetail.NONE;
-            try {
-                getClip2Bridge().checkConnection();
-            } catch (IllegalAccessException e) {
-                logger.debug("doCheckConnection() {}", Clip2Bridge.exceptionMessageFrom(e));
-                errorStatus = ThingStatusDetail.CONFIGURATION_ERROR;
-            } catch (ApiException e) {
-                logger.debug("doCheckConnection() {}", Clip2Bridge.exceptionMessageFrom(e));
-                errorStatus = ThingStatusDetail.COMMUNICATION_ERROR;
-            }
-
-            // update the thing status
-            boolean retryAgainFast = false;
-            switch (errorStatus) {
-                case CONFIGURATION_ERROR:
-                    updateStatus(ThingStatus.OFFLINE, errorStatus,
-                            "@text/offline.clip2.conf-error-press-pairing-button");
-                    if (retryAttemptsRemaining > 0) {
-                        try {
-                            registerApplicationKey();
-                            retryAgainFast = true;
-                        } catch (IllegalAccessException e) {
-                            retryAgainFast = true;
-                        } catch (ApiException e) {
-                        }
-                    } else {
-                        updateStatus(ThingStatus.OFFLINE, errorStatus,
-                                "@text/offline.clip2.conf-error-creation-applicationkey");
-                    }
-                    break;
-
-                case COMMUNICATION_ERROR:
-                    updateStatus(ThingStatus.OFFLINE, errorStatus, "@text/offline.communication-error");
-                    break;
-
-                default:
-                    updateStatus(ThingStatus.ONLINE);
-                    refreshThingState();
-                    break;
-            }
-            retryAttemptsRemaining = retryAgainFast ? retryAttemptsRemaining-- : FAST_SCHEDULE_MAX_ATTEMPTS;
-
-            /*
-             * This method continuously schedules itself to be called again. Note: there is no need to cancel or null
-             * the prior future that called this method here, since the method is self evidently terminating itself
-             * right now!
-             */
-            checkConnectionTask = scheduler.schedule(() -> checkConnection(),
-                    retryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds, TimeUnit.MILLISECONDS);
+        if (disposing) {
+            return;
         }
+
+        // check connection to the hub
+        ThingStatusDetail errorStatus = ThingStatusDetail.NONE;
+        try {
+            getClip2Bridge().checkConnection();
+        } catch (IllegalAccessException e) {
+            logger.debug("doCheckConnection() {}", Clip2Bridge.exceptionMessageFrom(e));
+            errorStatus = ThingStatusDetail.CONFIGURATION_ERROR;
+        } catch (ApiException e) {
+            logger.debug("doCheckConnection() {}", Clip2Bridge.exceptionMessageFrom(e));
+            errorStatus = ThingStatusDetail.COMMUNICATION_ERROR;
+        }
+
+        // update the thing status
+        boolean tryAgainFast = false;
+        switch (errorStatus) {
+            case CONFIGURATION_ERROR:
+                updateStatus(ThingStatus.OFFLINE, errorStatus, "@text/offline.clip2.conf-error-press-pairing-button");
+                if (retriesRemaining > 0) {
+                    try {
+                        registerApplicationKey();
+                        tryAgainFast = true;
+                    } catch (IllegalAccessException e) {
+                        tryAgainFast = true;
+                    } catch (ApiException e) {
+                    }
+                } else {
+                    updateStatus(ThingStatus.OFFLINE, errorStatus,
+                            "@text/offline.clip2.conf-error-creation-applicationkey");
+                }
+                break;
+
+            case COMMUNICATION_ERROR:
+                updateStatus(ThingStatus.OFFLINE, errorStatus, "@text/offline.communication-error");
+                break;
+
+            default:
+                updateStatus(ThingStatus.ONLINE);
+                refreshThingState();
+                break;
+        }
+        retriesRemaining = tryAgainFast ? retriesRemaining-- : FAST_SCHEDULE_MAX_TRIES;
+
+        /*
+         * This method continuously schedules itself to be called again. Note: there is no need to cancel or null the
+         * prior future that called this method here, since the method is self evidently terminating itself right now!
+         */
+        checkConnectionTask = scheduler.schedule(() -> checkConnection(),
+                tryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -223,20 +222,24 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @return the resource, or null if something fails.
      */
     public @Nullable Resources getResources(ResourceReference reference) {
-        if (!disposing) {
-            try {
-                return getClip2Bridge().getResources(reference);
-            } catch (ApiException e) {
-                logger.debug("getResources() {}", Clip2Bridge.exceptionMessageFrom(e));
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
-            }
+        if (disposing) {
+            return null;
+        }
+        try {
+            return getClip2Bridge().getResources(reference);
+        } catch (ApiException e) {
+            logger.debug("getResources() {}", Clip2Bridge.exceptionMessageFrom(e));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error");
         }
         return null;
     }
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
+        if (disposing) {
+            return;
+        }
         if (RefreshType.REFRESH.equals(command)) {
             return;
         }
@@ -247,8 +250,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     @Override
     public void initialize() {
-        disposing = false;
-
         Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
         this.config = config;
 
@@ -271,7 +272,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
         updateStatus(ThingStatus.UNKNOWN);
 
-        retryAttemptsRemaining = FAST_SCHEDULE_MAX_ATTEMPTS;
+        disposing = false;
+        retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
         scheduler.submit(() -> checkConnection());
     }
 
@@ -282,12 +284,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void notifyResource(Resource resource) throws ApiException {
-        if (!disposing) {
-            for (Thing thing : getThing().getThings()) {
-                ThingHandler handler = thing.getHandler();
-                if (handler instanceof DeviceThingHandler) {
-                    ((DeviceThingHandler) handler).notifyResource(resource);
-                }
+        if (disposing) {
+            return;
+        }
+        for (Thing thing : getThing().getThings()) {
+            ThingHandler handler = thing.getHandler();
+            if (handler instanceof DeviceThingHandler) {
+                ((DeviceThingHandler) handler).notifyResource(resource);
             }
         }
     }
@@ -296,6 +299,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * Called when the bridge SSE connection has been closed.
      */
     public void onSseComplete() {
+        if (disposing) {
+            return;
+        }
         logger.warn("notifySseComplete() SSE session completed");
         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
     }
@@ -304,6 +310,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * Called when the bridge SSE connection has returned an error.
      */
     public void onSseError(Throwable e) {
+        if (disposing) {
+            return;
+        }
         logger.warn("notifySseError() {}", Clip2Bridge.exceptionMessageFrom(e));
         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
     }
@@ -314,14 +323,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param resources a list of incoming resource objects.
      */
     public void onSseEvent(List<Resource> resources) {
-        if (!disposing) {
-            try {
-                for (Resource resource : resources) {
-                    notifyResource(resource.markAsSparse());
-                }
-            } catch (ApiException e) {
-                logger.debug("onSseEvent() {}", Clip2Bridge.exceptionMessageFrom(e));
+        if (disposing) {
+            return;
+        }
+        try {
+            for (Resource resource : resources) {
+                notifyResource(resource.markAsSparse());
             }
+        } catch (ApiException e) {
+            logger.debug("onSseEvent() {}", Clip2Bridge.exceptionMessageFrom(e));
         }
     }
 
@@ -331,13 +341,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void pollResources() throws ApiException {
-        if (!disposing) {
-            ResourceReference reference = new ResourceReference();
-            for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
-                for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType))
-                        .getResources()) {
-                    notifyResource(resource);
-                }
+        if (disposing) {
+            return;
+        }
+        ResourceReference reference = new ResourceReference();
+        for (ResourceType resourceType : ResourceType.NOTIFY_TYPES) {
+            for (Resource resource : getClip2Bridge().getResources(reference.setType(resourceType)).getResources()) {
+                notifyResource(resource);
             }
         }
     }
@@ -349,12 +359,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something fails.
      */
     public void putResource(Resource resource) {
-        if (!disposing) {
-            try {
-                getClip2Bridge().putResource(resource);
-            } catch (ApiException e) {
-                logger.warn("putResource() {}", Clip2Bridge.exceptionMessageFrom(e));
-            }
+        if (disposing) {
+            return;
+        }
+        try {
+            getClip2Bridge().putResource(resource);
+        } catch (ApiException e) {
+            logger.warn("putResource() {}", Clip2Bridge.exceptionMessageFrom(e));
         }
     }
 
@@ -365,16 +376,17 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws ApiException if something failed.
      */
     private void refreshThingState() {
-        if (!disposing) {
-            try {
-                updateProperties();
-                pollResources();
-                getClip2Bridge().openSse();
-            } catch (ApiException e) {
-                logger.debug("doRefresh() {}", Clip2Bridge.exceptionMessageFrom(e));
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
-            }
+        if (disposing) {
+            return;
+        }
+        try {
+            updateProperties();
+            pollResources();
+            getClip2Bridge().openSse();
+        } catch (ApiException e) {
+            logger.debug("doRefresh() {}", Clip2Bridge.exceptionMessageFrom(e));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error");
         }
     }
 
@@ -387,9 +399,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void registerApplicationKey() throws IllegalAccessException, ApiException {
         String newApplicationKey = getClip2Bridge().registerApplicationKey(config.applicationKey);
+        getClip2Bridge().close();
         Configuration config = editConfiguration();
         config.put(Clip2BridgeConfig.APPLICATION_KEY, newApplicationKey);
         updateConfiguration(config);
+        this.config = getConfigAs(Clip2BridgeConfig.class);
     }
 
     /**
