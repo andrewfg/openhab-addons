@@ -212,15 +212,15 @@ public class DeviceThingHandler extends BaseThingHandler {
     /**
      * Update the channel state depending on a new contributor resource fetched internally.
      *
-     * @param newResource the resource containing the new state.
+     * @param resource a Resource object containing the new state.
      */
-    private synchronized void notifyContributorResource(Resource newResource) {
+    private synchronized void notifyContributorResource(Resource resource) {
         if (!disposing) {
-            Resource contributorResource = contributorsCache.get(newResource.getId());
+            logger.debug("notifyContributorResource() called");
+            Resource contributorResource = contributorsCache.get(resource.getId());
             if (contributorResource != null) {
-                logger.trace("notifyResource()() updating channels");
-                if (updateChannels(newResource)) {
-                    contributorsCache.put(contributorResource.getId(), newResource);
+                if (updateChannels(resource)) {
+                    contributorsCache.put(contributorResource.getId(), resource);
                 }
             }
         }
@@ -229,20 +229,20 @@ public class DeviceThingHandler extends BaseThingHandler {
     /**
      * Update the channel state depending on a new resource sent from the bridge.
      *
-     * @param newResource the resource containing the new state.
+     * @param resource a Resource object containing the new state.
      */
-    public synchronized void notifyResource(Resource newResource) {
+    public synchronized void notifyResource(Resource resource) {
         if (!disposing) {
-            if (thisResource.getId().equals(newResource.getId())) {
-                logger.trace("notifyResource()() updating primary resource");
+            logger.debug("notifyResource() called");
+            if (thisResource.getId().equals(resource.getId()) && resource.hasFullState()) {
                 if (!updatePropertiesDone) {
-                    updateProperties(newResource);
+                    updateProperties(resource);
                 }
                 updateAllDone = false;
                 scheduler.submit(() -> updateAll());
             }
             if (updateAllDone) {
-                notifyContributorResource(newResource);
+                notifyContributorResource(resource);
             }
         }
     }
@@ -252,8 +252,8 @@ public class DeviceThingHandler extends BaseThingHandler {
      * up the final list of channels in the thing.
      */
     private void updateAll() {
-        logger.trace("updateAll() called");
         if (!disposing && !updateAllDone) {
+            logger.debug("updateAll() called");
             try {
                 updatePrimaryResource();
                 updateLookups();
@@ -279,8 +279,8 @@ public class DeviceThingHandler extends BaseThingHandler {
      * set.
      */
     private void updateChannelList() {
-        logger.trace("updateChannelList() called");
         if (!disposing) {
+            logger.debug("updateChannelList() called");
             if (!supportedChannelIds.isEmpty()) {
                 for (Channel channel : thing.getChannels()) {
                     String channelId = channel.getUID().getId();
@@ -300,7 +300,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @return true if the channel was found and updated.
      */
     private boolean updateChannels(Resource resource) {
-        logger.trace("updateChannels() called");
+        logger.debug("updateChannels() called");
         boolean fullUpdate = resource.hasFullState();
         switch (resource.getType()) {
             case BUTTON:
@@ -359,7 +359,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      */
     private synchronized void updateContributorResource(ResourceReference reference)
             throws ApiException, AssetNotLoadedException {
-        logger.trace("updateContributorResource() called");
+        logger.debug("updateContributorResource() called");
         Resources resources = getBridgeHandler().getResources(reference);
         List<Resource> resourceList = resources.getResources();
         for (Resource resource : resourceList) {
@@ -375,7 +375,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateContributorsCache() throws ApiException, AssetNotLoadedException {
-        logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
+        logger.debug("updateContributorsCache() called for {} contributors", contributorsCache.size());
         ResourceReference reference = new ResourceReference();
         for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
             updateContributorResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
@@ -387,12 +387,11 @@ public class DeviceThingHandler extends BaseThingHandler {
      */
     private void updateLookups() {
         if (!disposing) {
+            logger.debug("updateLookups() called");
             List<ResourceReference> references = thisResource.getServiceReferences();
-
             contributorsCache.clear();
             contributorsCache.putAll(references.stream()
                     .collect(Collectors.toMap(ResourceReference::getId, r -> new Resource(r.getType()))));
-
             commandResourceIds.clear();
             commandResourceIds.putAll(references.stream() // use a 'mergeFunction' to prevent duplicates
                     .collect(Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
@@ -416,7 +415,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @param resource a Resource object containing the property data.
      */
     private void updateProperties(Resource resource) {
-        logger.trace("updateProperties() called");
+        logger.debug("updateProperties() called");
 
         // update this resource current state
         thisResource = resource;
@@ -466,7 +465,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @param fullUpdate if true always update the channel, otherwise only update if state is not 'UNDEF'.
      */
     private void updateState(String channelID, State state, boolean fullUpdate) {
-        logger.trace("updateState() channelID:{}, state:{}, fullUpdate:{}", channelID, state, fullUpdate);
+        logger.debug("updateState() channelID:{}, state:{}, fullUpdate:{}", channelID, state, fullUpdate);
         boolean isDefined = state != UnDefType.UNDEF;
         if (fullUpdate || isDefined) {
             updateState(channelID, state);

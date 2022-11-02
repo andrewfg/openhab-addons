@@ -72,9 +72,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private static final int FAST_SCHEDULE_MILLI_SECONDS = 500; //
     private static final int FAST_SCHEDULE_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
 
-    private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
-
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
+
     public static final Set<ResourceReference> NOTIFICATION_REFERENCES = Set.of( //
             ResourceType.LIGHT, //
             ResourceType.BUTTON, //
@@ -84,6 +83,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             ResourceType.DEVICE_POWER, //
             ResourceType.ZIGBEE_CONNECTIVITY) //
             .stream().map(type -> new ResourceReference().setType(type)).collect(Collectors.toSet());
+    private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClient httpClient;
     private final ClientBuilder clientBuilder;
@@ -123,6 +123,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * reschedules itself repeatedly until the thing is shutdown.
      */
     private void checkConnection() {
+        logger.debug("checkConnection() called");
+
         // check connection to the hub
         ThingStatusDetail thingStatus;
         try {
@@ -285,6 +287,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     public Resources getResources(ResourceReference reference) throws ApiException, AssetNotLoadedException {
+        logger.debug("getResources() called");
         checkAssetsLoaded();
         return getClip2Bridge().getResources(reference);
     }
@@ -311,9 +314,10 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Load the bridge handler's assets.
+     * Initialize the bridge handler's assets.
      */
     private void initializeAssets() {
+        logger.debug("initializeAssets() called");
         synchronized (assetsChanging) {
             Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
 
@@ -338,7 +342,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                         "@text/offline.clip2.conf-error-invalid-ip-address");
                 return;
             } catch (ApiException e) {
-                logger.debug("initializeAssets() invalid ip address '{}'", ipAddress);
+                logger.debug("initializeAssets() communication error on '{}'", ipAddress);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.communication-error");
                 return;
@@ -382,6 +386,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param resource the given resource.
      */
     private void notifyResource(Resource resource) {
+        logger.debug("notifyResource() called");
         for (Thing thing : getThing().getThings()) {
             ThingHandler handler = thing.getHandler();
             if (handler instanceof DeviceThingHandler) {
@@ -431,6 +436,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     public void putResource(Resource resource) throws ApiException, AssetNotLoadedException {
+        logger.debug("putResource() called");
         checkAssetsLoaded();
         getClip2Bridge().putResource(resource);
     }
@@ -445,6 +451,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void registerApplicationKey()
             throws IllegalAccessException, ApiException, AssetNotLoadedException, IllegalStateException {
+        logger.debug("registerApplicationKey() called");
         Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
         String newApplicationKey = getClip2Bridge().registerApplicationKey(config.applicationKey);
         Configuration configuration = editConfiguration();
@@ -458,6 +465,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * Poll for the thing's state. Called sporadically in case any Sse events may have been lost.
      */
     private void updateAll() {
+        logger.debug("updateAll() called");
         try {
             checkAssetsLoaded();
             updateProperties();
@@ -482,6 +490,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateDevices() throws ApiException, AssetNotLoadedException {
+        logger.debug("updateDevices() called");
         for (Resource resource : getClip2Bridge().getResources(DEVICE).getResources()) {
             notifyResource(resource);
         }
@@ -494,6 +503,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateOtherResources() throws ApiException, AssetNotLoadedException {
+        logger.debug("updateOtherResources() called");
         for (ResourceReference resourceReference : NOTIFICATION_REFERENCES) {
             for (Resource resource : getClip2Bridge().getResources(resourceReference).getResources()) {
                 notifyResource(resource);
@@ -508,6 +518,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateProperties() throws ApiException, AssetNotLoadedException {
+        logger.debug("updateProperties() called");
         Resources resources = getClip2Bridge().getResources(DEVICE);
         List<Resource> devices = resources.getResources();
 

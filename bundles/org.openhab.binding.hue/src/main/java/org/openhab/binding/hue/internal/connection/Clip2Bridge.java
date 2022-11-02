@@ -71,17 +71,18 @@ import com.google.gson.JsonParseException;
 @NonNullByDefault
 public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFilter {
 
-    private static final String APPLICATION_ID = "org.openhab.binding.hue.clip2";
+    private static final String APPLICATION_ID = "org-openhab-binding-hue-clip2";
 
     private static final String FORMAT_URL_CONFIG = "http://%s/api/0/config";
-
     private static final String FORMAT_URL_RESOURCE = "https://%s/clip/v2/resource/";
-    private static final String FORMAT_URL_REGISTRATION = "http://%s/api";
+    private static final String FORMAT_URL_REGISTER = "http://%s/api";
     private static final String FORMAT_URL_EVENTS = "https://%s/eventstream/clip/v2";
-    private static final String HEADER_APPLICATION_KEY = "hue-application-key";
 
+    private static final String HEADER_APPLICATION_KEY = "hue-application-key";
     private static final String HEADER_ACCEPT = HttpHeader.ACCEPT.toString();
-    private static final String APPLICATION_JSON = "application/json";
+
+    private static final String CONTENT_APPLICATION_JSON = "application/json";
+
     private static final int CLIP2_MINIMUM_VERSION = 1948086000;
 
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
@@ -103,7 +104,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         HttpRequest request;
         try {
             request = HttpRequest.newBuilder().uri(new URI(String.format(FORMAT_URL_CONFIG, hostName)))
-                    .header(HEADER_ACCEPT, APPLICATION_JSON).timeout(TIMEOUT).build();
+                    .header(HEADER_ACCEPT, CONTENT_APPLICATION_JSON).timeout(TIMEOUT).build();
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Bad host name");
         }
@@ -161,13 +162,38 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         this.hostName = hostName;
         this.baseUrl = String.format(FORMAT_URL_RESOURCE, hostName);
         this.eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
-        this.registrationUrl = String.format(FORMAT_URL_REGISTRATION, hostName);
+        this.registrationUrl = String.format(FORMAT_URL_REGISTER, hostName);
+    }
+
+    /**
+     * Build a full path to a server end point, based on a Reference class instance. If the reference contains only a
+     * resource type, the method returns the end point url to get all resources of the given resource type. Whereas if
+     * it also contains an id, the method returns the end point url to get the specific single resource with that type
+     * and id.
+     *
+     * @param reference a Reference class instance.
+     * @return the full path.
+     */
+    private String buildFullPath(ResourceReference reference) {
+        String url = baseUrl + reference.getType().name().toLowerCase();
+        String id = reference.getId();
+        return id == null || id.isEmpty() ? url : url + "/" + id;
+    }
+
+    /**
+     * Close the connection.
+     */
+    @Override
+    public void close() {
+        closing = true;
+        online = false;
+        disposeAssets();
     }
 
     /**
      * Close the assets.
      */
-    private void assetsClose() {
+    private void disposeAssets() {
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
             eventSource.close();
@@ -178,13 +204,37 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             sseClient.close();
             this.sseClient = null;
         }
-        // TODO ?? force close client HTTP 1.1. connections (e.g. maybe send request with connection close header)
+        // TODO ?? flush client HTTP 1.1 connections e.g. send a request with connection close header
     }
 
     /**
-     * Open the assets needed by the class.
+     * ClientRequestFilter method implementation that adds the application key header to the HTTP request when opening
+     * SSE connections.
      */
-    private void assetsOpen() {
+    @Override
+    public void filter(@Nullable ClientRequestContext requestContext) {
+        if (requestContext != null) {
+            requestContext.getHeaders().add(HEADER_APPLICATION_KEY, applicationKey);
+        }
+    }
+
+    /**
+     * HTTP GET a Resources object, for a given resource Reference, from the Hue Bridge. The reference is a class
+     * comprising a resource type and an id. If the id is a specific resource id then only the one specific resource is
+     * returned, whereas if it is null then all resources of the given resource type are returned.
+     *
+     * @param reference a Reference class instance.
+     * @return the resources object.
+     * @throws ApiException if something fails.
+     */
+    public Resources getResources(ResourceReference reference) throws ApiException {
+        return sendHttpRequestAuthorized(HttpMethod.GET, buildFullPath(reference), null);
+    }
+
+    /**
+     * Initialize the assets needed by the class.
+     */
+    private void initializeAssets() {
         Client sseClient = clientBuilder //
                 .sslContext(httpClient.getSslContextFactory().getSslContext()) //
                 .register(this) //
@@ -202,134 +252,12 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Close the connection.
-     */
-    @Override
-    public void close() {
-        closing = true;
-        online = false;
-        assetsClose();
-    }
-
-    private Resources doHTTP(HttpMethod method, String url, @Nullable Resource resource)
-            throws ApiException, IllegalAccessException {
-        Request request = httpClient.newRequest(url).method(method).timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
-                .header(HEADER_APPLICATION_KEY, applicationKey).accept(APPLICATION_JSON);
-
-        if (resource == null) {
-            logger.trace("doHTTP() HTTP {} {}", method, url);
-        } else {
-            String json = gson.toJson(resource);
-            request.content(new StringContentProvider(json), APPLICATION_JSON);
-            logger.trace("doHTTP() HTTP {} {} request:{}", method, url, json);
-        }
-
-        ContentResponse contentResponse;
-        try {
-            contentResponse = request.send();
-        } catch (InterruptedException | TimeoutException | ExecutionException e) {
-            throw new ApiException("HTTP processing error", e);
-        }
-        int httpStatus = contentResponse.getStatus();
-        String json = contentResponse.getContentAsString().trim();
-        logger.trace("doHTTP() HTTP status:{}, content:{}", httpStatus, json);
-
-        switch (httpStatus) {
-            case HttpStatus.UNAUTHORIZED_401:
-            case HttpStatus.FORBIDDEN_403:
-                throw new IllegalAccessException("HTTP request not authorized");
-            case HttpStatus.OK_200:
-                break;
-            default:
-                logger.debug("doHTTP() HTTP error:{}, content:{}", httpStatus, json);
-        }
-
-        try {
-            Resources resources = gson.fromJson(json, Resources.class);
-            if (resources == null) {
-                throw new ApiException("Missing Resources object");
-            }
-            if (logger.isDebugEnabled()) {
-                for (String errorResponse : resources.getErrors()) {
-                    logger.debug("doHTTP() error response:{}", errorResponse);
-                }
-            }
-            return resources;
-        } catch (JsonParseException e) {
-            throw new ApiException("Parsing error", e);
-        }
-    }
-
-    /**
-     * Execute an HTTP GET or PUT command. It sends the pay-load Resource object (if any) and returns the reply
-     * Resources object.
+     * Getter for the 'online' field.
      *
-     * @param method HTTP GET or PUT.
-     * @param url the URL of the server end point.
-     * @param resource the Resource object to send; may be null.
-     * @return the Resources object containing the response.
-     * @throws ApiException if any error occurs.
+     * @return the online state.
      */
-    private Resources doHTTPAuthorized(HttpMethod method, String url, @Nullable Resource resource) throws ApiException {
-        ApiException exception;
-        try {
-            Resources result = doHTTP(method, url, resource);
-            setOnline(true);
-            return result;
-        } catch (ApiException e) {
-            exception = e;
-        } catch (IllegalAccessException e) {
-            exception = new ApiException("Unexpected access error", e);
-        }
-        setOnline(false);
-        throw exception;
-    }
-
-    /**
-     * ClientRequestFilter filter to add the application key header to SSE requests.
-     */
-    @Override
-    public void filter(@Nullable ClientRequestContext requestContext) {
-        if (requestContext != null) {
-            requestContext.getHeaders().add(HEADER_APPLICATION_KEY, applicationKey);
-        }
-    }
-
-    /**
-     * Build a full path to a server end point, based on a Reference class instance. If the reference contains only a
-     * resource type, the method returns the end point url to get all resources of the given resource type. Whereas if
-     * it also contains an id, the method returns the end point url to get the specific single resource with that type
-     * and id.
-     *
-     * @param reference a Reference class instance.
-     * @return the full path.
-     */
-    private String getFullPath(ResourceReference reference) {
-        String url = baseUrl + reference.getType().name().toLowerCase();
-        String id = reference.getId();
-        return id == null || id.isEmpty() ? url : url + "/" + id;
-    }
-
-    /**
-     * Getter.
-     *
-     * @return online state.
-     */
-    public boolean getOnline() {
+    public boolean isOnline() {
         return online;
-    }
-
-    /**
-     * HTTP GET a Resources object, for a given resource Reference, from the server. The reference is a class comprising
-     * a resource type and an id. If the id is a specific resource id then only one resource is returned, whereas if it
-     * is null then all resources of the given resource type are returned.
-     *
-     * @param reference a Reference class instance.
-     * @return the resources object.
-     * @throws ApiException if something fails.
-     */
-    public Resources getResources(ResourceReference reference) throws ApiException {
-        return doHTTPAuthorized(HttpMethod.GET, getFullPath(reference), null);
     }
 
     /**
@@ -401,7 +329,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      */
     public void putResource(Resource resource) throws ApiException {
         ResourceReference reference = new ResourceReference().setId(resource.getId()).setType(resource.getType());
-        doHTTPAuthorized(HttpMethod.PUT, getFullPath(reference), resource);
+        sendHttpRequestAuthorized(HttpMethod.PUT, buildFullPath(reference), resource);
     }
 
     /**
@@ -421,7 +349,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
 
         Request httpRequest = httpClient.newRequest(registrationUrl).method(HttpMethod.POST)
                 .timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
-                .content(new StringContentProvider(json), APPLICATION_JSON);
+                .content(new StringContentProvider(json), CONTENT_APPLICATION_JSON);
 
         ContentResponse contentResponse;
         try {
@@ -458,32 +386,126 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Setter.
+     * Send an HTTP request to the Hue Bridge and process its response.
+     *
+     * @param method HTTP method (GET / PUT).
+     * @param url the end-point to connect to.
+     * @param resource a Resource (command) to send to the bridge.
+     * @return a Resource object containing either a list of Resources or a list of Errors.
+     * @throws ApiException if the communication failed, or an unexpected result occured.
+     * @throws IllegalAccessException if the request was refused as not authorized / forbidden.
+     */
+    private Resources sendHttpRequest(HttpMethod method, String url, @Nullable Resource resource)
+            throws ApiException, IllegalAccessException {
+        Request request = httpClient.newRequest(url).method(method).timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
+                .header(HEADER_APPLICATION_KEY, applicationKey).accept(CONTENT_APPLICATION_JSON);
+
+        if (resource == null) {
+            logger.trace("doHTTP() HTTP {} {}", method, url);
+        } else {
+            String json = gson.toJson(resource);
+            request.content(new StringContentProvider(json), CONTENT_APPLICATION_JSON);
+            logger.trace("doHTTP() HTTP {} {} request:{}", method, url, json);
+        }
+
+        ContentResponse contentResponse;
+        try {
+            contentResponse = request.send();
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            throw new ApiException("HTTP processing error", e);
+        }
+
+        int httpStatus = contentResponse.getStatus();
+        String json = contentResponse.getContentAsString().trim();
+        logger.trace("doHTTP() HTTP status:{}, content:{}", httpStatus, json);
+
+        switch (httpStatus) {
+            case HttpStatus.UNAUTHORIZED_401:
+            case HttpStatus.FORBIDDEN_403:
+                throw new IllegalAccessException("HTTP request not authorized");
+            case HttpStatus.OK_200:
+                break;
+            default:
+                logger.debug("doHTTP() HTTP error:{}, content:{}", httpStatus, json);
+        }
+
+        try {
+            Resources resources = gson.fromJson(json, Resources.class);
+            if (resources == null) {
+                throw new ApiException("Missing Resources object");
+            }
+            if (logger.isDebugEnabled()) {
+                for (String errorResponse : resources.getErrors()) {
+                    logger.debug("doHTTP() error response:{}", errorResponse);
+                }
+            }
+            return resources;
+        } catch (JsonParseException e) {
+            throw new ApiException("Parsing error", e);
+        }
+    }
+
+    /**
+     * Send an HTTP request to the Hue Bridge and process its response. It wraps the sendHttpRequest() method in a
+     * try/catch block, and transposes any IllegalAccessException into an ApiException. Such transposition should never
+     * be required in reality since by the time this method is called, the connection will surely already have been
+     * authorised. It also sets the 'online' field according to whether the call succeeded or failed.
+     *
+     * @param method HTTP method (GET / PUT).
+     * @param url the end-point to connect to.
+     * @param resource a Resource (command) to send to the bridge.
+     * @return a Resource object containing either a list of Resources or a list of Errors.
+     * @throws ApiException if the communication failed, or an unexpected result occured.
+     */
+    private Resources sendHttpRequestAuthorized(HttpMethod method, String url, @Nullable Resource resource)
+            throws ApiException {
+        ApiException exception;
+        try {
+            Resources result = sendHttpRequest(method, url, resource);
+            setOnline(true);
+            return result;
+        } catch (ApiException e) {
+            exception = e;
+        } catch (IllegalAccessException e) {
+            exception = new ApiException("Unexpected access error", e);
+        }
+        setOnline(false);
+        throw exception;
+    }
+
+    /**
+     * Sets the 'online' field. If the state is changing, it disposes the class assets. And if it is changing to online,
+     * it (re-)creates the class assets.
      *
      * @param online the new online state.
      */
     private void setOnline(boolean online) {
         if (online != this.online) {
-            assetsClose();
+            disposeAssets();
             if (online) {
-                assetsOpen();
+                initializeAssets();
             }
         }
         this.online = online;
     }
 
     /**
-     * Attempt to connect to server and execute a command that requires authentication.
+     * Test the Hue Bridge connection state by attempting to connect and trying to execute a basic command that requires
+     * authentication.
      *
      * @throws ApiException if it was not possible to connect.
      * @throws IllegalAccessException if it was possible to connect but not to authenticate.
      */
     public void testConnectionState() throws IllegalAccessException, ApiException {
-        doHTTP(HttpMethod.GET, getFullPath(BRIDGE), null);
+        sendHttpRequest(HttpMethod.GET, buildFullPath(BRIDGE), null);
     }
 
     /**
-     * HostnameVerifier to validate the host name for SSE requests.
+     * HostnameVerifier method implementation that validates the host name when opening SSE connections.
+     *
+     * @param hostName the host name to be verified.
+     * @param sslSession not used.
+     * @return true if the host name matches our own.
      */
     @Override
     public boolean verify(@Nullable String hostName, @Nullable SSLSession sslSession) {
