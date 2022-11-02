@@ -13,6 +13,12 @@
 package org.openhab.binding.hue.internal.connection;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -37,10 +43,12 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.openhab.binding.hue.internal.dto.CreateUserRequest;
 import org.openhab.binding.hue.internal.dto.SuccessResponse;
+import org.openhab.binding.hue.internal.dto.clip2.BridgeConfig;
 import org.openhab.binding.hue.internal.dto.clip2.Event;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
@@ -65,12 +73,62 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
 
     private static final String APPLICATION_ID = "org.openhab.binding.hue.clip2";
 
+    private static final String FORMAT_URL_CONFIG = "http://%s/api/0/config";
+
     private static final String FORMAT_URL_RESOURCE = "https://%s/clip/v2/resource/";
     private static final String FORMAT_URL_REGISTRATION = "http://%s/api";
     private static final String FORMAT_URL_EVENTS = "https://%s/eventstream/clip/v2";
+    private static final String HEADER_APPLICATION_KEY = "hue-application-key";
 
-    private static final String HUE_APPLICATION_KEY = "hue-application-key";
+    private static final String HEADER_ACCEPT = HttpHeader.ACCEPT.toString();
     private static final String APPLICATION_JSON = "application/json";
+    private static final int CLIP2_MINIMUM_VERSION = 1948086000;
+
+    private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
+
+    private static final Duration TIMEOUT = Duration.of(5, ChronoUnit.SECONDS);
+
+    /**
+     * Static method to attempt to connect to a Hue Bridge, get its software version, and check if it is high enough to
+     * support the CLIP 2 API.
+     *
+     * @param hostName the bridge IP address.
+     * @return returns without any exception if the bridge is online and it does support CLIP 2.
+     * @throws ApiException if was not possible to connect or another error was encountered.
+     * @throws IllegalArgumentException if the hostName is bad.
+     * @throws IllegalStateException if it was possible to connect but CLIP 2 is not supported.
+     */
+    public static void testSupportsClip2(String hostName)
+            throws ApiException, IllegalStateException, IllegalArgumentException {
+        HttpRequest request;
+        try {
+            request = HttpRequest.newBuilder().uri(new URI(String.format(FORMAT_URL_CONFIG, hostName)))
+                    .header(HEADER_ACCEPT, APPLICATION_JSON).timeout(TIMEOUT).build();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Bad host name");
+        }
+
+        HttpResponse<String> response;
+        try {
+            response = java.net.http.HttpClient.newHttpClient().send(request, BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            throw new ApiException("Communication error", e);
+        }
+
+        if (response.statusCode() == 200) {
+            BridgeConfig config = new Gson().fromJson(response.body(), BridgeConfig.class);
+            if (config != null) {
+                String swVersion = config.swversion;
+                if (swVersion != null) {
+                    if (Integer.parseInt(swVersion) < CLIP2_MINIMUM_VERSION) {
+                        throw new IllegalStateException("Hue Bridge does not support CLIP 2");
+                    }
+                    return;
+                }
+            }
+        }
+        throw new ApiException("Unexpected response");
+    }
 
     private final Logger logger = LoggerFactory.getLogger(Clip2Bridge.class);
 
@@ -81,14 +139,16 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     private final String baseUrl;
     private final String eventUrl;
     private final String registrationUrl;
-    private final Clip2BridgeHandler bridgeHandler;
-    private final Duration timeout = Duration.of(5, ChronoUnit.SECONDS);
-    private final Gson gson = new Gson();
 
+    private final Clip2BridgeHandler bridgeHandler;
+    private final Gson gson = new Gson();
     private String applicationKey;
+
     private boolean closing;
+    private boolean online;
 
     private @Nullable Client sseClient;
+
     private @Nullable SseEventSource eventSource;
 
     public Clip2Bridge(HttpClient httpClient, ClientBuilder clientBuilder, SseEventSourceFactory eventSourceFactory,
@@ -105,11 +165,9 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Close the SSE connection.
+     * Close the assets.
      */
-    @Override
-    public void close() {
-        closing = true;
+    private void assetsClose() {
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
             eventSource.close();
@@ -119,6 +177,86 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         if (sseClient != null) {
             sseClient.close();
             this.sseClient = null;
+        }
+        // TODO ?? force close client HTTP 1.1. connections (e.g. maybe send request with connection close header)
+    }
+
+    /**
+     * Open the assets needed by the class.
+     */
+    private void assetsOpen() {
+        Client sseClient = clientBuilder //
+                .sslContext(httpClient.getSslContextFactory().getSslContext()) //
+                .register(this) //
+                .hostnameVerifier(this) //
+                .readTimeout(0, TimeUnit.SECONDS) //
+                .build();
+        SseEventSource eventSource = eventSourceFactory //
+                .newBuilder(sseClient.target(eventUrl)) //
+                .reconnectingEvery(1, TimeUnit.SECONDS) //
+                .build();
+        eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
+        eventSource.open();
+        this.sseClient = sseClient;
+        this.eventSource = eventSource;
+    }
+
+    /**
+     * Close the connection.
+     */
+    @Override
+    public void close() {
+        closing = true;
+        online = false;
+        assetsClose();
+    }
+
+    private Resources doHTTP(HttpMethod method, String url, @Nullable Resource resource)
+            throws ApiException, IllegalAccessException {
+        Request request = httpClient.newRequest(url).method(method).timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
+                .header(HEADER_APPLICATION_KEY, applicationKey).accept(APPLICATION_JSON);
+
+        if (resource == null) {
+            logger.trace("doHTTP() HTTP {} {}", method, url);
+        } else {
+            String json = gson.toJson(resource);
+            request.content(new StringContentProvider(json), APPLICATION_JSON);
+            logger.trace("doHTTP() HTTP {} {} request:{}", method, url, json);
+        }
+
+        ContentResponse contentResponse;
+        try {
+            contentResponse = request.send();
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            throw new ApiException("HTTP processing error", e);
+        }
+        int httpStatus = contentResponse.getStatus();
+        String json = contentResponse.getContentAsString().trim();
+        logger.trace("doHTTP() HTTP status:{}, content:{}", httpStatus, json);
+
+        switch (httpStatus) {
+            case HttpStatus.UNAUTHORIZED_401:
+            case HttpStatus.FORBIDDEN_403:
+                throw new IllegalAccessException("HTTP request not authorized");
+            case HttpStatus.OK_200:
+                break;
+            default:
+                logger.debug("doHTTP() HTTP error:{}, content:{}", httpStatus, json);
+        }
+
+        try {
+            Resources resources = gson.fromJson(json, Resources.class);
+            if (resources == null) {
+                throw new ApiException("Missing Resources object");
+            }
+            if (logger.isDebugEnabled()) {
+                for (String errorResponse : resources.getErrors()) {
+                    logger.debug("doHTTP() error response:{}", errorResponse);
+                }
+            }
+            return resources;
+        } catch (JsonParseException e) {
+            throw new ApiException("Parsing error", e);
         }
     }
 
@@ -133,72 +271,18 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @throws ApiException if any error occurs.
      */
     private Resources doHTTPAuthorized(HttpMethod method, String url, @Nullable Resource resource) throws ApiException {
+        ApiException exception;
         try {
-            return doHTTP(method, url, resource);
+            Resources result = doHTTP(method, url, resource);
+            setOnline(true);
+            return result;
+        } catch (ApiException e) {
+            exception = e;
         } catch (IllegalAccessException e) {
-            // should not happen but re-throw just in case
-            throw new ApiException(exceptionMessageFrom(e));
+            exception = new ApiException("Unexpected access error", e);
         }
-    }
-
-    private Resources doHTTP(HttpMethod method, String url, @Nullable Resource resource)
-            throws ApiException, IllegalAccessException {
-        Request request = httpClient.newRequest(url).method(method).timeout(timeout.getSeconds(), TimeUnit.SECONDS)
-                .header(HUE_APPLICATION_KEY, applicationKey);
-
-        if (resource == null) {
-            logger.trace("doHTTP() HTTP {} {}", method, url);
-        } else {
-            String json = gson.toJson(resource);
-            request.content(new StringContentProvider(json), APPLICATION_JSON);
-            logger.trace("doHTTP() HTTP {} {} request:{}", method, url, json);
-        }
-
-        ContentResponse contentResponse;
-        try {
-            contentResponse = request.send();
-        } catch (InterruptedException | TimeoutException | ExecutionException e) {
-            throw new ApiException(exceptionMessageFrom(e));
-        }
-        int httpStatus = contentResponse.getStatus();
-        String json = contentResponse.getContentAsString().trim();
-        logger.trace("doHTTP() HTTP status:{}, content:{}", httpStatus, json);
-
-        switch (httpStatus) {
-            case HttpStatus.OK_200:
-                break;
-            case HttpStatus.UNAUTHORIZED_401:
-            case HttpStatus.FORBIDDEN_403:
-                throw new IllegalAccessException("HTTP request no authorized");
-            default:
-                throw new ApiException(
-                        String.format("HTTP error:%d, reason:%s", httpStatus, contentResponse.getReason()));
-        }
-
-        try {
-            Resources resources = gson.fromJson(json, Resources.class);
-            if (resources == null) {
-                throw new ApiException("resources object is null");
-            }
-            if (logger.isDebugEnabled()) {
-                for (String errorResponse : resources.getErrors()) {
-                    logger.debug("doHTTP() error response:{}", errorResponse);
-                }
-            }
-            return resources;
-        } catch (JsonParseException e) {
-            throw new ApiException(exceptionMessageFrom(e));
-        }
-    }
-
-    /**
-     * Build an exception message around another exception.
-     *
-     * @param e the exception.
-     * @return the message.
-     */
-    public static String exceptionMessageFrom(Throwable e) {
-        return String.format("error:%s, message:%s", e.getClass().getSimpleName(), e.getMessage()).toLowerCase();
+        setOnline(false);
+        throw exception;
     }
 
     /**
@@ -207,7 +291,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     @Override
     public void filter(@Nullable ClientRequestContext requestContext) {
         if (requestContext != null) {
-            requestContext.getHeaders().add(HUE_APPLICATION_KEY, applicationKey);
+            requestContext.getHeaders().add(HEADER_APPLICATION_KEY, applicationKey);
         }
     }
 
@@ -224,6 +308,15 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         String url = baseUrl + reference.getType().name().toLowerCase();
         String id = reference.getId();
         return id == null || id.isEmpty() ? url : url + "/" + id;
+    }
+
+    /**
+     * Getter.
+     *
+     * @return online state.
+     */
+    public boolean getOnline() {
+        return online;
     }
 
     /**
@@ -244,7 +337,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      *
      */
     private void onSseComplete() {
-        if (!closing) {
+        if (online && !closing) {
             bridgeHandler.onSseComplete();
         }
     }
@@ -255,7 +348,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @param e the exception that caused the error.
      */
     private void onSseError(Throwable e) {
-        if (!closing) {
+        if (online && !closing) {
             bridgeHandler.onSseError(e);
         }
     }
@@ -267,7 +360,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      * @param inboundSseEvent the incoming SSE event.
      */
     private void onSseEvent(InboundSseEvent inboundSseEvent) {
-        if (closing) {
+        if (!online || closing) {
             return;
         }
         if (inboundSseEvent.isEmpty()) {
@@ -282,7 +375,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         try {
             eventList = gson.fromJson(json, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
-            logger.debug("onSseEvent() {}", exceptionMessageFrom(e));
+            logger.debug("onSseEvent() {}", e.getMessage(), e);
             return;
         }
         if (eventList == null) {
@@ -301,28 +394,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Open the SSE connection.
-     */
-    public void openSse() {
-        close();
-        Client sseClient = clientBuilder //
-                .sslContext(httpClient.getSslContextFactory().getSslContext()) //
-                .register(this) //
-                .hostnameVerifier(this) //
-                .readTimeout(0, TimeUnit.SECONDS) //
-                .build();
-        SseEventSource eventSource = eventSourceFactory //
-                .newBuilder(sseClient.target(eventUrl)) //
-                .reconnectingEvery(1, TimeUnit.SECONDS) //
-                .build();
-        eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
-        eventSource.open();
-        this.sseClient = sseClient;
-        this.eventSource = eventSource;
-        closing = false;
-    }
-
-    /**
      * HTTP PUT a Resource object to the server.
      *
      * @param resource the resource to put.
@@ -331,14 +402,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     public void putResource(Resource resource) throws ApiException {
         ResourceReference reference = new ResourceReference().setId(resource.getId()).setType(resource.getType());
         doHTTPAuthorized(HttpMethod.PUT, getFullPath(reference), resource);
-    }
-
-    /**
-     * HostnameVerifier to validate the host name for SSE requests.
-     */
-    @Override
-    public boolean verify(@Nullable String hostName, @Nullable SSLSession sslSession) {
-        return this.hostName.equals(hostName);
     }
 
     /**
@@ -357,7 +420,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
                         : new CreateUserRequest(oldApplicationKey, APPLICATION_ID));
 
         Request httpRequest = httpClient.newRequest(registrationUrl).method(HttpMethod.POST)
-                .timeout(timeout.getSeconds(), TimeUnit.SECONDS)
+                .timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
                 .content(new StringContentProvider(json), APPLICATION_JSON);
 
         ContentResponse contentResponse;
@@ -365,7 +428,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             logger.trace("registerApplicationKey() POST {}, request:{}", registrationUrl, json);
             contentResponse = httpRequest.send();
         } catch (InterruptedException | TimeoutException | ExecutionException e) {
-            throw new ApiException(exceptionMessageFrom(e));
+            throw new ApiException("HTTP procesiing error", e);
         }
 
         int httpStatus = contentResponse.getStatus();
@@ -373,7 +436,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         logger.trace("registerApplicationKey() HTTP status:{}, content:{}", httpStatus, json);
 
         if (httpStatus != HttpStatus.OK_200) {
-            throw new ApiException(String.format("HTTP error:%d, reason:%s", httpStatus, contentResponse.getReason()));
+            throw new ApiException("HTTP bad response");
         }
 
         try {
@@ -384,7 +447,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
                 if (responseSuccess != null) {
                     String newApplicationKey = (String) responseSuccess.get("username");
                     if (newApplicationKey != null) {
-                        applicationKey = newApplicationKey;
                         return newApplicationKey;
                     }
                 }
@@ -396,13 +458,35 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Attempt connection to server to test authentication.
+     * Setter.
      *
-     * @throws IllegalAccessException if HTTP 401 or 403 error occurs.
-     * @throws ApiException if any other error occurs.
-     *
+     * @param online the new online state.
      */
-    public void checkConnection() throws IllegalAccessException, ApiException {
-        doHTTP(HttpMethod.GET, getFullPath(new ResourceReference().setType(ResourceType.BRIDGE)), null);
+    private void setOnline(boolean online) {
+        if (online != this.online) {
+            assetsClose();
+            if (online) {
+                assetsOpen();
+            }
+        }
+        this.online = online;
+    }
+
+    /**
+     * Attempt to connect to server and execute a command that requires authentication.
+     *
+     * @throws ApiException if it was not possible to connect.
+     * @throws IllegalAccessException if it was possible to connect but not to authenticate.
+     */
+    public void testConnectionState() throws IllegalAccessException, ApiException {
+        doHTTP(HttpMethod.GET, getFullPath(BRIDGE), null);
+    }
+
+    /**
+     * HostnameVerifier to validate the host name for SSE requests.
+     */
+    @Override
+    public boolean verify(@Nullable String hostName, @Nullable SSLSession sslSession) {
+        return this.hostName.equals(hostName);
     }
 }

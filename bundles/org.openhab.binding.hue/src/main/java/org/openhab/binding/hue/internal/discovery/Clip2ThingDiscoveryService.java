@@ -25,6 +25,8 @@ import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
 import org.openhab.binding.hue.internal.dto.clip2.Resources;
 import org.openhab.binding.hue.internal.dto.clip2.enums.Archetype;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
+import org.openhab.binding.hue.internal.exceptions.ApiException;
+import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
 import org.openhab.binding.hue.internal.handler.Clip2BridgeHandler;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
@@ -92,10 +94,9 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
         if (bridgeHandler.getThing().getStatus() != ThingStatus.ONLINE) {
             return;
         }
-
         ThingUID bridgeUID = bridgeHandler.getThing().getUID();
-        Resources resources = bridgeHandler.getResources(new ResourceReference().setType(ResourceType.DEVICE));
-        if (resources != null) {
+        try {
+            Resources resources = bridgeHandler.getResources(new ResourceReference().setType(ResourceType.DEVICE));
             for (Resource resource : resources.getResources()) {
                 MetaData metaData = resource.getMetaData();
                 if (metaData != null) {
@@ -117,6 +118,8 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService {
                     thingDiscovered(thing);
                 }
             }
+        } catch (ApiException | AssetNotLoadedException e) {
+            // bridge is offline or in a bad state
         }
     }
 }

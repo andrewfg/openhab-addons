@@ -12,9 +12,7 @@
  */
 package org.openhab.binding.hue.internal.dto.clip2.enums;
 
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -59,12 +57,6 @@ public enum ResourceType {
     ERROR;
 
     public static final Set<ResourceType> SSE_TYPES = EnumSet.of(UPDATE, ADD, DELETE, ERROR);
-
-    /*
-     * NB: the order of the entries in this list is essential for proper initialisation of things!
-     */
-    public static final List<ResourceType> NOTIFY_TYPES = Arrays.asList(DEVICE, LIGHT, BUTTON, LIGHT_LEVEL, MOTION,
-            TEMPERATURE, DEVICE_POWER, ZIGBEE_CONNECTIVITY);
 
     public static ResourceType of(@Nullable String value) {
         if (value != null) {

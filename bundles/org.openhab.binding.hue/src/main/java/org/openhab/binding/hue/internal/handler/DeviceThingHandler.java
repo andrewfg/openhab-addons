@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.config.ResourceConfig;
 import org.openhab.binding.hue.internal.dto.clip2.ColorTemperature2;
@@ -32,7 +31,8 @@ import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
 import org.openhab.binding.hue.internal.dto.clip2.Resources;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
-import org.openhab.core.library.types.OnOffType;
+import org.openhab.binding.hue.internal.exceptions.ApiException;
+import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -58,13 +58,15 @@ public class DeviceThingHandler extends BaseThingHandler {
 
     private final Logger logger = LoggerFactory.getLogger(DeviceThingHandler.class);
 
-    private Resource thisResource = new Resource(null);
+    private Resource thisResource = new Resource(ResourceType.DEVICE);
     private final Map<String, Resource> contributorsCache = new ConcurrentHashMap<>();
     private final Map<ResourceType, String> commandResourceIds = new ConcurrentHashMap<>();
     private final Map<String, Integer> controlIds = new ConcurrentHashMap<>();
     private final Set<String> supportedChannelIds = ConcurrentHashMap.newKeySet(16); // 16 = thing max channel count
 
     private boolean disposing;
+    private boolean updatePropertiesDone;
+    private boolean updateAllDone;
 
     public DeviceThingHandler(Thing thing) {
         super(thing);
@@ -76,24 +78,11 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
-     * up the final list of channels in the thing.
-     */
-    private void getAllResources() {
-        if (!disposing) {
-            getPrimaryResource();
-            setLookups();
-            getContributorsCache();
-            setChannels();
-        }
-    }
-
-    /**
      * Get the bridge handler.
      *
-     * @return the bridge handler or null if the bridge is bad.
+     * @throws AssetNotLoadedException if the handler does not exist.
      */
-    private @Nullable Clip2BridgeHandler getBridgeHandler() {
+    private Clip2BridgeHandler getBridgeHandler() throws AssetNotLoadedException {
         Bridge bridge = getBridge();
         if (bridge != null) {
             BridgeHandler handler = bridge.getHandler();
@@ -101,70 +90,12 @@ public class DeviceThingHandler extends BaseThingHandler {
                 return (Clip2BridgeHandler) handler;
             }
         }
-        logger.debug("getBridgeHandler() bridge handler missing");
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
-        return null;
-    }
-
-    /**
-     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
-     * thing state.
-     */
-    private void getContributorsCache() {
-        if (!disposing) {
-            logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
-            ResourceReference reference = new ResourceReference();
-            for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
-                getResources(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
-            }
-        }
-    }
-
-    /**
-     * Execute a series of HTTP GET commands for device or scene resource types to fetch the primary resource data for
-     * the thing state.
-     */
-    private void getPrimaryResource() {
-        if (!disposing) {
-            logger.debug("getPrimaryResource() called");
-            ResourceReference reference = new ResourceReference().setId(thisResource.getId());
-            for (ResourceType resourceType : Set.of(ResourceType.DEVICE, ResourceType.SCENE)) {
-                getResources(reference.setType(resourceType));
-            }
-        }
-    }
-
-    /**
-     * Execute an HTTP GET command to fetch the resources data for referenced resource.
-     *
-     * @param reference to the required resource.
-     */
-    private synchronized void getResources(ResourceReference reference) {
-        if (!disposing) {
-            Clip2BridgeHandler handler = getBridgeHandler();
-            if (handler == null) {
-                return;
-            }
-            logger.trace("getResources() called");
-            Resources resources = handler.getResources(reference);
-            if (resources != null) {
-                List<Resource> resourceList = resources.getResources();
-                for (Resource resource : resourceList) {
-                    notifyResource(resource);
-                }
-            }
-        }
+        throw new AssetNotLoadedException("Bridge handler missing");
     }
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
-            scheduler.submit(this::getContributorsCache);
-            return;
-        }
-
-        Clip2BridgeHandler handler = getBridgeHandler();
-        if (handler == null) {
             return;
         }
 
@@ -209,7 +140,11 @@ public class DeviceThingHandler extends BaseThingHandler {
 
         String resourceId = commandResourceIds.get(newResource.getType());
         if (resourceId != null) {
-            handler.putResource(newResource.setId(resourceId));
+            try {
+                getBridgeHandler().putResource(newResource.setId(resourceId));
+            } catch (ApiException | AssetNotLoadedException e) {
+                logger.warn("handleCommand() error {}", e.getMessage(), e);
+            }
         }
     }
 
@@ -232,8 +167,8 @@ public class DeviceThingHandler extends BaseThingHandler {
         contributorsCache.clear();
         controlIds.clear();
         disposing = false;
-
-        scheduler.submit(this::getAllResources);
+        updateAllDone = false;
+        updatePropertiesDone = false;
     }
 
     /**
@@ -275,156 +210,252 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Update the channel state depending on a new resource received from the bridge.
+     * Update the channel state depending on a new contributor resource fetched internally.
+     *
+     * @param newResource the resource containing the new state.
+     */
+    private synchronized void notifyContributorResource(Resource newResource) {
+        if (!disposing) {
+            Resource contributorResource = contributorsCache.get(newResource.getId());
+            if (contributorResource != null) {
+                logger.trace("notifyResource()() updating channels");
+                if (updateChannels(newResource)) {
+                    contributorsCache.put(contributorResource.getId(), newResource);
+                }
+            }
+        }
+    }
+
+    /**
+     * Update the channel state depending on a new resource sent from the bridge.
      *
      * @param newResource the resource containing the new state.
      */
     public synchronized void notifyResource(Resource newResource) {
-        if (disposing) {
-            return;
-        }
-
-        if ((thing.getStatus() != ThingStatus.ONLINE) && thisResource.getId().equals(newResource.getId())
-                && (newResource.getType() != thisResource.getType())) {
-            //
-            logger.debug("notify() going online");
-
-            // update this resource current state
-            thisResource = newResource;
-
-            if (thisResource.getType() == ResourceType.SCENE) {
-                updateState(HueBindingConstants.CHANNEL_SCENE, OnOffType.OFF, true);
-            }
-
-            // actualise the properties
-            Map<String, String> properties = new HashMap<>();
-
-            // resource data
-            properties.put(HueBindingConstants.PROPERTY_RESOURCE_ID, thisResource.getId());
-            properties.put(HueBindingConstants.PROPERTY_RESOURCE_TYPE, thisResource.getType().toString());
-            properties.put(HueBindingConstants.PROPERTY_RESOURCE_NAME, thisResource.getName());
-
-            // metadata
-            MetaData metaData = thisResource.getMetaData();
-            if (metaData != null) {
-                properties.put(HueBindingConstants.PROPERTY_RESOURCE_ARCHETYPE, metaData.getArchetype().toString());
-            }
-
-            // product data
-            ProductData productData = thisResource.getProductData();
-            if (productData != null) {
-                // standard properties
-                properties.put(Thing.PROPERTY_MODEL_ID, productData.getModelId());
-                properties.put(Thing.PROPERTY_VENDOR, productData.getManufacturerName());
-                properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion().toString());
-                String hardwarePlatformType = productData.getHardwarePlatformType();
-                if (hardwarePlatformType != null) {
-                    properties.put(Thing.PROPERTY_HARDWARE_VERSION, hardwarePlatformType);
+        if (!disposing) {
+            if (thisResource.getId().equals(newResource.getId())) {
+                logger.trace("notifyResource()() updating primary resource");
+                if (!updatePropertiesDone) {
+                    updateProperties(newResource);
                 }
-
-                // hue specific properties
-                properties.put(HueBindingConstants.PROPERTY_PRODUCT_NAME, productData.getProductName());
-                properties.put(HueBindingConstants.PROPERTY_PRODUCT_ARCHETYPE,
-                        productData.getProductArchetype().toString());
-                properties.put(HueBindingConstants.PROPERTY_PRODUCT_CERTIFIED, productData.getCertified().toString());
+                updateAllDone = false;
+                scheduler.submit(() -> updateAll());
             }
-            thing.setProperties(properties);
-
-            updateStatus(ThingStatus.ONLINE);
-            return;
+            if (updateAllDone) {
+                notifyContributorResource(newResource);
+            }
         }
+    }
 
-        Resource contributorResource = contributorsCache.get(newResource.getId());
-        if (contributorResource != null) {
-            //
-            logger.trace("notify() updating channels");
-
-            boolean fullUpdate = newResource.hasFullState();
-            switch (newResource.getType()) {
-                case BUTTON:
-                    supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
-                    newResource.putControlId(controlIds);
-                    updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT,
-                            newResource.getButtonEventState(controlIds), fullUpdate);
-                    break;
-
-                case DEVICE_POWER:
-                    updateState(HueBindingConstants.CHANNEL_BATTERY_LEVEL, newResource.getBatteryLevelState(),
-                            fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_BATTERY_LOW, newResource.getBatteryLowState(), fullUpdate);
-                    break;
-
-                case LIGHT:
-                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE,
-                            newResource.getColorTemperaturePercentState(mirekSchemaFrom(newResource)), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS,
-                            newResource.getColorTemperatureKelvinState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_COLOR, newResource.getColorState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_BRIGHTNESS, newResource.getBrightnessState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_SWITCH, newResource.getSwitch(), fullUpdate);
-                    break;
-
-                case LIGHT_LEVEL:
-                    updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL, newResource.getLightLevelState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL_ENABLED, newResource.getEnabledState(),
-                            fullUpdate);
-                    break;
-
-                case MOTION:
-                    updateState(HueBindingConstants.CHANNEL_MOTION, newResource.getMotionState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_MOTION_ENABLED, newResource.getEnabledState(), fullUpdate);
-                    break;
-
-                case TEMPERATURE:
-                    updateState(HueBindingConstants.CHANNEL_TEMPERATURE, newResource.getTemperatureState(), fullUpdate);
-                    updateState(HueBindingConstants.CHANNEL_TEMPERATURE_ENABLED, newResource.getEnabledState(),
-                            fullUpdate);
-                    break;
-
-                case ZIGBEE_CONNECTIVITY:
-                    updateState(HueBindingConstants.CHANNEL_ZIGBEE_STATUS, newResource.getZigBeeState(), fullUpdate);
-                    break;
-
-                default:
-                    return; // <= nota bene !!
+    /**
+     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
+     * up the final list of channels in the thing.
+     */
+    private void updateAll() {
+        logger.trace("updateAll() called");
+        if (!disposing && !updateAllDone) {
+            try {
+                updatePrimaryResource();
+                updateLookups();
+                updateContributorsCache();
+                updateChannelList();
+                updateAllDone = true;
+                updateStatus(ThingStatus.ONLINE);
+            } catch (ApiException e) {
+                logger.debug("updateAll() {}", e.getMessage(), e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            } catch (AssetNotLoadedException e) {
+                logger.debug("updateAll() {}", e.getMessage(), e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.clip2.conf-error-assets-not-loaded");
             }
-
-            // update contributor resource current state
-            contributorsCache.put(contributorResource.getId(), newResource);
         }
     }
 
     /**
      * Set the active list of channels by removing any that had initially been created by the thing XML declaration, but
-     * which in fact did not have data returned from the bridge (i.e. channels which are not in the supportedChannelIds
-     * set).
+     * which in fact did not have data returned from the bridge i.e. channels which are not in the supportedChannelIds
+     * set.
      */
-    private void setChannels() {
+    private void updateChannelList() {
+        logger.trace("updateChannelList() called");
         if (!disposing) {
-            for (Channel channel : thing.getChannels()) {
-                String channelId = channel.getUID().getId();
-                if (!supportedChannelIds.contains(channelId)) {
-                    logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
-                    updateThing(editThing().withoutChannels(channel).build());
+            if (!supportedChannelIds.isEmpty()) {
+                for (Channel channel : thing.getChannels()) {
+                    String channelId = channel.getUID().getId();
+                    if (!supportedChannelIds.contains(channelId)) {
+                        logger.debug("setChannels() unused channel '{}' removed from {}", channelId, thing.getUID());
+                        updateThing(editThing().withoutChannels(channel).build());
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Update the state of the existing channels.
+     *
+     * @param resource the Resource containing the new channel state.
+     * @return true if the channel was found and updated.
+     */
+    private boolean updateChannels(Resource resource) {
+        logger.trace("updateChannels() called");
+        boolean fullUpdate = resource.hasFullState();
+        switch (resource.getType()) {
+            case BUTTON:
+                supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
+                resource.putControlId(controlIds);
+                updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT, resource.getButtonEventState(controlIds),
+                        fullUpdate);
+                break;
+
+            case DEVICE_POWER:
+                updateState(HueBindingConstants.CHANNEL_BATTERY_LEVEL, resource.getBatteryLevelState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_BATTERY_LOW, resource.getBatteryLowState(), fullUpdate);
+                break;
+
+            case LIGHT:
+                updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE,
+                        resource.getColorTemperaturePercentState(mirekSchemaFrom(resource)), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_COLORTEMPERATURE_ABS, resource.getColorTemperatureKelvinState(),
+                        fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_COLOR, resource.getColorState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_BRIGHTNESS, resource.getBrightnessState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_SWITCH, resource.getSwitch(), fullUpdate);
+                break;
+
+            case LIGHT_LEVEL:
+                updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL, resource.getLightLevelState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_LIGHT_LEVEL_ENABLED, resource.getEnabledState(), fullUpdate);
+                break;
+
+            case MOTION:
+                updateState(HueBindingConstants.CHANNEL_MOTION, resource.getMotionState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_MOTION_ENABLED, resource.getEnabledState(), fullUpdate);
+                break;
+
+            case TEMPERATURE:
+                updateState(HueBindingConstants.CHANNEL_TEMPERATURE, resource.getTemperatureState(), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_TEMPERATURE_ENABLED, resource.getEnabledState(), fullUpdate);
+                break;
+
+            case ZIGBEE_CONNECTIVITY:
+                updateState(HueBindingConstants.CHANNEL_ZIGBEE_STATUS, resource.getZigBeeState(), fullUpdate);
+                break;
+
+            default:
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * Execute an HTTP GET command to fetch the resources data for referenced resource.
+     *
+     * @param reference to the required resource.
+     * @throws ApiException if a communication error occurred.
+     * @throws AssetNotLoadedException if one of the assets is not loaded.
+     */
+    private synchronized void updateContributorResource(ResourceReference reference)
+            throws ApiException, AssetNotLoadedException {
+        logger.trace("updateContributorResource() called");
+        Resources resources = getBridgeHandler().getResources(reference);
+        List<Resource> resourceList = resources.getResources();
+        for (Resource resource : resourceList) {
+            notifyContributorResource(resource);
+        }
+    }
+
+    /**
+     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
+     * thing state.
+     *
+     * @throws ApiException if a communication error occurred.
+     * @throws AssetNotLoadedException if one of the assets is not loaded.
+     */
+    private void updateContributorsCache() throws ApiException, AssetNotLoadedException {
+        logger.debug("getContributorsCache() called for {} contributors", contributorsCache.size());
+        ResourceReference reference = new ResourceReference();
+        for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
+            updateContributorResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
         }
     }
 
     /**
      * Initialize the lookup maps of resources that contribute to the thing state.
      */
-    private void setLookups() {
+    private void updateLookups() {
         if (!disposing) {
             List<ResourceReference> references = thisResource.getServiceReferences();
+
             contributorsCache.clear();
-            commandResourceIds.clear();
             contributorsCache.putAll(references.stream()
                     .collect(Collectors.toMap(ResourceReference::getId, r -> new Resource(r.getType()))));
-            commandResourceIds.putAll( // use a 'mergeFunction' to prevent duplicates
-                    references.stream().collect(
-                            Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
+
+            commandResourceIds.clear();
+            commandResourceIds.putAll(references.stream() // use a 'mergeFunction' to prevent duplicates
+                    .collect(Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
         }
+    }
+
+    /**
+     * Execute HTTP GET command to fetch the primary resource data for the thing state.
+     *
+     * @throws ApiException if a communication error occurred.
+     * @throws AssetNotLoadedException if one of the assets is not loaded.
+     */
+    private void updatePrimaryResource() throws ApiException, AssetNotLoadedException {
+        logger.debug("getPrimaryResource() called");
+        updateContributorResource(new ResourceReference().setId(thisResource.getId()).setType(ResourceType.DEVICE));
+    }
+
+    /**
+     * Update the primary device properties.
+     *
+     * @param resource a Resource object containing the property data.
+     */
+    private void updateProperties(Resource resource) {
+        logger.trace("updateProperties() called");
+
+        // update this resource current state
+        thisResource = resource;
+
+        // actualise the properties
+        Map<String, String> properties = new HashMap<>();
+
+        // resource data
+        properties.put(HueBindingConstants.PROPERTY_RESOURCE_ID, thisResource.getId());
+        properties.put(HueBindingConstants.PROPERTY_RESOURCE_TYPE, thisResource.getType().toString());
+        properties.put(HueBindingConstants.PROPERTY_RESOURCE_NAME, thisResource.getName());
+
+        // metadata
+        MetaData metaData = thisResource.getMetaData();
+        if (metaData != null) {
+            properties.put(HueBindingConstants.PROPERTY_RESOURCE_ARCHETYPE, metaData.getArchetype().toString());
+        }
+
+        // product data
+        ProductData productData = thisResource.getProductData();
+        if (productData != null) {
+            // standard properties
+            properties.put(Thing.PROPERTY_MODEL_ID, productData.getModelId());
+            properties.put(Thing.PROPERTY_VENDOR, productData.getManufacturerName());
+            properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion().toString());
+            String hardwarePlatformType = productData.getHardwarePlatformType();
+            if (hardwarePlatformType != null) {
+                properties.put(Thing.PROPERTY_HARDWARE_VERSION, hardwarePlatformType);
+            }
+
+            // hue specific properties
+            properties.put(HueBindingConstants.PROPERTY_PRODUCT_NAME, productData.getProductName());
+            properties.put(HueBindingConstants.PROPERTY_PRODUCT_ARCHETYPE,
+                    productData.getProductArchetype().toString());
+            properties.put(HueBindingConstants.PROPERTY_PRODUCT_CERTIFIED, productData.getCertified().toString());
+        }
+
+        thing.setProperties(properties);
+        updatePropertiesDone = true;
     }
 
     /**
