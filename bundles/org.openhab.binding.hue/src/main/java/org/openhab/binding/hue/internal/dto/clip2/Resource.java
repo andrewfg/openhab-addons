@@ -633,4 +633,9 @@ public class Resource {
         }
         return getType().toString();
     }
+
+    @Override
+    public String toString() {
+        return String.format("type:%s, id:%s", getType().name().toLowerCase(), getId());
+    }
 }
