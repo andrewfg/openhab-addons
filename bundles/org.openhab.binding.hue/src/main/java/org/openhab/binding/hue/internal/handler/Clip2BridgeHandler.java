@@ -17,7 +17,6 @@ import static org.openhab.binding.hue.internal.HueBindingConstants.CHANNEL_SCENE
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -74,15 +73,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
 
-    public static final Set<ResourceReference> NOTIFICATION_REFERENCES = Set.of( //
-            ResourceType.LIGHT, //
-            ResourceType.BUTTON, //
-            ResourceType.LIGHT_LEVEL, //
-            ResourceType.MOTION, //
-            ResourceType.TEMPERATURE, //
-            ResourceType.DEVICE_POWER, //
-            ResourceType.ZIGBEE_CONNECTIVITY) //
-            .stream().map(type -> new ResourceReference().setType(type)).collect(Collectors.toSet());
     private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClient httpClient;
@@ -287,7 +277,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     public Resources getResources(ResourceReference reference) throws ApiException, AssetNotLoadedException {
-        logger.debug("getResources() called");
+        logger.debug("getResources() {}", reference);
         checkAssetsLoaded();
         return getClip2Bridge().getResources(reference);
     }
@@ -386,7 +376,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param resource the given resource.
      */
     private void notifyResource(Resource resource) {
-        logger.debug("notifyResource() called");
+        logger.debug("notifyResource() {}", resource);
         for (Thing thing : getThing().getThings()) {
             ThingHandler handler = thing.getHandler();
             if (handler instanceof DeviceThingHandler) {
@@ -436,7 +426,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     public void putResource(Resource resource) throws ApiException, AssetNotLoadedException {
-        logger.debug("putResource() called");
+        logger.debug("putResource() {}", resource);
         checkAssetsLoaded();
         getClip2Bridge().putResource(resource);
     }
@@ -470,7 +460,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             checkAssetsLoaded();
             updateProperties();
             updateDevices();
-            updateOtherResources();
             updateStatus(ThingStatus.ONLINE);
         } catch (ApiException e) {
             logger.debug("refreshThingState() {}", e.getMessage(), e);
@@ -493,21 +482,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         logger.debug("updateDevices() called");
         for (Resource resource : getClip2Bridge().getResources(DEVICE).getResources()) {
             notifyResource(resource);
-        }
-    }
-
-    /**
-     * Get the data for all other necessary resources in the bridge, and notify all child thing handlers.
-     *
-     * @throws ApiException if a communication error occurred.
-     * @throws AssetNotLoadedException if one of the assets is not loaded.
-     */
-    private void updateOtherResources() throws ApiException, AssetNotLoadedException {
-        logger.debug("updateOtherResources() called");
-        for (ResourceReference resourceReference : NOTIFICATION_REFERENCES) {
-            for (Resource resource : getClip2Bridge().getResources(resourceReference).getResources()) {
-                notifyResource(resource);
-            }
         }
     }
 
