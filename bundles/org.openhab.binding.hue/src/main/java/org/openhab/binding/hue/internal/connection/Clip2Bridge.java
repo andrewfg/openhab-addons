@@ -243,9 +243,8 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
                 .build();
         SseEventSource eventSource = eventSourceFactory //
                 .newBuilder(sseClient.target(eventUrl)) //
-                .reconnectingEvery(1, TimeUnit.SECONDS) //
                 .build();
-        eventSource.register(this::onSseEvent, this::onSseError, this::onSseComplete);
+        eventSource.register(this::notifySseEvent, this::notifySseError);
         eventSource.open();
         this.sseClient = sseClient;
         this.eventSource = eventSource;
@@ -261,23 +260,17 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Log when an SSE session has completed.
-     *
-     */
-    private void onSseComplete() {
-        if (online && !closing) {
-            bridgeHandler.onSseComplete();
-        }
-    }
-
-    /**
-     * Log SSE errors.
+     * Respond to SSE errors.
      *
      * @param e the exception that caused the error.
      */
-    private void onSseError(Throwable e) {
+    private void notifySseError(Throwable e) {
         if (online && !closing) {
-            bridgeHandler.onSseError(e);
+            bridgeHandler.notifySseError(e);
+            SseEventSource eventSource = this.eventSource;
+            if (eventSource != null && !eventSource.isOpen()) {
+                eventSource.open();
+            }
         }
     }
 
@@ -287,7 +280,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      *
      * @param inboundSseEvent the incoming SSE event.
      */
-    private void onSseEvent(InboundSseEvent inboundSseEvent) {
+    private void notifySseEvent(InboundSseEvent inboundSseEvent) {
         if (!online || closing) {
             return;
         }
@@ -298,16 +291,16 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         if (json == null) {
             return;
         }
-        logger.trace("onSseEvent() data:{}", json);
+        logger.trace("notifySseEvent() data:{}", json);
         List<Event> eventList;
         try {
             eventList = gson.fromJson(json, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
-            logger.debug("onSseEvent() {}", e.getMessage(), e);
+            logger.debug("notifySseEvent() {}", e.getMessage(), e);
             return;
         }
         if (eventList == null) {
-            logger.debug("onSseEvent() event list is null");
+            logger.debug("notifySseEvent() event list is null");
             return;
         }
         List<Resource> resourceList = new ArrayList<>();
@@ -315,10 +308,10 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             resourceList.addAll(event.getData());
         }
         if (resourceList.isEmpty()) {
-            logger.debug("onSseEvent() resource list is empty");
+            logger.debug("notifySseEvent() resource list is empty");
             return;
         }
-        bridgeHandler.onSseEvent(resourceList);
+        bridgeHandler.notifySseEvent(resourceList);
     }
 
     /**
@@ -397,36 +390,37 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      */
     private Resources sendHttpRequest(HttpMethod method, String url, @Nullable Resource resource)
             throws ApiException, IllegalAccessException {
-        Request request = httpClient.newRequest(url).method(method).timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
+        //
+        Request request = httpClient //
+                .newRequest(url) //
+                .method(method) //
+                .timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS) //
                 .header(HEADER_APPLICATION_KEY, applicationKey).accept(CONTENT_APPLICATION_JSON);
 
         if (resource == null) {
-            logger.trace("doHTTP() HTTP {} {}", method, url);
+            logger.trace("{} {} {}", method, url, request.getVersion());
         } else {
             String json = gson.toJson(resource);
             request.content(new StringContentProvider(json), CONTENT_APPLICATION_JSON);
-            logger.trace("doHTTP() HTTP {} {} request:{}", method, url, json);
+            logger.trace("{} {} {}, body:{}", method, url, request.getVersion(), json);
         }
 
-        ContentResponse contentResponse;
+        ContentResponse response;
         try {
-            contentResponse = request.send();
+            response = request.send();
         } catch (InterruptedException | TimeoutException | ExecutionException e) {
             throw new ApiException("HTTP processing error", e);
         }
 
-        int httpStatus = contentResponse.getStatus();
-        String json = contentResponse.getContentAsString().trim();
-        logger.trace("doHTTP() HTTP status:{}, content:{}", httpStatus, json);
+        String json = response.getContentAsString().trim();
+        logger.trace("{} {} {}, body:{}", response.getVersion(), response.getStatus(), response.getReason(), json);
 
-        switch (httpStatus) {
+        switch (response.getStatus()) {
             case HttpStatus.UNAUTHORIZED_401:
             case HttpStatus.FORBIDDEN_403:
                 throw new IllegalAccessException("HTTP request not authorized");
             case HttpStatus.OK_200:
-                break;
             default:
-                logger.debug("doHTTP() HTTP error:{}, content:{}", httpStatus, json);
         }
 
         try {
