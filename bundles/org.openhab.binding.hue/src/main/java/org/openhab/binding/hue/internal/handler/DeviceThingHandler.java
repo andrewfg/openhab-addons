@@ -74,6 +74,7 @@ public class DeviceThingHandler extends BaseThingHandler {
 
     @Override
     public void dispose() {
+        logger.debug("dispose() called");
         disposing = true;
     }
 
@@ -91,6 +92,15 @@ public class DeviceThingHandler extends BaseThingHandler {
             }
         }
         throw new AssetNotLoadedException("Bridge handler missing");
+    }
+
+    /**
+     * Return a ResourceReference to this handler's resourrce.
+     *
+     * @return a ResourceReference instance.
+     */
+    public ResourceReference getResourceReference() {
+        return new ResourceReference().setId(thisResource.getId()).setType(thisResource.getType());
     }
 
     @Override
@@ -150,6 +160,7 @@ public class DeviceThingHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
+        logger.debug("initialize() called");
         ResourceConfig config = getConfigAs(ResourceConfig.class);
 
         String resourceId = config.resourceId;
@@ -256,9 +267,9 @@ public class DeviceThingHandler extends BaseThingHandler {
         if (!disposing && !updateAllDone) {
             logger.debug("updateAll() called");
             try {
-                updatePrimaryResource();
+                updatePrimary();
                 updateLookups();
-                updateContributorsCache();
+                updateContributors();
                 updateChannelList();
                 updateAllDone = true;
                 updateStatus(ThingStatus.ONLINE);
@@ -352,34 +363,17 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Execute an HTTP GET command to fetch the resources data for referenced resource.
-     *
-     * @param reference to the required resource.
-     * @throws ApiException if a communication error occurred.
-     * @throws AssetNotLoadedException if one of the assets is not loaded.
-     */
-    private synchronized void updateContributorResource(ResourceReference reference)
-            throws ApiException, AssetNotLoadedException {
-        logger.debug("updateContributorResource() {}", reference);
-        Resources resources = getBridgeHandler().getResources(reference);
-        List<Resource> resourceList = resources.getResources();
-        for (Resource resource : resourceList) {
-            notifyInternal(resource);
-        }
-    }
-
-    /**
      * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
      * thing state.
      *
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
-    private void updateContributorsCache() throws ApiException, AssetNotLoadedException {
-        logger.debug("updateContributorsCache() called for {} contributors", contributorsCache.size());
+    private void updateContributors() throws ApiException, AssetNotLoadedException {
+        logger.debug("updateContributors() called for {} contributors", contributorsCache.size());
         ResourceReference reference = new ResourceReference();
         for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
-            updateContributorResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
+            updateResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
         }
     }
 
@@ -405,9 +399,9 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
-    private void updatePrimaryResource() throws ApiException, AssetNotLoadedException {
-        logger.debug("getPrimaryResource() called");
-        updateContributorResource(new ResourceReference().setId(thisResource.getId()).setType(ResourceType.DEVICE));
+    private void updatePrimary() throws ApiException, AssetNotLoadedException {
+        logger.debug("updatePrimary() called");
+        updateResource(new ResourceReference().setId(thisResource.getId()).setType(ResourceType.DEVICE));
     }
 
     /**
@@ -453,6 +447,22 @@ public class DeviceThingHandler extends BaseThingHandler {
 
         thing.setProperties(properties);
         updatePropertiesDone = true;
+    }
+
+    /**
+     * Execute an HTTP GET command to fetch the resources data for referenced resource.
+     *
+     * @param reference to the required resource.
+     * @throws ApiException if a communication error occurred.
+     * @throws AssetNotLoadedException if one of the assets is not loaded.
+     */
+    private synchronized void updateResource(ResourceReference reference) throws ApiException, AssetNotLoadedException {
+        logger.debug("updateResource() {}", reference);
+        Resources resources = getBridgeHandler().getResources(reference);
+        List<Resource> resourceList = resources.getResources();
+        for (Resource resource : resourceList) {
+            notifyInternal(resource);
+        }
     }
 
     /**

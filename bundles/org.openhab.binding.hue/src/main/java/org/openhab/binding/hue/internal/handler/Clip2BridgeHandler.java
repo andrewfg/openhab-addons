@@ -188,6 +188,25 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 TimeUnit.MILLISECONDS);
     }
 
+    @Override
+    public void childHandlerInitialized(ThingHandler childHandler, Thing childThing) {
+        logger.debug("childHandlerInitialized() {}", childThing.getUID());
+        if (thing.getStatus() == ThingStatus.ONLINE && (childHandler instanceof DeviceThingHandler)) {
+            DeviceThingHandler deviceThingHandler = (DeviceThingHandler) childHandler;
+
+            // get the new child's resources, and push them to it
+            ResourceReference reference = deviceThingHandler.getResourceReference();
+            try {
+                for (Resource resource : getClip2Bridge().getResources(reference).getResources()) {
+                    notifyResource(resource);
+                }
+            } catch (ApiException | AssetNotLoadedException e) {
+                // exceptions should not occur here; but log anyway (just in case)
+                logger.warn("childHandlerInitialized() {}", e.getMessage(), e);
+            }
+        }
+    }
+
     /**
      * Return the application key for the console app.
      *
@@ -219,6 +238,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     @Override
     public void dispose() {
+        logger.debug("dispose() called");
         if (assetsLoaded) {
             assetsLoaded = false;
             scheduler.submit(() -> disposeAssets());
@@ -229,6 +249,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * Dispose the bridge handler's assets.
      */
     private void disposeAssets() {
+        logger.debug("disposeAssets() called");
         synchronized (assetsChanging) {
             assetsLoaded = false;
             ScheduledFuture<?> task = checkConnectionTask;
@@ -298,6 +319,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     @Override
     public void initialize() {
+        logger.debug("initialize() called");
         updateStatus(ThingStatus.UNKNOWN);
         retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
         scheduler.submit(() -> initializeAssets());
@@ -386,22 +408,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Called when the bridge SSE connection has been closed.
-     */
-    public void onSseComplete() {
-        if (assetsLoaded) {
-            logger.warn("notifySseComplete() SSE session completed");
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
-        }
-    }
-
-    /**
      * Called when the bridge SSE connection has returned an error.
      */
-    public void onSseError(Throwable e) {
+    public void notifySseError(Throwable e) {
         if (assetsLoaded) {
             logger.warn("notifySseError() {}", e.getMessage(), e);
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 
@@ -410,8 +421,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      *
      * @param resources a list of incoming resource objects.
      */
-    public void onSseEvent(List<Resource> resources) {
+    public void notifySseEvent(List<Resource> resources) {
         if (assetsLoaded) {
+            logger.warn("notifySseEvent() called with resource count {}", resources.size());
             for (Resource resource : resources) {
                 notifyResource(resource.markAsSparse());
             }
