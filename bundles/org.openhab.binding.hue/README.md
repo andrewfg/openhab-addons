@@ -3,7 +3,7 @@
 This binding integrates the [Philips Hue Lighting system](https://www.meethue.com).
 The integration happens through the Hue Bridge, which acts as an IP gateway to the ZigBee devices.
 
-![Philips Hue](doc/hue.jpg)
+![Philips Hue](doc/hue.jpg) ![Philips Hue](doc/hue2.png)
 
 ## Supported Things
 
@@ -13,11 +13,26 @@ There are two types of Hue Bridges, generally referred to as v1 (the rounded ver
 Only noticeable difference between the two generation of bridges is the added support for Apple HomeKit in v2.
 Both bridges are fully supported by this binding.
 
+Both types of bridges are accessed by means of the "CLIP" ('Connected Lighting Interface Protocol') Application Program Interface ('API').
+There are two versions of CLIP - namely CLIP v2 and CLIP v1.
+Philips has stated that any new features (such as dynamic scenes) will only be available on CLIP v2, and in the long term the CLIP v1 API will eventually be removed.
+Nevertheless it is possible that older v1 (round) bridges might not support CLIP v2, so you need to check that the bridge version is at least 1948086000.
+The CLIP v2 API is more modern and has more features, so it is recommended to use CLIP v2 for new openHAB installations.
+
 Almost all available Hue devices are supported by this binding.
 This includes not only the "Friends of Hue", but also products like the LivingWhites adapter.
 Additionally, it is possible to use OSRAM Lightify devices as well as other ZigBee LightLink compatible products, including the IKEA TRÅDFRI lights (when updated). 
 Beside bulbs and luminaires the Hue binding also supports some ZigBee sensors. Currently only Hue specific sensors are tested successfully (Hue Motion Sensor and Hue Dimmer Switch).
 Please note that the devices need to be registered with the Hue Bridge before it is possible for this binding to use them.
+
+### Supported Things (CLIP v2)
+
+The binding supports *bridge*, *light*, *button*, and *sensor* devices.
+Lights can be of any type from a simple on/off light, through dimmable monochrome lights, to full colour dimmable lights.
+Buttons are devices that contain one or more push buttons.
+Sensors can be (for example) light level sensors, temperature sensors, or motion sensors.
+
+### Supported Things (CLIP v1)
 
 The Hue binding supports all seven types of lighting devices defined for ZigBee LightLink ([see page 24, table 2](https://www.nxp.com/docs/en/user-guide/JN-UG-3091.pdf).
 These are:
@@ -71,9 +86,11 @@ CLIP Sensor set or get by JSON through IP.
 
 Finally, the Hue binding also supports the groups of lights and rooms set up on the Hue Bridge.
 
-## Discovery
+## Bridge Discovery (CLIP v2 and CLIP v1)
 
 The Hue Bridge is discovered through mDNS in the local network.
+Potentially two types of Bridge will be discovered - namely a CLIP v2 Thing and/or a CLIP v2 Thing.
+
 Auto-discovery is enabled by default.
 To disable it, you can add the following line to `<openHAB-conf>/services/runtime.cfg`:
 
@@ -84,7 +101,7 @@ discovery.hue:background=false
 Once it is added as a Thing, its authentication button (in the middle) needs to be pressed in order to authorize the binding to access it.
 Once the binding is authorized, it automatically reads all devices and groups that are set up on the Hue Bridge and puts them into the Inbox.
 
-## Thing Configuration
+## Bridge Thing Configuration (CLIP v2)
 
 The Hue Bridge requires the IP address as a configuration value in order for the binding to know where to access it.
 In the thing file, this looks e.g. like
@@ -93,9 +110,33 @@ In the thing file, this looks e.g. like
 Bridge hue:bridge:1 [ ipAddress="192.168.0.64" ]
 ```
 
-A user to authenticate against the Hue Bridge is automatically generated.
+An 'application key' to authenticate against the Hue Bridge is automatically generated.
+Please note that the generated application key cannot be written automatically to the `.thing` file, and has to be set manually.
+The generated application key can be found, after pressing the authentication button on the bridge, with the following console command: `openhab:hue <bridgeUID> key`.
+The application key can be set using the `applicationKey` configuration value, e.g.:
+
+```
+Bridge hue:bridge:1 [ ipAddress="192.168.0.64", applicationKey="qwertzuiopasdfghjklyxcvbnm1234" ]
+```
+
+| Parameter                | Description                                                                                                                                                                                                                                                                                                                   |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ipAddress                | Network address of the Hue Bridge. **Mandatory**.                                                                                                                                                                                                                                                                             |
+| useSelfSignedCertificate | Use self-signed certificate for HTTPS connection to Hue Bridge. **Advanced**, default value is `true`.                                                                                                                                                                                                                        |
+| applicationKey           | A code generated by the bridge that allows to access the API. **Mandatory**                                                                                                                                                                       
+
+## Bridge Thing Configuration (CLIP v1)
+
+The Hue Bridge requires the IP address as a configuration value in order for the binding to know where to access it.
+In the thing file, this looks e.g. like
+
+```
+Bridge hue:bridge:1 [ ipAddress="192.168.0.64" ]
+```
+
+A user name to authenticate against the Hue Bridge is automatically generated.
 Please note that the generated user name cannot be written automatically to the `.thing` file, and has to be set manually.
-The generated user name can be found, after pressing the authentication button on the bridge, with the following console command: `hue <bridgeUID> username`.
+The generated user name can be found, after pressing the authentication button on the bridge, with the following console command: `opnhab:hue <bridgeUID> username`.
 The user name can be set using the `userName` configuration value, e.g.:
 
 ```
@@ -112,7 +153,21 @@ Bridge hue:bridge:1 [ ipAddress="192.168.0.64", userName="qwertzuiopasdfghjklyxc
 | pollingInterval          | Seconds between fetching light values from the Hue Bridge. Optional, the default value is 10 (min="1", step="1").                                                                                                                                                                                                             |
 | sensorPollingInterval    | Milliseconds between fetching sensor-values from the Hue Bridge. A higher value means more delay for the sensor values, but a too low value can cause congestion on the bridge. Optional, the default value is 500. Default value will be considered if the value is lower than 50. Use 0 to disable the polling for sensors. |
 
-### Devices
+
+### Devices (CLIP v2)
+
+All devices are identified by a unique Resource Identifier string that the Hue Bridge assigns to them e.g. `d1ae958e-8908-449a-9897-7f10f9b8d4c2`.
+Thus, all it needs for manual configuration is this single value like
+
+```
+device officelamp "Lamp 1" @ "Office" [ resourceId="d1ae958e-8908-449a-9897-7f10f9b8d4c2" ]
+```
+
+You can get a list of all devices in the bridge and their respective Resource Ids by entering the following console command: `openhab:hue <bridgeUID> devices`
+
+The configuration of all devices (as decribed above) is the same regardless of whther the device is a light, a button, or a sensor.
+
+### Devices (CLIP v1)
 
 The devices are identified by the number that the Hue Bridge assigns to them (also shown in the Hue App as an identifier).
 Thus, all it needs for manual configuration is this single value like
@@ -143,7 +198,7 @@ The following device types also have an optional configuration value to specify 
 | fadetime  | Fade time in Milliseconds to a new state (min="0", step="100", default="400") |
 
 
-### Groups
+### Groups (CLIP v1)
 
 The groups are identified by the number that the Hue Bridge assigns to them.
 Thus, all it needs for manual configuration is this single value like
@@ -162,7 +217,58 @@ The group type also have an optional configuration value to specify the fade tim
 | fadetime  | Fade time in Milliseconds to a new state (min="0", step="100", default="400") |
 
 
-## Channels
+## Channels (CLIP v2)
+
+Normal devices support some of the following channels:
+
+| Channel Type ID       | Item Type          | Description                                                                           |
+|-----------------------|--------------------|---------------------------------------------------------------------------------------|
+| switch                | Switch             | This channel supports switching the device on and off.                                |
+| color                 | Color              | This channel supports full color control with hue, saturation and brightness values.  |
+| brightness            | Dimmer             | This channel supports adjusting the brightness value.                                 |
+| color_temperature     | Dimmer             | This channel supports adjusting the color temperature from cold (0%) to warm (100%).  |
+| color_temperature_abs | Number:Temperature | This channel supports adjusting the color temperature in Kelvin.                      |
+| button_last_event     | Number             | This channel shows which button was last pressed on the dimmer switch.                |
+| motion                | Switch             | This channel shows if motion has been detected by the sensor.                         |
+| motion_enabled        | Switch             | This channel supports enabling / disabling the motion sensor.                         |
+| light_level           | Number             | This channel shows the current light level measured by the sensor.                    |
+| light_level_enabled   | Switch             | This channel supports enabling / disabling the light level sensor.                    |
+| temperature           | Number:Temperature | This channel shows the current temperature measured by the sensor.                    |
+| temperature_enabled   | Switch             | This channel supports enabling / disabling the temperature sensor.                    |
+| last_updated          | DateTime           | This channel the date and time when the sensor was last updated.                      |
+| battery_level         | Number             | This channel shows the battery level.                                                 |
+| battery_low           | Switch             | This channel indicates whether the battery is low or not.                             |
+| zigbee_status         | String             | This channel provides information about the status of the Zigbee connection.          |
+
+The exact list of channels in a given device is determined at run time when the system is started.
+Each device reports its own live list of capabilities, and the respective list of channels is created accordingly.
+
+The `button_last_event` channel value is a number that is calculated as shown in the following formula: 
+
+```
+value = (button_id * 1000) + event_id;
+```
+
+In a single button device, the `button_id` is 1, whereas in a multi- button device the `button_id` can be either 1, 2, 3, or 4 depending on which button was pressed.
+The `event_id` has the following values..
+
+| Event                | Value |
+|----------------------|-------|
+| INITIAL_PRESS        | 0     |
+| REPEAT               | 1     |
+| SHORT_RELEASE        | 2     |
+| LONG_RELEASE         | 3     |
+| DOUBLE_SHORT_RELEASE | 4     |
+
+So (for example) the code `1002` means that the the second button in the device had a short release event.
+
+The bridge thing supports just one channel as follows:
+
+| Channel Type ID       | Item Type          | Description                                                                                                           |
+|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------|
+| scene                 | String             | This channel activates the scene with the given ID String. The ID String of each scene is assigned by the Hue Bridge. |
+
+## Channels (CLIP v1)
 
 The devices support some of the following channels:
 
