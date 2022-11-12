@@ -583,7 +583,7 @@ public class Resource {
      * @param controlIds the map of control ids to be updated.
      * @return this resource instance.
      */
-    public Resource putControlId(Map<String, Integer> controlIds) {
+    public Resource addControlIdToMap(Map<String, Integer> controlIds) {
         if (!hasSparseData) {
             MetaData metadata = this.metadata;
             controlIds.put(getId(), metadata != null ? metadata.getControlId() : 0);

@@ -185,9 +185,17 @@
 	<!-- CLIP 2 Channels -->
 	<channel-type id="button_last_event">
 		<item-type>Number</item-type>
-		<label>Button Event</label>
+		<label>Button Last Event</label>
 		<description>Numeric code (e.g. 1003) representing the last push button event.</description>
 		<state readOnly="true"/>
+	</channel-type>
+
+	<channel-type id="button_trigger_event">
+		<kind>trigger</kind>
+		<label>Button Trigger Event</label>
+		<description>Numeric code (e.g. 1003) representing the last push button event.</description>
+		<state readOnly="true"/>
+		<event></event>
 	</channel-type>
 
 	<channel-type id="motion_enabled">

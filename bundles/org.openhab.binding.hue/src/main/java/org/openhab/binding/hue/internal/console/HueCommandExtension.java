@@ -47,12 +47,12 @@ import org.osgi.service.component.annotations.Reference;
 public class HueCommandExtension extends AbstractConsoleCommandExtension implements ConsoleCommandCompleter {
 
     private static final String USER_NAME = "username";
-    private static final String KEY = "key";
+    private static final String APPLICATION_KEY = "applicationkey";
     private static final String SCENES = "scenes";
     private static final String DEVICES = "devices";
 
     private static final StringsCompleter SUBCMD_COMPLETER = //
-            new StringsCompleter(List.of(USER_NAME, KEY, SCENES, DEVICES), false);
+            new StringsCompleter(List.of(USER_NAME, APPLICATION_KEY, SCENES, DEVICES), false);
     private static final StringsCompleter SCENES_COMPLETER = new StringsCompleter(List.of(SCENES), false);
 
     private final ThingRegistry thingRegistry;
@@ -109,7 +109,7 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                     }
                 } else if (clip2BridgeHandler != null) {
                     switch (args[1]) {
-                        case KEY:
+                        case APPLICATION_KEY:
                             console.println(clip2BridgeHandler.consoleGetApplicationKey());
                             return;
                         case SCENES:
@@ -129,7 +129,7 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
     public List<String> getUsages() {
         return Arrays.asList(new String[] { //
                 buildCommandUsage("<bridgeUID> " + USER_NAME, "show the user name"),
-                buildCommandUsage("<bridgeUID> " + KEY, "show the CLIP 2 application key"),
+                buildCommandUsage("<bridgeUID> " + APPLICATION_KEY, "show the CLIP 2 application key"),
                 buildCommandUsage("<bridgeUID> " + SCENES, "list all the scenes with their id"),
                 buildCommandUsage("<bridgeUID> " + DEVICES, "list all the CLIP 2 devices with their id"),
                 buildCommandUsage("<groupThingUID> " + SCENES, "list all the scenes from this group with their id") });

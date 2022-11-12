@@ -19,6 +19,7 @@
 			<channel id="color_temperature_abs" typeId="system.color-temperature-abs"/>
 			<channel id="switch" typeId="system.power"/>
 			<channel id="button_last_event" typeId="button_last_event"/>
+			<channel id="button_trigger_event" typeId="button_trigger_event"/>
 			<channel id="motion" typeId="system.motion"/>
 			<channel id="motion_enabled" typeId="motion_enabled"/>
 			<channel id="light_level" typeId="light_level"/>
@@ -28,6 +29,7 @@
 			<channel id="battery_level" typeId="system.battery-level"/>
 			<channel id="battery_low" typeId="system.low-battery"/>
 			<channel id="zigbee_status" typeId="zigbee_status"/>
+			<channel id="last_updated" typeId="last_updated"/>
 		</channels>
 
 		<representation-property>resourceId</representation-property>

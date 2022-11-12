@@ -124,6 +124,7 @@ public class HueBindingConstants {
     public static final String CHANNEL_MOTION_ENABLED = "motion_enabled";
     public static final String CHANNEL_LIGHT_LEVEL_ENABLED = "light_level_enabled";
     public static final String CHANNEL_ZIGBEE_STATUS = "zigbee_status";
+    public static final String CHANNEL_BUTTON_TRIGGER_EVENT = "button_trigger_event";
 
     // property names for CLIP 2
     public static final String PROPERTY_RESOURCE_ID = "resourceId";

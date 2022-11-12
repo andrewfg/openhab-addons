@@ -33,6 +33,8 @@ import org.openhab.binding.hue.internal.dto.clip2.Resources;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
+import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -316,10 +318,17 @@ public class DeviceThingHandler extends BaseThingHandler {
         boolean fullUpdate = resource.hasFullState();
         switch (resource.getType()) {
             case BUTTON:
-                supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
-                resource.putControlId(controlIds);
-                updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT, resource.getButtonEventState(controlIds),
-                        fullUpdate);
+                if (fullUpdate) {
+                    supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT);
+                    supportedChannelIds.add(HueBindingConstants.CHANNEL_BUTTON_TRIGGER_EVENT);
+                }
+                resource.addControlIdToMap(controlIds);
+                State buttonState = resource.getButtonEventState(controlIds);
+                updateState(HueBindingConstants.CHANNEL_BUTTON_LAST_EVENT, buttonState, fullUpdate);
+                if ((buttonState instanceof DecimalType) && !fullUpdate) {
+                    // only valid SSE events can trigger channels
+                    triggerChannel(HueBindingConstants.CHANNEL_BUTTON_TRIGGER_EVENT, buttonState.toString());
+                }
                 break;
 
             case DEVICE_POWER:
@@ -359,6 +368,7 @@ public class DeviceThingHandler extends BaseThingHandler {
             default:
                 return false;
         }
+        updateState(HueBindingConstants.CHANNEL_LAST_UPDATED, new DateTimeType(), fullUpdate);
         return true;
     }
 
