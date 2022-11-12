@@ -84,11 +84,14 @@ public class JdbcBaseDAO {
     protected String sqlIfTableExists = "SHOW TABLES LIKE '#searchTable#'";
     protected String sqlCreateNewEntryInItemsTable = "INSERT INTO #itemsManageTable# (ItemName) VALUES ('#itemname#')";
     protected String sqlCreateItemsTableIfNot = "CREATE TABLE IF NOT EXISTS #itemsManageTable# (ItemId INT NOT NULL AUTO_INCREMENT,#colname# #coltype# NOT NULL,PRIMARY KEY (ItemId))";
-    protected String sqlDeleteItemsEntry = "DELETE FROM items WHERE ItemName=#itemname#";
-    protected String sqlGetItemIDTableNames = "SELECT itemid, itemname FROM #itemsManageTable#";
+    protected String sqlDropItemsTableIfExists = "DROP TABLE IF EXISTS #itemsManageTable#";
+    protected String sqlDropTable = "DROP TABLE #tableName#";
+    protected String sqlDeleteItemsEntry = "DELETE FROM #itemsManageTable# WHERE ItemName='#itemname#'";
+    protected String sqlGetItemIDTableNames = "SELECT ItemId, ItemName FROM #itemsManageTable#";
     protected String sqlGetItemTables = "SELECT table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema='#jdbcUriDatabaseName#' AND NOT table_name='#itemsManageTable#'";
     protected String sqlCreateItemTable = "CREATE TABLE IF NOT EXISTS #tableName# (time #tablePrimaryKey# NOT NULL, value #dbType#, PRIMARY KEY(time))";
     protected String sqlInsertItemValue = "INSERT INTO #tableName# (TIME, VALUE) VALUES( #tablePrimaryValue#, ? ) ON DUPLICATE KEY UPDATE VALUE= ?";
+    protected String sqlGetRowCount = "SELECT COUNT(*) FROM #tableName#";
 
     /********
      * INIT *
@@ -164,7 +167,7 @@ public class JdbcBaseDAO {
      * HSQLDB: org.hsqldb.jdbcDriver
      * Jaybird: org.firebirdsql.jdbc.FBDriver
      * MariaDB: org.mariadb.jdbc.Driver
-     * MySQL: com.mysql.jdbc.Driver
+     * MySQL: com.mysql.cj.jdbc.Driver
      * MaxDB: com.sap.dbtech.jdbc.DriverSapDB
      * PostgreSQL: org.postgresql.Driver
      * SyBase: com.sybase.jdbc3.jdbc.SybDriver
@@ -263,10 +266,18 @@ public class JdbcBaseDAO {
         return Objects.nonNull(result);
     }
 
+    public boolean doIfTableExists(String tableName) {
+        String sql = StringUtilsExt.replaceArrayMerge(sqlIfTableExists, new String[] { "#searchTable#" },
+                new String[] { tableName });
+        logger.debug("JDBC::doIfTableExists sql={}", sql);
+        final @Nullable String result = Yank.queryScalar(sql, String.class, null);
+        return Objects.nonNull(result);
+    }
+
     public Long doCreateNewEntryInItemsTable(ItemsVO vo) {
         String sql = StringUtilsExt.replaceArrayMerge(sqlCreateNewEntryInItemsTable,
                 new String[] { "#itemsManageTable#", "#itemname#" },
-                new String[] { vo.getItemsManageTable(), vo.getItemname() });
+                new String[] { vo.getItemsManageTable(), vo.getItemName() });
         logger.debug("JDBC::doCreateNewEntryInItemsTable sql={}", sql);
         return Yank.insert(sql, null);
     }
@@ -280,9 +291,25 @@ public class JdbcBaseDAO {
         return vo;
     }
 
+    public ItemsVO doDropItemsTableIfExists(ItemsVO vo) {
+        String sql = StringUtilsExt.replaceArrayMerge(sqlDropItemsTableIfExists, new String[] { "#itemsManageTable#" },
+                new String[] { vo.getItemsManageTable() });
+        logger.debug("JDBC::doDropItemsTableIfExists sql={}", sql);
+        Yank.execute(sql, null);
+        return vo;
+    }
+
+    public void doDropTable(String tableName) {
+        String sql = StringUtilsExt.replaceArrayMerge(sqlDropTable, new String[] { "#tableName#" },
+                new String[] { tableName });
+        logger.debug("JDBC::doDropTable sql={}", sql);
+        Yank.execute(sql, null);
+    }
+
     public void doDeleteItemsEntry(ItemsVO vo) {
-        String sql = StringUtilsExt.replaceArrayMerge(sqlDeleteItemsEntry, new String[] { "#itemname#" },
-                new String[] { vo.getItemname() });
+        String sql = StringUtilsExt.replaceArrayMerge(sqlDeleteItemsEntry,
+                new String[] { "#itemsManageTable#", "#itemname#" },
+                new String[] { vo.getItemsManageTable(), vo.getItemName() });
         logger.debug("JDBC::doDeleteItemsEntry sql={}", sql);
         Yank.execute(sql, null);
     }
@@ -306,8 +333,9 @@ public class JdbcBaseDAO {
      * ITEM DAOs *
      *************/
     public void doUpdateItemTableNames(List<ItemVO> vol) {
-        if (!vol.isEmpty()) {
-            String sql = updateItemTableNamesProvider(vol);
+        logger.debug("JDBC::doUpdateItemTableNames vol.size = {}", vol.size());
+        for (ItemVO itemTable : vol) {
+            String sql = updateItemTableNamesProvider(itemTable);
             Yank.execute(sql, null);
         }
     }
@@ -363,6 +391,14 @@ public class JdbcBaseDAO {
         Yank.execute(sql, null);
     }
 
+    public long doGetRowCount(String tableName) {
+        final String sql = StringUtilsExt.replaceArrayMerge(sqlGetRowCount, new String[] { "#tableName#" },
+                new String[] { tableName });
+        logger.debug("JDBC::doGetRowCount sql={}", sql);
+        final @Nullable Long result = Yank.queryScalar(sql, Long.class, null);
+        return Objects.requireNonNullElse(result, 0L);
+    }
+
     /*************
      * Providers *
      *************/
@@ -416,13 +452,8 @@ public class JdbcBaseDAO {
         return filterString;
     }
 
-    private String updateItemTableNamesProvider(List<ItemVO> namesList) {
-        logger.debug("JDBC::updateItemTableNamesProvider namesList.size = {}", namesList.size());
-        String queryString = "";
-        for (int i = 0; i < namesList.size(); i++) {
-            ItemVO it = namesList.get(i);
-            queryString += "ALTER TABLE " + it.getTableName() + " RENAME TO " + it.getNewTableName() + ";";
-        }
+    private String updateItemTableNamesProvider(ItemVO itemTable) {
+        String queryString = "ALTER TABLE " + itemTable.getTableName() + " RENAME TO " + itemTable.getNewTableName();
         logger.debug("JDBC::query queryString = {}", queryString);
         return queryString;
     }
