@@ -18,9 +18,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.config.ResourceConfig;
 import org.openhab.binding.hue.internal.dto.clip2.ColorTemperature2;
@@ -70,6 +73,8 @@ public class DeviceThingHandler extends BaseThingHandler {
     private boolean updatePropertiesDone;
     private boolean updateAllDone;
 
+    private @Nullable ScheduledFuture<?> updateContributors;
+
     public DeviceThingHandler(Thing thing) {
         super(thing);
     }
@@ -78,6 +83,11 @@ public class DeviceThingHandler extends BaseThingHandler {
     public void dispose() {
         logger.debug("dispose() called");
         disposing = true;
+        ScheduledFuture<?> updateTask = updateContributors;
+        if ((updateTask != null) && !updateTask.isCancelled()) {
+            updateTask.cancel(true);
+        }
+        updateContributors = null;
     }
 
     /**
@@ -108,6 +118,18 @@ public class DeviceThingHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
+            if ((thing.getStatus() == ThingStatus.ONLINE) && updateAllDone) {
+                ScheduledFuture<?> updateTask = updateContributors;
+                if (updateTask == null || !updateTask.isDone()) {
+                    updateContributors = scheduler.schedule(() -> {
+                        try {
+                            updateContributors();
+                        } catch (ApiException | AssetNotLoadedException e) {
+                            // exceptions will not occur here since thing is already online
+                        }
+                    }, 10, TimeUnit.SECONDS);
+                }
+            }
             return;
         }
 
