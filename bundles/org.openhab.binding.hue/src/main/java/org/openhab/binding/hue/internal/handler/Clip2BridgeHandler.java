@@ -14,6 +14,7 @@ package org.openhab.binding.hue.internal.handler;
 
 import static org.openhab.binding.hue.internal.HueBindingConstants.CHANNEL_SCENE;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +67,9 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class Clip2BridgeHandler extends BaseBridgeHandler {
+
+    private static final String THING_FMT = "  Thing device %s \"%s\" [resourceId=\"%s\"] // %s";
+    private static final String BRIDGE_FMT = "Bridge %s \"Philips Hue Bridge\" [ipAddress=\"%s\", applicationKey=\"%s\"] {";
 
     private static final String FORMAT_HOST_PORT = "%s:443";
     private static final int FAST_SCHEDULE_MILLI_SECONDS = 500; //
@@ -219,21 +223,43 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Return the list of resource texts for the console app.
+     * Return the list of devices for the console app.
      *
-     * @param type the resource type to get.
-     * @return list of user display texts.
+     * @return list of texts.
      */
-    public List<String> consoleGetResources(ResourceType type) {
+    public List<String> consoleGetDevices() {
         try {
-            return getClip2Bridge().getResources(new ResourceReference().setType(type)).getResources().stream()
-                    .map(r -> String.format("  - %s id: %s - %s: '%s'", type.toString(), r.getId(), r.getProductName(),
-                            r.getName()))
+            List<String> inner = getClip2Bridge().getResources(new ResourceReference().setType(ResourceType.DEVICE))
+                    .getResources().stream()
+                    .map(r -> String.format(THING_FMT, r.getId(), r.getName(), r.getId(), r.getProductName()))
                     .collect(Collectors.toList());
+
+            Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
+            List<String> result = new ArrayList<>();
+            result.add(String.format(BRIDGE_FMT, thing.getUID(), config.ipAddress, config.applicationKey));
+            result.addAll(inner);
+            result.add("}");
+            return result;
+
         } catch (ApiException | AssetNotLoadedException e) {
             // ignore
         }
-        return List.of(String.format("no '%ss' found", type.toString()));
+        return List.of("no devices found..");
+    }
+
+    /**
+     * Return the list of scenes for the console app.
+     *
+     * @return list of texts.
+     */
+    public List<String> consoleGetScenes() {
+        try {
+            return getClip2Bridge().getResources(new ResourceReference().setType(ResourceType.SCENE)).getResources()
+                    .stream().map(r -> String.format("  %s '%s'", r.getId(), r.getName())).collect(Collectors.toList());
+        } catch (ApiException | AssetNotLoadedException e) {
+            // ignore
+        }
+        return List.of("no scenes found..");
     }
 
     @Override

@@ -19,7 +19,6 @@ import java.util.stream.Collectors;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.handler.Clip2BridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueGroupHandler;
@@ -113,10 +112,10 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                             console.println(clip2BridgeHandler.consoleGetApplicationKey());
                             return;
                         case SCENES:
-                            clip2BridgeHandler.consoleGetResources(ResourceType.SCENE).forEach(console::println);
+                            clip2BridgeHandler.consoleGetScenes().forEach(console::println);
                             return;
                         case DEVICES:
-                            clip2BridgeHandler.consoleGetResources(ResourceType.DEVICE).forEach(console::println);
+                            clip2BridgeHandler.consoleGetDevices().forEach(console::println);
                             return;
                     }
                 }
