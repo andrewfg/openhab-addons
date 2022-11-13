@@ -601,10 +601,15 @@ public class Resource {
      */
     public State getButtonEventState(Map<String, Integer> controlIds) {
         Button button = this.button;
-        return button != null
-                ? new DecimalType(
-                        (controlIds.getOrDefault(getId(), 0).intValue() * 1000) + button.getLastEvent().ordinal())
-                : UnDefType.UNDEF;
+        if (button != null) {
+            try {
+                return new DecimalType(
+                        (controlIds.getOrDefault(getId(), 0).intValue() * 1000) + button.getLastEvent().ordinal());
+            } catch (IllegalArgumentException e) {
+                // fall through
+            }
+        }
+        return UnDefType.UNDEF;
     }
 
     public String getName() {

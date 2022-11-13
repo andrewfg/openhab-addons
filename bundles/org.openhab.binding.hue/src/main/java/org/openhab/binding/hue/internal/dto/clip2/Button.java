@@ -24,7 +24,11 @@ import org.openhab.core.types.State;
 public class Button {
     private String last_event;
 
-    public ButtonEventType getLastEvent() {
+    /**
+     * @return the last button event as an enum.
+     * @throws IllegalArgumentException if last_event is bad.
+     */
+    public ButtonEventType getLastEvent() throws IllegalArgumentException {
         return ButtonEventType.valueOf(last_event.toUpperCase());
     }
 

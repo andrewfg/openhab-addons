@@ -29,7 +29,11 @@ public class Power {
     private int battery_level;
 
     public BatteryStateType getBatteryState() {
-        return BatteryStateType.valueOf(battery_state.toUpperCase());
+        try {
+            return BatteryStateType.valueOf(battery_state.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return BatteryStateType.CRITICAL;
+        }
     }
 
     public int getBatteryLevel() {
