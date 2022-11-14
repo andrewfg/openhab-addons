@@ -449,7 +449,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public void notifySseEvent(List<Resource> resources) {
         if (assetsLoaded) {
-            logger.warn("notifySseEvent() called with resource count {}", resources.size());
+            logger.debug("notifySseEvent() called with resource count {}", resources.size());
             for (Resource resource : resources) {
                 notifyResource(resource.markAsSparse());
             }
