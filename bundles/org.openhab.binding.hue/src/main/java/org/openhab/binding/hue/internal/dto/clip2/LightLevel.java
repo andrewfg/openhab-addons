@@ -17,6 +17,8 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.types.State;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 light level sensor.
  *
@@ -24,22 +26,25 @@ import org.openhab.core.types.State;
  */
 @NonNullByDefault
 public class LightLevel {
-    private int light_level;
-    private boolean light_level_valid;
+    @SerializedName(value = "light_level")
+    private int lightLevel;
+
+    @SerializedName(value = "light_level_valid")
+    private boolean lightLevelValid;
 
     public int getLightlevel() {
-        return light_level;
+        return lightLevel;
     }
 
     public boolean isLightLevelValid() {
-        return light_level_valid;
+        return lightLevelValid;
     }
 
     public State getLightlevelState() {
-        return new DecimalType(light_level);
+        return new DecimalType(lightLevel);
     }
 
     public State isLightLevelValidState() {
-        return OnOffType.from(light_level_valid);
+        return OnOffType.from(lightLevelValid);
     }
 }

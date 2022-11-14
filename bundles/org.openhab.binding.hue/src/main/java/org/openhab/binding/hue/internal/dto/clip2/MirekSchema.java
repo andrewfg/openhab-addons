@@ -14,6 +14,8 @@ package org.openhab.binding.hue.internal.dto.clip2;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 mirek schema.
  *
@@ -24,14 +26,17 @@ public class MirekSchema {
     public static final int MIN = 153;
     public static final int MAX = 500;
 
-    private int mirek_minimum = MIN;
-    private int mirek_maximum = MAX;
+    @SerializedName(value = "mirek_minimum")
+    private int mirekMinimum = MIN;
+
+    @SerializedName(value = "mirek_maximum")
+    private int mirekMaximum = MAX;
 
     public int getMirekMinimum() {
-        return mirek_minimum;
+        return mirekMinimum;
     }
 
     public int getMirekMaximum() {
-        return mirek_maximum;
+        return mirekMaximum;
     }
 }

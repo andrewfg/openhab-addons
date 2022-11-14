@@ -17,6 +17,8 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.types.State;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 temperature sensor.
  *
@@ -25,14 +27,16 @@ import org.openhab.core.types.State;
 @NonNullByDefault
 public class Temperature {
     private float temperature;
-    private boolean temperature_valid;
+
+    @SerializedName(value = "temperature_valid")
+    private boolean temperatureValid;
 
     public float getTemperature() {
         return temperature;
     }
 
     public boolean isTemperatureValid() {
-        return temperature_valid;
+        return temperatureValid;
     }
 
     public State getTemperatureState() {
@@ -40,6 +44,6 @@ public class Temperature {
     }
 
     public State getTemperatureValidState() {
-        return OnOffType.from(temperature_valid);
+        return OnOffType.from(temperatureValid);
     }
 }

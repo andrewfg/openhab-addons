@@ -16,6 +16,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.types.State;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 motion sensor.
  *
@@ -24,14 +26,16 @@ import org.openhab.core.types.State;
 @NonNullByDefault
 public class Motion {
     private boolean motion;
-    private boolean motion_valid;
+
+    @SerializedName(value = "motion_valid")
+    private boolean motionValid;
 
     public boolean isMotion() {
         return motion;
     }
 
     public boolean isMotionValid() {
-        return motion_valid;
+        return motionValid;
     }
 
     public State getMotionState() {
@@ -39,6 +43,6 @@ public class Motion {
     }
 
     public State getMotionValidState() {
-        return OnOffType.from(motion_valid);
+        return OnOffType.from(motionValid);
     }
 }

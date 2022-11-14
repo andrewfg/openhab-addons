@@ -19,6 +19,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for 'alert' of a light.
  *
@@ -26,13 +28,15 @@ import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
  */
 @NonNullByDefault
 public class Alerts {
-    private @Nullable List<String> action_values;
+    @SerializedName(value = "action_values")
+    private @Nullable List<String> actionValues;
+
     private @Nullable String action;
 
     public List<ActionType> getActionValues() {
-        List<String> action_values = this.action_values;
-        if (action_values != null) {
-            return action_values.stream().map(ActionType::of).collect(Collectors.toList());
+        List<String> actionValues = this.actionValues;
+        if (actionValues != null) {
+            return actionValues.stream().map(ActionType::of).collect(Collectors.toList());
         }
         return List.of();
     }
@@ -43,7 +47,7 @@ public class Alerts {
     }
 
     public void setActionType(ActionType action) {
-        action_values = null;
+        actionValues = null;
         this.action = action.name().toLowerCase();
     }
 }

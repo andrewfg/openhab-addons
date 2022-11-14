@@ -15,6 +15,8 @@ package org.openhab.binding.hue.internal.dto.clip2;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for colour temperature of a light in CLIP 2.
  *
@@ -23,7 +25,9 @@ import org.eclipse.jdt.annotation.Nullable;
 @NonNullByDefault
 public class ColorTemperature2 {
     private @Nullable Integer mirek;
-    private @Nullable MirekSchema mirek_schema;
+
+    @SerializedName(value = "mirek_schema")
+    private @Nullable MirekSchema mirekSchema;
 
     private float getReciprocal(float value) {
         return Math.round(1000000f / value);
@@ -79,6 +83,6 @@ public class ColorTemperature2 {
     }
 
     public @Nullable MirekSchema getMirekSchema() {
-        return mirek_schema;
+        return mirekSchema;
     }
 }

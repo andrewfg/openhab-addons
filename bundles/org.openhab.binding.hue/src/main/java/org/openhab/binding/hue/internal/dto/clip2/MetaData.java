@@ -16,6 +16,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.clip2.enums.Archetype;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 product metadata.
  *
@@ -25,7 +27,9 @@ import org.openhab.binding.hue.internal.dto.clip2.enums.Archetype;
 public class MetaData {
     private @Nullable String archetype;
     private @Nullable String name;
-    private @Nullable Integer control_id;
+
+    @SerializedName(value = "control_id")
+    private @Nullable Integer controlId;
 
     public Archetype getArchetype() {
         return Archetype.of(archetype);
@@ -36,7 +40,7 @@ public class MetaData {
     }
 
     public int getControlId() {
-        Integer control_id = this.control_id;
-        return control_id != null ? control_id.intValue() : 0;
+        Integer controlId = this.controlId;
+        return controlId != null ? controlId.intValue() : 0;
     }
 }

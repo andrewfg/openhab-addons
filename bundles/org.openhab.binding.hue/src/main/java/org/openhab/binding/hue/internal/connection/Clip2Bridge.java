@@ -204,7 +204,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             sseClient.close();
             this.sseClient = null;
         }
-        // TODO ?? flush client HTTP 1.1 connections e.g. send a request with connection close header
     }
 
     /**

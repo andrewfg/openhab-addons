@@ -16,20 +16,23 @@ import org.openhab.binding.hue.internal.dto.clip2.enums.ButtonEventType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.types.State;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 button state.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 public class Button {
-    private String last_event;
+    @SerializedName(value = "last_event")
+    private String lastEvent;
 
     /**
      * @return the last button event as an enum.
-     * @throws IllegalArgumentException if last_event is bad.
+     * @throws IllegalArgumentException if lastEvent is bad.
      */
     public ButtonEventType getLastEvent() throws IllegalArgumentException {
-        return ButtonEventType.valueOf(last_event.toUpperCase());
+        return ButtonEventType.valueOf(lastEvent.toUpperCase());
     }
 
     public State getLastEventState() {

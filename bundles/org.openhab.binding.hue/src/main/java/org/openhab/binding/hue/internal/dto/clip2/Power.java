@@ -18,6 +18,8 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.types.State;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for CLIP 2 power state.
  *
@@ -25,19 +27,22 @@ import org.openhab.core.types.State;
  */
 @NonNullByDefault
 public class Power {
-    private @NonNullByDefault({}) String battery_state;
-    private int battery_level;
+    @SerializedName(value = "battery_state")
+    private @NonNullByDefault({}) String batteryState;
+
+    @SerializedName(value = "battery_level")
+    private int batteryLevel;
 
     public BatteryStateType getBatteryState() {
         try {
-            return BatteryStateType.valueOf(battery_state.toUpperCase());
+            return BatteryStateType.valueOf(batteryState.toUpperCase());
         } catch (IllegalArgumentException e) {
             return BatteryStateType.CRITICAL;
         }
     }
 
     public int getBatteryLevel() {
-        return battery_level;
+        return batteryLevel;
     }
 
     public State getBatteryLowState() {

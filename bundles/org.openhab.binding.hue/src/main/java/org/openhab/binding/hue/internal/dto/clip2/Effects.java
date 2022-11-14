@@ -19,6 +19,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.clip2.enums.EffectType;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * DTO for 'effect' of a light.
  *
@@ -29,24 +31,29 @@ public class Effects {
     /**
      * Following fields are @Nullable since different cases use different subsets of the fields.
      */
-    private @Nullable List<String> effect_values;
+    @SerializedName(value = "effect_values")
+    private @Nullable List<String> effectValues;
+
     private @Nullable String effect;
-    private @Nullable List<String> status_values;
+
+    @SerializedName(value = "status_values")
+    private @Nullable List<String> statusValues;
+
     private @Nullable String status;
     private @Nullable Integer duration;
 
     public List<EffectType> getEffectValues() {
-        List<String> effect_values = this.effect_values;
-        if (effect_values != null) {
-            return effect_values.stream().map(EffectType::of).collect(Collectors.toList());
+        List<String> effectValues = this.effectValues;
+        if (effectValues != null) {
+            return effectValues.stream().map(EffectType::of).collect(Collectors.toList());
         }
         return List.of();
     }
 
     public List<EffectType> getStatusEffectValues() {
-        List<String> status_values = this.status_values;
-        if (status_values != null) {
-            return status_values.stream().map(EffectType::of).collect(Collectors.toList());
+        List<String> statusValues = this.statusValues;
+        if (statusValues != null) {
+            return statusValues.stream().map(EffectType::of).collect(Collectors.toList());
         }
         return List.of();
     }
@@ -56,7 +63,7 @@ public class Effects {
     }
 
     public void setEffectType(EffectType effect) {
-        effect_values = null;
+        effectValues = null;
         this.effect = effect.name().toLowerCase();
     }
 
@@ -65,7 +72,7 @@ public class Effects {
     }
 
     public void setStatusEffectType(EffectType status) {
-        status_values = null;
+        statusValues = null;
         this.status = status.name().toLowerCase();
     }
 

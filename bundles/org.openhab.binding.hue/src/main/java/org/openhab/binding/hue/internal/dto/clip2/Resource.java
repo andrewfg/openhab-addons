@@ -32,6 +32,8 @@ import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Complete Resource information DTO for CLIP 2.
  *
@@ -63,7 +65,10 @@ public class Resource {
      */
     private @Nullable String type;
     private @Nullable String id;
-    private @Nullable String id_v1;
+
+    @SerializedName(value = "id_v1")
+    private @Nullable String idV1;
+
     private @Nullable ResourceReference owner;
     private @Nullable MetaData metadata;
 
@@ -72,7 +77,8 @@ public class Resource {
      * + Device Fields
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    private @Nullable ProductData product_data;
+    @SerializedName(value = "product_data")
+    private @Nullable ProductData productData;
     private @Nullable List<ResourceReference> services;
 
     /*
@@ -82,11 +88,16 @@ public class Resource {
      */
     private @Nullable OnState on;
     private @Nullable Dimming dimming;
-    private @Nullable ColorTemperature2 color_temperature;
+
+    @SerializedName(value = "color_temperature")
+    private @Nullable ColorTemperature2 colorTemperature;
+
     private @Nullable ColorXy color;
     private @Nullable Alerts alert;
     private @Nullable Effects effects;
-    private @Nullable Effects timed_effects;
+
+    @SerializedName(value = "timed_effects")
+    private @Nullable Effects timedEffects;
 
     private static final int DELTA = 30;
 
@@ -109,7 +120,9 @@ public class Resource {
     private @Nullable Button button;
     private @Nullable Temperature temperature;
     private @Nullable Motion motion;
-    private @Nullable Power power_state;
+
+    @SerializedName(value = "power_state")
+    private @Nullable Power powerState;
 
     /*
      * ++++++++++++++++++++++++++++++++++++++++
@@ -172,8 +185,8 @@ public class Resource {
     }
 
     public String getIdV1() {
-        String id_v1 = this.id_v1;
-        return id_v1 != null ? id_v1 : "";
+        String idV1 = this.idV1;
+        return idV1 != null ? idV1 : "";
     }
 
     public @Nullable ResourceReference getOwner() {
@@ -191,7 +204,7 @@ public class Resource {
      */
 
     public @Nullable ProductData getProductData() {
-        return product_data;
+        return productData;
     }
 
     public List<ResourceReference> getServiceReferences() {
@@ -309,11 +322,11 @@ public class Resource {
     }
 
     public @Nullable ColorTemperature2 getColorTemperature() {
-        return color_temperature;
+        return colorTemperature;
     }
 
     public @Nullable MirekSchema getMirekSchema() {
-        ColorTemperature2 colorTemp = this.color_temperature;
+        ColorTemperature2 colorTemp = this.colorTemperature;
         if (colorTemp != null) {
             return colorTemp.getMirekSchema();
         }
@@ -327,7 +340,7 @@ public class Resource {
      * @return a PercentType with the colour temperature percentage.
      */
     public State getColorTemperaturePercentState(MirekSchema mirekSchema) {
-        ColorTemperature2 colorTemp = color_temperature;
+        ColorTemperature2 colorTemp = colorTemperature;
         if (colorTemp != null) {
             Integer percent = colorTemp.getPercent(mirekSchema);
             if (percent != null) {
@@ -343,7 +356,7 @@ public class Resource {
      * @return a QuantityType<Temperature> with the colour temperature in Kelvin.
      */
     public State getColorTemperatureKelvinState() {
-        ColorTemperature2 colorTemp = color_temperature;
+        ColorTemperature2 colorTemp = colorTemperature;
         if (colorTemp != null) {
             Float kelvin = colorTemp.getKelvin();
             if (kelvin != null) {
@@ -362,10 +375,10 @@ public class Resource {
      */
     public Resource setColorTemperaturePercent(Command command, MirekSchema mirekSchema) {
         if (command instanceof PercentType) {
-            ColorTemperature2 color_temperature = this.color_temperature;
-            color_temperature = color_temperature != null ? color_temperature : new ColorTemperature2();
-            color_temperature.setPercent(((PercentType) command).intValue(), mirekSchema);
-            this.color_temperature = color_temperature;
+            ColorTemperature2 colorTemperature = this.colorTemperature;
+            colorTemperature = colorTemperature != null ? colorTemperature : new ColorTemperature2();
+            colorTemperature.setPercent(((PercentType) command).intValue(), mirekSchema);
+            this.colorTemperature = colorTemperature;
         }
         return this;
     }
@@ -387,10 +400,10 @@ public class Resource {
             kelvin = Math.round(((DecimalType) command).intValue());
         }
         if (kelvin != null) {
-            ColorTemperature2 color_temperature = this.color_temperature;
-            color_temperature = color_temperature != null ? color_temperature : new ColorTemperature2();
-            color_temperature.setKelvin(kelvin);
-            this.color_temperature = color_temperature;
+            ColorTemperature2 colorTemperature = this.colorTemperature;
+            colorTemperature = colorTemperature != null ? colorTemperature : new ColorTemperature2();
+            colorTemperature.setKelvin(kelvin);
+            this.colorTemperature = colorTemperature;
         }
         return this;
     }
@@ -430,7 +443,7 @@ public class Resource {
     }
 
     public @Nullable Effects getTimedEffects() {
-        return timed_effects;
+        return timedEffects;
     }
 
     /*
@@ -515,17 +528,17 @@ public class Resource {
     }
 
     public @Nullable Power getPowerState() {
-        return power_state;
+        return powerState;
     }
 
     public State getBatteryLowState() {
-        Power power_state = this.power_state;
-        return power_state != null ? power_state.getBatteryLowState() : UnDefType.UNDEF;
+        Power powerState = this.powerState;
+        return powerState != null ? powerState.getBatteryLowState() : UnDefType.UNDEF;
     }
 
     public State getBatteryLevelState() {
-        Power power_state = this.power_state;
-        return power_state != null ? power_state.getBatteryLevelState() : UnDefType.UNDEF;
+        Power powerState = this.powerState;
+        return powerState != null ? powerState.getBatteryLevelState() : UnDefType.UNDEF;
     }
 
     /*
