@@ -27,7 +27,7 @@ import com.google.gson.annotations.SerializedName;
 public class Motion {
     private boolean motion;
 
-    @SerializedName(value = "motion_valid")
+    @SerializedName("motion_valid")
     private boolean motionValid;
 
     public boolean isMotion() {

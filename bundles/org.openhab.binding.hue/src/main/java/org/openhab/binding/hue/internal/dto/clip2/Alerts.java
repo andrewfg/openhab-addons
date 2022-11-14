@@ -28,7 +28,7 @@ import com.google.gson.annotations.SerializedName;
  */
 @NonNullByDefault
 public class Alerts {
-    @SerializedName(value = "action_values")
+    @SerializedName("action_values")
     private @Nullable List<String> actionValues;
 
     private @Nullable String action;

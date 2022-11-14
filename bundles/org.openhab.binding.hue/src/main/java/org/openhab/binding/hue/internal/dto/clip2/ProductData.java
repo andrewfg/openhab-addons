@@ -26,24 +26,24 @@ import com.google.gson.annotations.SerializedName;
  */
 @NonNullByDefault
 public class ProductData {
-    @SerializedName(value = "model_id")
+    @SerializedName("model_id")
     private @NonNullByDefault({}) String modelId;
 
-    @SerializedName(value = "manufacturer_name")
+    @SerializedName("manufacturer_name")
     private @NonNullByDefault({}) String manufacturerName;
 
-    @SerializedName(value = "product_name")
+    @SerializedName("product_name")
     private @NonNullByDefault({}) String productName;
 
-    @SerializedName(value = "product_archetype")
+    @SerializedName("product_archetype")
     private @NonNullByDefault({}) String productArchetype;
 
     private @NonNullByDefault({}) Boolean certified;
 
-    @SerializedName(value = "software_version")
+    @SerializedName("software_version")
     private @NonNullByDefault({}) String softwareVersion;
 
-    @SerializedName(value = "hardware_platform_type")
+    @SerializedName("hardware_platform_type")
     private @Nullable String hardwarePlatformType;
 
     public String getModelId() {

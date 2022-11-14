@@ -24,7 +24,7 @@ import com.google.gson.annotations.SerializedName;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 public class Button {
-    @SerializedName(value = "last_event")
+    @SerializedName("last_event")
     private String lastEvent;
 
     /**

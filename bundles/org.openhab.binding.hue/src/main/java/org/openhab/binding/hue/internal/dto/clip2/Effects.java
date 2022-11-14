@@ -31,12 +31,12 @@ public class Effects {
     /**
      * Following fields are @Nullable since different cases use different subsets of the fields.
      */
-    @SerializedName(value = "effect_values")
+    @SerializedName("effect_values")
     private @Nullable List<String> effectValues;
 
     private @Nullable String effect;
 
-    @SerializedName(value = "status_values")
+    @SerializedName("status_values")
     private @Nullable List<String> statusValues;
 
     private @Nullable String status;

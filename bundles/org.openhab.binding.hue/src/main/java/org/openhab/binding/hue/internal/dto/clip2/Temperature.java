@@ -28,7 +28,7 @@ import com.google.gson.annotations.SerializedName;
 public class Temperature {
     private float temperature;
 
-    @SerializedName(value = "temperature_valid")
+    @SerializedName("temperature_valid")
     private boolean temperatureValid;
 
     public float getTemperature() {

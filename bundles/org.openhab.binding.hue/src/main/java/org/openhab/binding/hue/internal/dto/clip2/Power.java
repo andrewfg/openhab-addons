@@ -27,10 +27,10 @@ import com.google.gson.annotations.SerializedName;
  */
 @NonNullByDefault
 public class Power {
-    @SerializedName(value = "battery_state")
+    @SerializedName("battery_state")
     private @NonNullByDefault({}) String batteryState;
 
-    @SerializedName(value = "battery_level")
+    @SerializedName("battery_level")
     private int batteryLevel;
 
     public BatteryStateType getBatteryState() {

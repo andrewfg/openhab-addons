@@ -66,7 +66,7 @@ public class Resource {
     private @Nullable String type;
     private @Nullable String id;
 
-    @SerializedName(value = "id_v1")
+    @SerializedName("id_v1")
     private @Nullable String idV1;
 
     private @Nullable ResourceReference owner;
@@ -77,7 +77,7 @@ public class Resource {
      * + Device Fields
      * ++++++++++++++++++++++++++++++++++++++++
      */
-    @SerializedName(value = "product_data")
+    @SerializedName("product_data")
     private @Nullable ProductData productData;
     private @Nullable List<ResourceReference> services;
 
@@ -89,14 +89,14 @@ public class Resource {
     private @Nullable OnState on;
     private @Nullable Dimming dimming;
 
-    @SerializedName(value = "color_temperature")
+    @SerializedName("color_temperature")
     private @Nullable ColorTemperature2 colorTemperature;
 
     private @Nullable ColorXy color;
     private @Nullable Alerts alert;
     private @Nullable Effects effects;
 
-    @SerializedName(value = "timed_effects")
+    @SerializedName("timed_effects")
     private @Nullable Effects timedEffects;
 
     private static final int DELTA = 30;
@@ -121,7 +121,7 @@ public class Resource {
     private @Nullable Temperature temperature;
     private @Nullable Motion motion;
 
-    @SerializedName(value = "power_state")
+    @SerializedName("power_state")
     private @Nullable Power powerState;
 
     /*

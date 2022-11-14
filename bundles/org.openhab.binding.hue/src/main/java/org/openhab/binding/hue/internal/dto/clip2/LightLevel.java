@@ -26,10 +26,10 @@ import com.google.gson.annotations.SerializedName;
  */
 @NonNullByDefault
 public class LightLevel {
-    @SerializedName(value = "light_level")
+    @SerializedName("light_level")
     private int lightLevel;
 
-    @SerializedName(value = "light_level_valid")
+    @SerializedName("light_level_valid")
     private boolean lightLevelValid;
 
     public int getLightlevel() {

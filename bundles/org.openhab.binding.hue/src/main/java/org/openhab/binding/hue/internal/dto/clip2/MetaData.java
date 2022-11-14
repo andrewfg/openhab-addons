@@ -28,7 +28,7 @@ public class MetaData {
     private @Nullable String archetype;
     private @Nullable String name;
 
-    @SerializedName(value = "control_id")
+    @SerializedName("control_id")
     private @Nullable Integer controlId;
 
     public Archetype getArchetype() {

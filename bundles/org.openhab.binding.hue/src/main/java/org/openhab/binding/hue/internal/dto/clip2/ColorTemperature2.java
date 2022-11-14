@@ -26,7 +26,7 @@ import com.google.gson.annotations.SerializedName;
 public class ColorTemperature2 {
     private @Nullable Integer mirek;
 
-    @SerializedName(value = "mirek_schema")
+    @SerializedName("mirek_schema")
     private @Nullable MirekSchema mirekSchema;
 
     private float getReciprocal(float value) {
