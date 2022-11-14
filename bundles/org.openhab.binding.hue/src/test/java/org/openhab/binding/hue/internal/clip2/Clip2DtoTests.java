@@ -18,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
@@ -417,6 +418,22 @@ class Clip2DtoTests {
         assertEquals(9, resources.size());
         for (Resource r : resources) {
             assertNotEquals(ResourceType.ERROR, r.getType());
+        }
+    }
+
+    @Test
+    void testSetGetPureColors() {
+        Resource resource = new Resource(ResourceType.LIGHT);
+        assertNotNull(resource);
+
+        HSBType cyan = new HSBType("180,100,100");
+        HSBType yellow = new HSBType("60,100,100");
+        HSBType magenta = new HSBType("300,100,100");
+
+        for (HSBType color : Set.of(HSBType.WHITE, HSBType.RED, HSBType.GREEN, HSBType.BLUE, cyan, yellow, magenta)) {
+            resource.setColor(color);
+            State state = resource.getColorState();
+            assertEquals(color, state);
         }
     }
 }
