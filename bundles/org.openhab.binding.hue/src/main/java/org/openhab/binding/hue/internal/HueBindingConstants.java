@@ -130,7 +130,7 @@ public class HueBindingConstants {
     public static final String PROPERTY_RESOURCE_ID = "resourceId";
     public static final String PROPERTY_RESOURCE_TYPE = "resourceType";
     public static final String PROPERTY_RESOURCE_NAME = "resourceName";
-    public static final String PROPERTY_RESOURCE_ARCHETYPE = "resourceArchetyep";
+    public static final String PROPERTY_RESOURCE_ARCHETYPE = "resourceArchetype";
     public static final String PROPERTY_PRODUCT_NAME = "productName";
     public static final String PROPERTY_PRODUCT_ARCHETYPE = "productArchetype";
     public static final String PROPERTY_PRODUCT_CERTIFIED = "productCertified";
