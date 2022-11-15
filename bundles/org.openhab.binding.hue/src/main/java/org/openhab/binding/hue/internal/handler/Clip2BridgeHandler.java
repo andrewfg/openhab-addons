@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -186,10 +187,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
          * prior future that called this method here, since the method is self evidently terminating itself right now!
          */
         Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-        checkConnectionTask = scheduler.schedule(() ->
-
-        checkConnection(), tryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds,
-                TimeUnit.MILLISECONDS);
+        checkConnectionTask = scheduler.schedule(() -> checkConnection(),
+                tryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -329,6 +328,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         return getClip2Bridge().getResources(reference);
     }
 
+    /**
+     * Getter for the scheduler.
+     *
+     * @return the scheduler.
+     */
+    public ScheduledExecutorService getScheduler() {
+        return scheduler;
+    }
+
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
@@ -434,16 +442,37 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
+     * Called when the bridge unexpectedly closed the SSE connection.
+     */
+    public void notifySseComplete() {
+        if (assetsLoaded) {
+            logger.warn("notifySseComplete() server unexpectedly closed SSE connection");
+            updateStatus(ThingStatus.UNKNOWN);
+        }
+    }
+
+    /**
+     * Called when an SSE event message (i.e. the first one) comes in.
+     */
+    public void notifySseConnected() {
+        if (assetsLoaded) {
+            logger.debug("notifySseConnected() called");
+            updateStatus(ThingStatus.ONLINE);
+        }
+    }
+
+    /**
      * Called when the bridge SSE connection has returned an error.
      */
     public void notifySseError(Throwable e) {
         if (assetsLoaded) {
             logger.warn("notifySseError() {}", e.getMessage(), e);
+            updateStatus(ThingStatus.UNKNOWN);
         }
     }
 
     /**
-     * Method that is called when an SSE event message comes in.
+     * Called when an SSE event message comes in with a valid list of resources.
      *
      * @param resources a list of incoming resource objects.
      */
@@ -453,6 +482,17 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             for (Resource resource : resources) {
                 notifyResource(resource.markAsSparse());
             }
+        }
+    }
+
+    /**
+     * Called when the SSE event channel has not received any events for a long time. This could mean that the event
+     * source socket has dropped.
+     */
+    public void notifySseSleeping() {
+        if (assetsLoaded) {
+            logger.warn("notifySseSleeping() the SSE connection may have been dropped");
+            updateStatus(ThingStatus.UNKNOWN);
         }
     }
 
@@ -498,7 +538,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             checkAssetsLoaded();
             updateProperties();
             updateDevices();
-            updateStatus(ThingStatus.ONLINE);
+            getClip2Bridge().sseStart();
+            updateStatus(ThingStatus.UNKNOWN);
         } catch (ApiException e) {
             logger.debug("refreshThingState() {}", e.getMessage(), e);
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,

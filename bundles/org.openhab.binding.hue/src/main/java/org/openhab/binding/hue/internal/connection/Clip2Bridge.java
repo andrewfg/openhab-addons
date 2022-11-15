@@ -20,11 +20,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -87,7 +87,8 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
 
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
-    private static final Duration TIMEOUT = Duration.of(5, ChronoUnit.SECONDS);
+    private static final int TIMEOUT_SECONDS = 5;
+    private static final int SLEEP_SECONDS = 360;
 
     /**
      * Static method to attempt to connect to a Hue Bridge, get its software version, and check if it is high enough to
@@ -103,8 +104,11 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             throws ApiException, IllegalStateException, IllegalArgumentException {
         HttpRequest request;
         try {
-            request = HttpRequest.newBuilder().uri(new URI(String.format(FORMAT_URL_CONFIG, hostName)))
-                    .header(HEADER_ACCEPT, CONTENT_APPLICATION_JSON).timeout(TIMEOUT).build();
+            request = HttpRequest.newBuilder() //
+                    .uri(new URI(String.format(FORMAT_URL_CONFIG, hostName))) //
+                    .header(HEADER_ACCEPT, CONTENT_APPLICATION_JSON) //
+                    .timeout(Duration.ofSeconds(TIMEOUT_SECONDS)) //
+                    .build();
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Bad host name");
         }
@@ -140,17 +144,16 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     private final String baseUrl;
     private final String eventUrl;
     private final String registrationUrl;
-
     private final Clip2BridgeHandler bridgeHandler;
-    private final Gson gson = new Gson();
-    private String applicationKey;
+    private final Object eventSourceLock = new Object();
+    private final Gson jsonParser = new Gson();
 
+    private String applicationKey;
     private boolean closing;
     private boolean online;
 
-    private @Nullable Client sseClient;
-
     private @Nullable SseEventSource eventSource;
+    private @Nullable ScheduledFuture<?> sseSleepingCheck;
 
     public Clip2Bridge(HttpClient httpClient, ClientBuilder clientBuilder, SseEventSourceFactory eventSourceFactory,
             Clip2BridgeHandler bridgeHandler, String hostName, String applicationKey) {
@@ -187,23 +190,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     public void close() {
         closing = true;
         online = false;
-        disposeAssets();
-    }
-
-    /**
-     * Close the assets.
-     */
-    private void disposeAssets() {
-        SseEventSource eventSource = this.eventSource;
-        if (eventSource != null) {
-            eventSource.close();
-            this.eventSource = null;
-        }
-        Client sseClient = this.sseClient;
-        if (sseClient != null) {
-            sseClient.close();
-            this.sseClient = null;
-        }
+        sseStop();
     }
 
     /**
@@ -231,45 +218,23 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
     }
 
     /**
-     * Initialize the assets needed by the class.
+     * Respond to SSE connection completed call backs. Restart the SSE connection.
      */
-    private void initializeAssets() {
-        Client sseClient = clientBuilder //
-                .sslContext(httpClient.getSslContextFactory().getSslContext()) //
-                .register(this) //
-                .hostnameVerifier(this) //
-                .readTimeout(0, TimeUnit.SECONDS) //
-                .build();
-        SseEventSource eventSource = eventSourceFactory //
-                .newBuilder(sseClient.target(eventUrl)) //
-                .build();
-        eventSource.register(this::notifySseEvent, this::notifySseError);
-        eventSource.open();
-        this.sseClient = sseClient;
-        this.eventSource = eventSource;
+    private void notifySseComplete() {
+        if (online && !closing) {
+            bridgeHandler.notifySseComplete();
+            sseStart();
+        }
     }
 
     /**
-     * Getter for the 'online' field.
-     *
-     * @return the online state.
-     */
-    public boolean isOnline() {
-        return online;
-    }
-
-    /**
-     * Respond to SSE errors.
+     * Respond to SSE error call backs.
      *
      * @param e the exception that caused the error.
      */
     private void notifySseError(Throwable e) {
         if (online && !closing) {
             bridgeHandler.notifySseError(e);
-            SseEventSource eventSource = this.eventSource;
-            if (eventSource != null && !eventSource.isOpen()) {
-                eventSource.open();
-            }
         }
     }
 
@@ -283,6 +248,13 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         if (!online || closing) {
             return;
         }
+        bridgeHandler.notifySseConnected();
+        ScheduledFuture<?> task = sseSleepingCheck;
+        if (task != null && !task.isCancelled()) {
+            task.cancel(true);
+        }
+        sseSleepingCheck = bridgeHandler.getScheduler().schedule(() -> notifySseSleeping(), SLEEP_SECONDS,
+                TimeUnit.SECONDS);
         if (inboundSseEvent.isEmpty()) {
             return;
         }
@@ -293,7 +265,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         logger.trace("notifySseEvent() data:{}", json);
         List<Event> eventList;
         try {
-            eventList = gson.fromJson(json, Event.EVENT_LIST_TYPE);
+            eventList = jsonParser.fromJson(json, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
             logger.debug("notifySseEvent() {}", e.getMessage(), e);
             return;
@@ -311,6 +283,17 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
             return;
         }
         bridgeHandler.notifySseEvent(resourceList);
+    }
+
+    /**
+     * Called when the SSE event channel has not received any events for a long time. This could mean that the event
+     * source socket has dropped. So restart the SSE connection.
+     */
+    public void notifySseSleeping() {
+        if (online && !closing) {
+            bridgeHandler.notifySseSleeping();
+            sseStart();
+        }
     }
 
     /**
@@ -335,12 +318,14 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
      */
     public String registerApplicationKey(@Nullable String oldApplicationKey)
             throws ApiException, IllegalAccessException {
-        String json = gson.toJson(
+        String json = jsonParser.toJson(
                 (oldApplicationKey == null || oldApplicationKey.isEmpty()) ? new CreateUserRequest(APPLICATION_ID)
                         : new CreateUserRequest(oldApplicationKey, APPLICATION_ID));
 
-        Request httpRequest = httpClient.newRequest(registrationUrl).method(HttpMethod.POST)
-                .timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS)
+        Request httpRequest = httpClient //
+                .newRequest(registrationUrl) //
+                .method(HttpMethod.POST) //
+                .timeout(TIMEOUT_SECONDS, TimeUnit.SECONDS) //
                 .content(new StringContentProvider(json), CONTENT_APPLICATION_JSON);
 
         ContentResponse contentResponse;
@@ -360,7 +345,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         }
 
         try {
-            List<SuccessResponse> entries = gson.fromJson(json, SuccessResponse.GSON_TYPE);
+            List<SuccessResponse> entries = jsonParser.fromJson(json, SuccessResponse.GSON_TYPE);
             if (entries != null && !entries.isEmpty()) {
                 SuccessResponse response = entries.get(0);
                 Map<String, Object> responseSuccess = response.success;
@@ -393,13 +378,13 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         Request request = httpClient //
                 .newRequest(url) //
                 .method(method) //
-                .timeout(TIMEOUT.getSeconds(), TimeUnit.SECONDS) //
+                .timeout(TIMEOUT_SECONDS, TimeUnit.SECONDS) //
                 .header(HEADER_APPLICATION_KEY, applicationKey).accept(CONTENT_APPLICATION_JSON);
 
         if (resource == null) {
             logger.trace("{} {} {}", method, url, request.getVersion());
         } else {
-            String json = gson.toJson(resource);
+            String json = jsonParser.toJson(resource);
             request.content(new StringContentProvider(json), CONTENT_APPLICATION_JSON);
             logger.trace("{} {} {}, body:{}", method, url, request.getVersion(), json);
         }
@@ -423,7 +408,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         }
 
         try {
-            Resources resources = gson.fromJson(json, Resources.class);
+            Resources resources = jsonParser.fromJson(json, Resources.class);
             if (resources == null) {
                 throw new ApiException("Missing Resources object");
             }
@@ -455,31 +440,54 @@ public class Clip2Bridge implements Closeable, HostnameVerifier, ClientRequestFi
         ApiException exception;
         try {
             Resources result = sendHttpRequest(method, url, resource);
-            setOnline(true);
+            online = true;
             return result;
         } catch (ApiException e) {
             exception = e;
         } catch (IllegalAccessException e) {
             exception = new ApiException("Unexpected access error", e);
         }
-        setOnline(false);
+        online = false;
         throw exception;
     }
 
     /**
-     * Sets the 'online' field. If the state is changing, it disposes the class assets. And if it is changing to online,
-     * it (re-)creates the class assets.
-     *
-     * @param online the new online state.
+     * Start receiving SSE events.
      */
-    private void setOnline(boolean online) {
-        if (online != this.online) {
-            disposeAssets();
-            if (online) {
-                initializeAssets();
+    public void sseStart() {
+        sseStop();
+        synchronized (eventSourceLock) {
+            Client sseClient = clientBuilder //
+                    .sslContext(httpClient.getSslContextFactory().getSslContext()) //
+                    .register(this) //
+                    .hostnameVerifier(this) //
+                    .readTimeout(0, TimeUnit.SECONDS) //
+                    .build();
+            SseEventSource eventSource = eventSourceFactory //
+                    .newBuilder(sseClient.target(eventUrl)) //
+                    .build();
+            eventSource.register(this::notifySseEvent, this::notifySseError, this::notifySseComplete);
+            eventSource.open();
+            this.eventSource = eventSource;
+        }
+    }
+
+    /**
+     * Stop receiving SSE events.
+     */
+    private void sseStop() {
+        synchronized (eventSourceLock) {
+            ScheduledFuture<?> task = sseSleepingCheck;
+            if (task != null && !task.isCancelled()) {
+                task.cancel(true);
+                sseSleepingCheck = null;
+            }
+            SseEventSource eventSource = this.eventSource;
+            if (eventSource != null) {
+                eventSource.close();
+                this.eventSource = null;
             }
         }
-        this.online = online;
     }
 
     /**
