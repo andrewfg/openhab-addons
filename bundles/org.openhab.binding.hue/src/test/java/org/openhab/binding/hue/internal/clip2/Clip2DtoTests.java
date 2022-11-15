@@ -146,13 +146,14 @@ class Clip2DtoTests {
                 itemFoundCount++;
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getSwitch());
-                assertEquals(PercentType.HUNDRED, item.getBrightnessState());
+                assertEquals(new PercentType(93), item.getBrightnessState());
                 assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState(new MirekSchema()));
                 State state = item.getColorState();
                 assertTrue(state instanceof HSBType);
-                float[] xy = Resource.xyFromHsb((HSBType) state);
+                float[] xy = Resource.getColorXY((HSBType) state);
                 assertEquals(0.6367, xy[0], 0.015); // note: rounding errors !!
                 assertEquals(0.3503, xy[1], 0.015); // note: rounding errors !!
+                assertEquals(item.getBrightnessState(), ((HSBType) state).getBrightness());
                 Alerts alert = item.getAlert();
                 assertNotNull(alert);
                 for (ActionType actionValue : alert.getActionValues()) {

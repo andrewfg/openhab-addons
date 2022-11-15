@@ -224,7 +224,7 @@ public class Resource {
      * @param xy colour x & y parameters.
      * @return a new HsbType.
      */
-    private static HSBType hsbFromXY(float[] xy) {
+    private static HSBType getColorHSB(float[] xy) {
         return HSBType.fromXY(xy[0], xy[1]);
     }
 
@@ -234,7 +234,7 @@ public class Resource {
      * @param hsb the HsbType.
      * @return colour x & y parameters.
      */
-    public static float[] xyFromHsb(HSBType hsb) {
+    public static float[] getColorXY(HSBType hsb) {
         PercentType[] percentTypes = hsb.toXY();
         float[] floats = new float[percentTypes.length];
         for (int i = 0; i < floats.length; i++) {
@@ -409,27 +409,36 @@ public class Resource {
     }
 
     /**
-     * Get the color.
+     * Get the color as an HSBType. Take its Hue & Saturation parts from the 'ColorXy' JSON element, and take its
+     * Brightness part from the 'Dimming' JSON element.
      *
-     * @return an HSBType containing the current color.
+     * @return an HSBType containing the current color and brightness level.
      */
     public State getColorState() {
-        ColorXy color = this.color;
-        return color != null ? hsbFromXY(color.getXY()) : UnDefType.UNDEF;
+        ColorXy col = color;
+        if (col != null) {
+            HSBType hsb = getColorHSB(col.getXY());
+            Dimming dim = dimming;
+            return new HSBType(hsb.getHue(), hsb.getSaturation(),
+                    new PercentType(dim != null ? Math.max(0, Math.min(100, dim.getBrightness())) : 50));
+        }
+        return UnDefType.UNDEF;
     }
 
     /**
-     * Set the colour.
+     * Set the color from an HSBType. Put its Hue & Saturation parts in the 'ColorXy' JSON element, and put its
+     * Brightness part in the 'Dimming' JSON element.
      *
      * @param command an HSBType with the new color value
      * @return this resource instance.
      */
     public Resource setColor(Command command) {
         if (command instanceof HSBType) {
-            ColorXy color = this.color;
-            color = color != null ? color : new ColorXy();
-            color.setXY(xyFromHsb((HSBType) command));
-            this.color = color;
+            HSBType hsb = (HSBType) command;
+            ColorXy col = color;
+            Dimming dim = dimming;
+            color = (col != null ? col : new ColorXy()).setXY(getColorXY(hsb));
+            dimming = (dim != null ? dim : new Dimming()).setBrightness(hsb.getBrightness().intValue());
         }
         return this;
     }

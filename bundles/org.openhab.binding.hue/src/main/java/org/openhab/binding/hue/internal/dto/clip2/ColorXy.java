@@ -27,8 +27,9 @@ public class ColorXy {
         return xy.getXY();
     }
 
-    public void setXY(float[] xyValues) {
+    public ColorXy setXY(float[] xyValues) {
         xy = xy != null ? xy : new PairXy();
         xy.setXY(xyValues);
+        return this;
     }
 }

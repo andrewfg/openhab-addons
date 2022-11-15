@@ -27,7 +27,8 @@ public class Dimming {
         return Math.round(brightness);
     }
 
-    public void setBrightness(int brightness) {
+    public Dimming setBrightness(int brightness) {
         this.brightness = brightness;
+        return this;
     }
 }

@@ -271,7 +271,7 @@
 				"on": false
 			},
 			"dimming": {
-				"brightness": 100.0,
+				"brightness": 93.0,
 				"min_dim_level": 2.0
 			},
 			"dimming_delta": {
