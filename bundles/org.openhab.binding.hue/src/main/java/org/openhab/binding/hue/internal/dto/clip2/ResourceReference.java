@@ -60,6 +60,6 @@ public class ResourceReference {
     @Override
     public String toString() {
         String id = rid;
-        return String.format("type:%s, id:%s", getType().name().toLowerCase(), id != null ? id : "*");
+        return String.format("id:%s, type:%s", id != null ? id : "*" + " ".repeat(35), getType().name().toLowerCase());
     }
 }
