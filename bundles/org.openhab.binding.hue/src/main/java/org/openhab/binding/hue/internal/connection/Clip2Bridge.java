@@ -236,26 +236,26 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
             return;
         }
         logger.trace("onSseEvent() data:{}", json);
-        List<Event> eventList;
+        List<Event> events;
         try {
-            eventList = jsonParser.fromJson(json, Event.EVENT_LIST_TYPE);
+            events = jsonParser.fromJson(json, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
             logger.debug("onSseEvent() {}", e.getMessage(), e);
             return;
         }
-        if (eventList == null) {
+        if (events == null) {
             logger.debug("onSseEvent() event list is null");
             return;
         }
-        List<Resource> resourceList = new ArrayList<>();
-        for (Event event : eventList) {
-            resourceList.addAll(event.getData());
+        List<Resource> resources = new ArrayList<>();
+        for (Event event : events) {
+            resources.addAll(event.getData());
         }
-        if (resourceList.isEmpty()) {
+        if (resources.isEmpty()) {
             logger.debug("onSseEvent() resource list is empty");
             return;
         }
-        bridgeHandler.onSseEvent(resourceList);
+        bridgeHandler.onSseEvent(resources);
     }
 
     /**

@@ -177,7 +177,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
             case NONE:
             default:
-                updateAll();
+                updateSelf();
                 break;
         }
         retriesRemaining = tryAgainFast ? retriesRemaining-- : FAST_SCHEDULE_MAX_TRIES;
@@ -193,13 +193,10 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     @Override
     public void childHandlerInitialized(ThingHandler childHandler, Thing childThing) {
-        logger.debug("childHandlerInitialized() {}", childThing.getUID());
         if (thing.getStatus() == ThingStatus.ONLINE && (childHandler instanceof DeviceThingHandler)) {
-            DeviceThingHandler deviceThingHandler = (DeviceThingHandler) childHandler;
-
-            // get the new child's resources, and push them to it
-            ResourceReference reference = deviceThingHandler.getResourceReference();
+            logger.debug("childHandlerInitialized() {}", childThing.getUID());
             try {
+                ResourceReference reference = ((DeviceThingHandler) childHandler).getResourceReference();
                 for (Resource resource : getClip2Bridge().getResources(reference).getResources()) {
                     onResource(resource);
                 }
@@ -448,6 +445,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
             logger.debug("onSseConnect() ThingStatus:ONLINE");
             updateStatus(ThingStatus.ONLINE);
+            try {
+                updateDevices();
+            } catch (ApiException | AssetNotLoadedException e) {
+                // should never happen as we are already online
+            }
         }
     }
 
@@ -520,28 +522,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Poll for the thing's state. Called sporadically in case any Sse events may have been lost.
-     */
-    private void updateAll() {
-        logger.debug("updateAll() called");
-        try {
-            checkAssetsLoaded();
-            updateProperties();
-            updateDevices();
-            getClip2Bridge().sseOpen();
-            updateStatus(ThingStatus.UNKNOWN);
-        } catch (ApiException e) {
-            logger.debug("refreshThingState() {}", e.getMessage(), e);
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "@text/offline.communication-error");
-        } catch (AssetNotLoadedException e) {
-            logger.debug("refreshThingState() {}", e.getMessage(), e);
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    "@text/offline.clip2.conf-error-assets-not-loaded");
-        }
-    }
-
-    /**
      * Get the data for all devices in the bridge, and inform all child thing handlers.
      *
      * @throws ApiException if a communication error occurred.
@@ -562,10 +542,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateProperties() throws ApiException, AssetNotLoadedException {
         logger.debug("updateProperties() called");
-        Resources resources = getClip2Bridge().getResources(DEVICE);
-        List<Resource> devices = resources.getResources();
 
-        for (Resource device : devices) {
+        for (Resource device : getClip2Bridge().getResources(DEVICE).getResources()) {
             MetaData metaData = device.getMetaData();
 
             if (metaData != null && metaData.getArchetype() == Archetype.BRIDGE_V2) {
@@ -602,6 +580,27 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 thing.setProperties(properties);
                 break;
             }
+        }
+    }
+
+    /**
+     * Update the thing's own state. Called sporadically in case any SSE events may have been lost.
+     */
+    private void updateSelf() {
+        logger.debug("updateSelf() called");
+        try {
+            checkAssetsLoaded();
+            updateProperties();
+            updateStatus(ThingStatus.UNKNOWN);
+            getClip2Bridge().sseOpen();
+        } catch (ApiException e) {
+            logger.debug("updateSelf() {}", e.getMessage(), e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error");
+        } catch (AssetNotLoadedException e) {
+            logger.debug("updateSelf() {}", e.getMessage(), e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.clip2.conf-error-assets-not-loaded");
         }
     }
 }

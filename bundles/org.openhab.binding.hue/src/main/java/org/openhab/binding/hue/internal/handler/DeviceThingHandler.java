@@ -32,7 +32,6 @@ import org.openhab.binding.hue.internal.dto.clip2.MirekSchema;
 import org.openhab.binding.hue.internal.dto.clip2.ProductData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
-import org.openhab.binding.hue.internal.dto.clip2.Resources;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
@@ -71,7 +70,7 @@ public class DeviceThingHandler extends BaseThingHandler {
 
     private boolean disposing;
     private boolean updatePropertiesDone;
-    private boolean updateAllDone;
+    private boolean updateDependenciesDone;
 
     private @Nullable ScheduledFuture<?> updateContributors;
 
@@ -118,7 +117,7 @@ public class DeviceThingHandler extends BaseThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
-            if ((thing.getStatus() == ThingStatus.ONLINE) && updateAllDone) {
+            if ((thing.getStatus() == ThingStatus.ONLINE) && updateDependenciesDone) {
                 ScheduledFuture<?> updateTask = updateContributors;
                 if (updateTask == null || !updateTask.isDone()) {
                     updateContributors = scheduler.schedule(() -> {
@@ -202,7 +201,7 @@ public class DeviceThingHandler extends BaseThingHandler {
         contributorsCache.clear();
         controlIds.clear();
         disposing = false;
-        updateAllDone = false;
+        updateDependenciesDone = false;
         updatePropertiesDone = false;
     }
 
@@ -245,66 +244,30 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Private method to update the channel state depending on a new contributor resource fetched internally.
-     *
-     * @param resource a Resource object containing the new state.
-     */
-    private synchronized void onInternal(Resource resource) {
-        if (!disposing) {
-            logger.debug("onInternal(..) {}", resource);
-            Resource contributorResource = contributorsCache.get(resource.getId());
-            if (contributorResource != null) {
-                if (updateChannels(resource)) {
-                    contributorsCache.put(contributorResource.getId(), resource);
-                }
-            }
-        }
-    }
-
-    /**
      * Update the channel state depending on a new resource sent from the bridge.
      *
      * @param resource a Resource object containing the new state.
      */
-    public synchronized void onResource(Resource resource) {
+    public void onResource(Resource resource) {
         if (!disposing) {
             logger.debug("onResource(..) {}", resource);
-            if (thisResource.getId().equals(resource.getId()) && resource.hasFullState()) {
-                thisResource = resource;
-                if (!updatePropertiesDone) {
-                    updateProperties(resource);
+            if (thisResource.getId().equals(resource.getId())) {
+                if (resource.hasFullState()) {
+                    thisResource = resource;
+                    if (!updatePropertiesDone) {
+                        updateProperties(resource);
+                    }
                 }
-                updateAllDone = false;
-                scheduler.submit(() -> updateAll());
-            }
-            if (updateAllDone) {
-                onInternal(resource);
-            }
-        }
-    }
-
-    /**
-     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
-     * up the final list of channels in the thing.
-     */
-    private void updateAll() {
-        if (!disposing && !updateAllDone) {
-            logger.debug("updateAll() called");
-            try {
-                updatePrimary();
-                updateLookups();
-                updateContributors();
-                updateChannelList();
-                updateAllDone = true;
-                updateStatus(ThingStatus.ONLINE);
-            } catch (ApiException e) {
-                logger.debug("updateAll() {}", e.getMessage(), e);
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
-            } catch (AssetNotLoadedException e) {
-                logger.debug("updateAll() {}", e.getMessage(), e);
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                        "@text/offline.clip2.conf-error-assets-not-loaded");
+                if (!updateDependenciesDone) {
+                    scheduler.submit(() -> updateDependencies());
+                }
+            } else {
+                Resource contributorResource = contributorsCache.get(resource.getId());
+                if (contributorResource != null) {
+                    if (updateChannels(resource)) {
+                        contributorsCache.put(contributorResource.getId(), resource);
+                    }
+                }
             }
         }
     }
@@ -410,6 +373,31 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
+     * Get all resources needed for building the thing state. Build the forward / reverse contributor lookup maps. Set
+     * up the final list of channels in the thing.
+     */
+    private void updateDependencies() {
+        if (!disposing && !updateDependenciesDone) {
+            logger.debug("updateDependencies() called");
+            try {
+                updateLookups();
+                updateContributors();
+                updateChannelList();
+                updateDependenciesDone = true;
+                updateStatus(ThingStatus.ONLINE);
+            } catch (ApiException e) {
+                logger.debug("updateDependencies() {}", e.getMessage(), e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error");
+            } catch (AssetNotLoadedException e) {
+                logger.debug("updateDependencies() {}", e.getMessage(), e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.clip2.conf-error-assets-not-loaded");
+            }
+        }
+    }
+
+    /**
      * Initialize the lookup maps of resources that contribute to the thing state.
      */
     private void updateLookups() {
@@ -423,17 +411,6 @@ public class DeviceThingHandler extends BaseThingHandler {
             commandResourceIds.putAll(references.stream() // use a 'mergeFunction' to prevent duplicates
                     .collect(Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
         }
-    }
-
-    /**
-     * Execute HTTP GET command to fetch the primary resource data for the thing state.
-     *
-     * @throws ApiException if a communication error occurred.
-     * @throws AssetNotLoadedException if one of the assets is not loaded.
-     */
-    private void updatePrimary() throws ApiException, AssetNotLoadedException {
-        logger.debug("updatePrimary() called");
-        updateResource(new ResourceReference().setId(thisResource.getId()).setType(ResourceType.DEVICE));
     }
 
     /**
@@ -488,12 +465,10 @@ public class DeviceThingHandler extends BaseThingHandler {
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
-    private synchronized void updateResource(ResourceReference reference) throws ApiException, AssetNotLoadedException {
+    private void updateResource(ResourceReference reference) throws ApiException, AssetNotLoadedException {
         logger.debug("updateResource() {}", reference);
-        Resources resources = getBridgeHandler().getResources(reference);
-        List<Resource> resourceList = resources.getResources();
-        for (Resource resource : resourceList) {
-            onInternal(resource);
+        for (Resource resource : getBridgeHandler().getResources(reference).getResources()) {
+            onResource(resource);
         }
     }
 
