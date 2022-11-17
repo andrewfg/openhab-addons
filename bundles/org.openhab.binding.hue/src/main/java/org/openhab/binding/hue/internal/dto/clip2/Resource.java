@@ -663,6 +663,7 @@ public class Resource {
 
     @Override
     public String toString() {
-        return String.format("type:%s, id:%s", getType().name().toLowerCase(), getId());
+        String id = this.id;
+        return String.format("id:%s, type:%s", id != null ? id : "?" + " ".repeat(35), getType().name().toLowerCase());
     }
 }

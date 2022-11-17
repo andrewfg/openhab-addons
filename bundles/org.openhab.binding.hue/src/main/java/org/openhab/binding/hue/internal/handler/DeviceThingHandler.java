@@ -249,9 +249,9 @@ public class DeviceThingHandler extends BaseThingHandler {
      *
      * @param resource a Resource object containing the new state.
      */
-    private synchronized void notifyInternal(Resource resource) {
+    private synchronized void onInternal(Resource resource) {
         if (!disposing) {
-            logger.debug("notifyInternal() {}", resource);
+            logger.debug("onInternal(..) {}", resource);
             Resource contributorResource = contributorsCache.get(resource.getId());
             if (contributorResource != null) {
                 if (updateChannels(resource)) {
@@ -266,9 +266,9 @@ public class DeviceThingHandler extends BaseThingHandler {
      *
      * @param resource a Resource object containing the new state.
      */
-    public synchronized void notifyResource(Resource resource) {
+    public synchronized void onResource(Resource resource) {
         if (!disposing) {
-            logger.debug("notifyResource() {}", resource);
+            logger.debug("onResource(..) {}", resource);
             if (thisResource.getId().equals(resource.getId()) && resource.hasFullState()) {
                 thisResource = resource;
                 if (!updatePropertiesDone) {
@@ -278,7 +278,7 @@ public class DeviceThingHandler extends BaseThingHandler {
                 scheduler.submit(() -> updateAll());
             }
             if (updateAllDone) {
-                notifyInternal(resource);
+                onInternal(resource);
             }
         }
     }
@@ -493,7 +493,7 @@ public class DeviceThingHandler extends BaseThingHandler {
         Resources resources = getBridgeHandler().getResources(reference);
         List<Resource> resourceList = resources.getResources();
         for (Resource resource : resourceList) {
-            notifyInternal(resource);
+            onInternal(resource);
         }
     }
 

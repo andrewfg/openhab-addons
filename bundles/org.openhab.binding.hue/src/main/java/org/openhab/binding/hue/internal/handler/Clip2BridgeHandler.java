@@ -73,7 +73,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private static final String BRIDGE_FMT = "Bridge %s \"Philips Hue Bridge\" [ipAddress=\"%s\", applicationKey=\"%s\"] {";
 
     private static final String FORMAT_HOST_PORT = "%s:443";
-    private static final int FAST_SCHEDULE_MILLI_SECONDS = 500; //
+    private static final int FAST_SCHEDULE_MILLI_SECONDS = 500;
     private static final int FAST_SCHEDULE_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
@@ -201,7 +201,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             ResourceReference reference = deviceThingHandler.getResourceReference();
             try {
                 for (Resource resource : getClip2Bridge().getResources(reference).getResources()) {
-                    notifyResource(resource);
+                    onResource(resource);
                 }
             } catch (ApiException | AssetNotLoadedException e) {
                 // exceptions should not occur here; but log anyway (just in case)
@@ -427,46 +427,36 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Notify all child thing handlers about the contents of the given resource.
+     * Inform all child thing handlers about the contents of the given resource.
      *
      * @param resource the given resource.
      */
-    private void notifyResource(Resource resource) {
-        logger.debug("notifyResource() {}", resource);
+    private void onResource(Resource resource) {
+        logger.debug("onResource(..) {}", resource);
         for (Thing thing : getThing().getThings()) {
             ThingHandler handler = thing.getHandler();
             if (handler instanceof DeviceThingHandler) {
-                ((DeviceThingHandler) handler).notifyResource(resource);
+                ((DeviceThingHandler) handler).onResource(resource);
             }
         }
     }
 
     /**
-     * Called when the bridge unexpectedly closed the SSE connection.
+     * Called when an SSE event message comes in. If the bridge is offline, then switch to online.
      */
-    public void notifySseComplete() {
-        if (assetsLoaded) {
-            logger.warn("notifySseComplete() server unexpectedly closed SSE connection");
-            updateStatus(ThingStatus.UNKNOWN);
-        }
-    }
-
-    /**
-     * Called when an SSE event message (i.e. the first one) comes in.
-     */
-    public void notifySseConnected() {
-        if (assetsLoaded) {
-            logger.debug("notifySseConnected() called");
+    public void onSseConnect() {
+        if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
+            logger.debug("onSseConnect() ThingStatus:ONLINE");
             updateStatus(ThingStatus.ONLINE);
         }
     }
 
     /**
-     * Called when the bridge SSE connection has returned an error.
+     * Called when the SSE link has returned an error.
      */
-    public void notifySseError(Throwable e) {
+    public void onSseError(Throwable e) {
         if (assetsLoaded) {
-            logger.warn("notifySseError() {}", e.getMessage(), e);
+            logger.warn("onSseError() ThingStatus:UNKNOWN ({})", e.getMessage(), e);
             updateStatus(ThingStatus.UNKNOWN);
         }
     }
@@ -476,22 +466,22 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      *
      * @param resources a list of incoming resource objects.
      */
-    public void notifySseEvent(List<Resource> resources) {
+    public void onSseEvent(List<Resource> resources) {
         if (assetsLoaded) {
-            logger.debug("notifySseEvent() called with resource count {}", resources.size());
+            logger.debug("onSseEvent() called with resource count {}", resources.size());
             for (Resource resource : resources) {
-                notifyResource(resource.markAsSparse());
+                onResource(resource.markAsSparse());
             }
         }
     }
 
     /**
      * Called when the SSE event channel has not received any events for a long time. This could mean that the event
-     * source socket has dropped.
+     * source socket has dropped, or the physical link broken.
      */
-    public void notifySseSleeping() {
+    public void onSseQuiet() {
         if (assetsLoaded) {
-            logger.warn("notifySseSleeping() the SSE connection may have been dropped");
+            logger.warn("onSseQuiet() ThingStatus:UNKNOWN (SSE link is quiet)");
             updateStatus(ThingStatus.UNKNOWN);
         }
     }
@@ -538,7 +528,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             checkAssetsLoaded();
             updateProperties();
             updateDevices();
-            getClip2Bridge().sseStart();
+            getClip2Bridge().sseOpen();
             updateStatus(ThingStatus.UNKNOWN);
         } catch (ApiException e) {
             logger.debug("refreshThingState() {}", e.getMessage(), e);
@@ -552,7 +542,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Get the data for all devices in the bridge, and notify all child thing handlers.
+     * Get the data for all devices in the bridge, and inform all child thing handlers.
      *
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
@@ -560,7 +550,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private void updateDevices() throws ApiException, AssetNotLoadedException {
         logger.debug("updateDevices() called");
         for (Resource resource : getClip2Bridge().getResources(DEVICE).getResources()) {
-            notifyResource(resource);
+            onResource(resource);
         }
     }
 

@@ -148,7 +148,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
     private boolean online;
 
     private @Nullable SseEventSource eventSource;
-    private @Nullable ScheduledFuture<?> sseSleepingCheck;
+    private @Nullable ScheduledFuture<?> sseQuietCheck;
 
     public Clip2Bridge(HttpClient httpClient, ClientBuilder clientBuilder, SseEventSourceFactory eventSourceFactory,
             Clip2BridgeHandler bridgeHandler, String hostName, String applicationKey) {
@@ -185,7 +185,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
     public void close() {
         closing = true;
         online = false;
-        sseStop();
+        sseClose();
     }
 
     /**
@@ -202,60 +202,49 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
     }
 
     /**
-     * Respond to SSE connection completed call backs. Restart the SSE connection.
-     */
-    private void notifySseComplete() {
-        if (online && !closing) {
-            bridgeHandler.notifySseComplete();
-            sseStart();
-        }
-    }
-
-    /**
      * Respond to SSE error call backs.
      *
      * @param e the exception that caused the error.
      */
-    private void notifySseError(Throwable e) {
+    private void onSseError(Throwable e) {
         if (online && !closing) {
-            bridgeHandler.notifySseError(e);
+            bridgeHandler.onSseError(e);
         }
     }
 
     /**
-     * SSE calls this method when an event comes in.
-     * It forwards the event data as a list of Resources to the bridge handler.
+     * SSE calls this method when an event comes in. It forwards the event data as a list of Resources to the bridge
+     * handler.
      *
-     * @param inboundSseEvent the incoming SSE event.
+     * @param sseEvent the incoming SSE event.
      */
-    private void notifySseEvent(InboundSseEvent inboundSseEvent) {
+    private void onSseEvent(InboundSseEvent sseEvent) {
         if (!online || closing) {
             return;
         }
-        bridgeHandler.notifySseConnected();
-        ScheduledFuture<?> task = sseSleepingCheck;
+        bridgeHandler.onSseConnect();
+        ScheduledFuture<?> task = sseQuietCheck;
         if (task != null && !task.isCancelled()) {
             task.cancel(true);
         }
-        sseSleepingCheck = bridgeHandler.getScheduler().schedule(() -> notifySseSleeping(), SLEEP_SECONDS,
-                TimeUnit.SECONDS);
-        if (inboundSseEvent.isEmpty()) {
+        sseQuietCheck = bridgeHandler.getScheduler().schedule(this::onSseQuiet, SLEEP_SECONDS, TimeUnit.SECONDS);
+        if (sseEvent.isEmpty()) {
             return;
         }
-        String json = inboundSseEvent.readData();
+        String json = sseEvent.readData();
         if (json == null) {
             return;
         }
-        logger.trace("notifySseEvent() data:{}", json);
+        logger.trace("onSseEvent() data:{}", json);
         List<Event> eventList;
         try {
             eventList = jsonParser.fromJson(json, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
-            logger.debug("notifySseEvent() {}", e.getMessage(), e);
+            logger.debug("onSseEvent() {}", e.getMessage(), e);
             return;
         }
         if (eventList == null) {
-            logger.debug("notifySseEvent() event list is null");
+            logger.debug("onSseEvent() event list is null");
             return;
         }
         List<Resource> resourceList = new ArrayList<>();
@@ -263,20 +252,20 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
             resourceList.addAll(event.getData());
         }
         if (resourceList.isEmpty()) {
-            logger.debug("notifySseEvent() resource list is empty");
+            logger.debug("onSseEvent() resource list is empty");
             return;
         }
-        bridgeHandler.notifySseEvent(resourceList);
+        bridgeHandler.onSseEvent(resourceList);
     }
 
     /**
      * Called when the SSE event channel has not received any events for a long time. This could mean that the event
      * source socket has dropped. So restart the SSE connection.
      */
-    public void notifySseSleeping() {
+    public void onSseQuiet() {
         if (online && !closing) {
-            bridgeHandler.notifySseSleeping();
-            sseStart();
+            bridgeHandler.onSseQuiet();
+            sseReOpen();
         }
     }
 
@@ -382,6 +371,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
             case HttpStatus.UNAUTHORIZED_401:
             case HttpStatus.FORBIDDEN_403:
                 throw new IllegalAccessException("HTTP request not authorized");
+            // TODO HttpStatus.NOT_FOUND_404 / HttpStatus.SERVICE_UNAVAILABLE_503 if device power is off ??
             case HttpStatus.OK_200:
             default:
         }
@@ -431,10 +421,26 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
     }
 
     /**
-     * Start receiving SSE events.
+     * Close the SSE link.
      */
-    public synchronized void sseStart() {
-        sseStop();
+    private synchronized void sseClose() {
+        ScheduledFuture<?> task = sseQuietCheck;
+        if (task != null && !task.isCancelled()) {
+            task.cancel(true);
+            sseQuietCheck = null;
+        }
+        SseEventSource eventSource = this.eventSource;
+        if (eventSource != null) {
+            eventSource.close();
+            this.eventSource = null;
+        }
+    }
+
+    /**
+     * Open the SSE link.
+     */
+    public synchronized void sseOpen() {
+        sseClose();
 
         Client client;
         if (clientBuilder.getConfiguration().isRegistered(Clip2Filter.class)) {
@@ -453,25 +459,31 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
         }
 
         SseEventSource eventSource = eventSourceFactory.newBuilder(client.target(eventUrl)).build();
-        eventSource.register(this::notifySseEvent, this::notifySseError, this::notifySseComplete);
+        eventSource.register(this::onSseEvent, this::onSseError);
         eventSource.open();
         this.eventSource = eventSource;
     }
 
     /**
-     * Stop receiving SSE events.
+     * Reopen the SSE link. If the eventSource already exists, try first to simply close and reopen it, but if that
+     * fails, then completely destroy and re-create the eventSource.
      */
-    private synchronized void sseStop() {
-        ScheduledFuture<?> task = sseSleepingCheck;
-        if (task != null && !task.isCancelled()) {
-            task.cancel(true);
-            sseSleepingCheck = null;
-        }
+    private synchronized void sseReOpen() {
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
-            eventSource.close();
-            this.eventSource = null;
+            try {
+                if (eventSource.isOpen()) {
+                    eventSource.close();
+                }
+                if (!eventSource.isOpen()) {
+                    eventSource.open();
+                }
+                return;
+            } catch (Exception e) {
+                // SSE documentation does not say what exceptions may be thrown, so catch anything
+            }
         }
+        sseOpen();
     }
 
     /**
