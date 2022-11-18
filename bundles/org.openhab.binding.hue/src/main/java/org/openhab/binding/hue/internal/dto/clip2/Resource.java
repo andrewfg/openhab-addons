@@ -12,8 +12,10 @@
  */
 package org.openhab.binding.hue.internal.dto.clip2;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -44,182 +46,10 @@ import com.google.gson.annotations.SerializedName;
 @NonNullByDefault
 public class Resource {
 
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Transient Field
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
-    /**
-     * The SSE event mechanism sends resources in a sparse (skeleton) format that only includes state fields whose
-     * values have changed. A sparse resource does not contain the full state of the resource. And the absence of any
-     * field from such a resource does not indicate that the field value is UNDEF, but rather that the value is the same
-     * as what it was previously set to by the last non-sparse resource.
-     */
-    private transient boolean hasSparseData;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Common Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable String type;
-    private @Nullable String id;
-
-    @SerializedName("id_v1")
-    private @Nullable String idV1;
-
-    private @Nullable ResourceReference owner;
-    private @Nullable MetaData metadata;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Device Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    @SerializedName("product_data")
-    private @Nullable ProductData productData;
-    private @Nullable List<ResourceReference> services;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Light Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable OnState on;
-    private @Nullable Dimming dimming;
-
-    @SerializedName("color_temperature")
-    private @Nullable ColorTemperature2 colorTemperature;
-
-    private @Nullable ColorXy color;
-    private @Nullable Alerts alert;
-    private @Nullable Effects effects;
-
-    @SerializedName("timed_effects")
-    private @Nullable Effects timedEffects;
-
     private static final int DELTA = 30;
 
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Scene Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable ResourceReference group;
-    private @Nullable List<ActionEntry> actions;
-    private @Nullable Recall recall;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Sensor Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable Boolean enabled;
-    private @Nullable LightLevel light;
-    private @Nullable Button button;
-    private @Nullable Temperature temperature;
-    private @Nullable Motion motion;
-
-    @SerializedName("power_state")
-    private @Nullable Power powerState;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Group Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable List<ResourceReference> children;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + ZigBee Fields
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    private @Nullable String status;
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Transient Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
-    public boolean hasFullState() {
-        return !hasSparseData;
-    }
-
-    public Resource markAsSparse() {
-        hasSparseData = true;
-        return this;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Common Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
-    public Resource(@Nullable ResourceType resourceType) {
-        if (resourceType != null) {
-            setType(resourceType);
-        }
-    }
-
-    public Resource setType(ResourceType resourceType) {
-        this.type = resourceType.name().toLowerCase();
-        return this;
-    }
-
-    public Resource setId(String id) {
-        this.id = id;
-        return this;
-    }
-
-    public ResourceType getType() {
-        return ResourceType.of(type);
-    }
-
-    public String getId() {
-        String id = this.id;
-        return id != null ? id : "";
-    }
-
-    public String getIdV1() {
-        String idV1 = this.idV1;
-        return idV1 != null ? idV1 : "";
-    }
-
-    public @Nullable ResourceReference getOwner() {
-        return owner;
-    }
-
-    public @Nullable MetaData getMetaData() {
-        return metadata;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Device Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
-    public @Nullable ProductData getProductData() {
-        return productData;
-    }
-
-    public List<ResourceReference> getServiceReferences() {
-        List<ResourceReference> services = this.services;
-        return services != null ? services : List.of();
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Light Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
     /**
-     * Create an HsbType from an array of floats of colour x & y parameters.
+     * Static method to create an HsbType from an array of floats of colour x & y parameters.
      *
      * @param xy colour x & y parameters.
      * @return a new HsbType.
@@ -229,7 +59,7 @@ public class Resource {
     }
 
     /**
-     * Get the x & y colour parameters of an HsbType instance.
+     * Static method to get the x & y colour parameters of an HsbType instance.
      *
      * @param hsb the HsbType.
      * @return colour x & y parameters.
@@ -244,43 +74,7 @@ public class Resource {
     }
 
     /**
-     * Get the light on status.
-     *
-     * @return OnOffType with the on status.
-     */
-    public State getSwitch() {
-        OnState on = this.on;
-        return on != null ? OnOffType.from(on.isOn()) : UnDefType.UNDEF;
-    }
-
-    /**
-     * Set the light on status.
-     *
-     * @param command and OnOffType with either on / off.
-     * @return this resource instance.
-     */
-    public Resource setSwitch(Command command) {
-        if (command instanceof OnOffType) {
-            OnState on = this.on;
-            on = on != null ? on : new OnState();
-            on.setOn(OnOffType.ON.equals(command));
-            this.on = on;
-        }
-        return this;
-    }
-
-    /**
-     * Get the brightness percentage.
-     *
-     * @return a PercentType with the brightness 0..100
-     */
-    public State getBrightnessState() {
-        Dimming dimming = this.dimming;
-        return dimming != null ? new PercentType(dimming.getBrightness()) : UnDefType.UNDEF;
-    }
-
-    /**
-     * Get a new percent value depending on the type of command and if relevant the current value.
+     * Static method to get a new percent value depending on the type of command and if relevant the current value.
      *
      * @param command either a PercentType with the new value, an OnOffType to set it at 0 / 100 percent, or an
      *            IncreaseDecreaseType to increment the percentage value by a fixed amount.
@@ -298,6 +92,422 @@ public class Resource {
             return new PercentType(Math.min(100, Math.max(0, percent)));
         }
         return UnDefType.UNDEF;
+    }
+
+    /**
+     * The SSE event mechanism sends resources in a sparse (skeleton) format that only includes state fields whose
+     * values have changed. A sparse resource does not contain the full state of the resource. And the absence of any
+     * field from such a resource does not indicate that the field value is UNDEF, but rather that the value is the same
+     * as what it was previously set to by the last non-sparse resource.
+     */
+    private transient boolean hasSparseData;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Common Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable String type;
+    private @Nullable String id;
+    private @Nullable @SerializedName("id_v1") String idV1;
+    private @Nullable ResourceReference owner;
+    private @Nullable MetaData metadata;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Device Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable @SerializedName("product_data") ProductData productData;
+    private @Nullable List<ResourceReference> services;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Light Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable OnState on;
+    private @Nullable Dimming dimming;
+    private @Nullable @SerializedName("color_temperature") ColorTemperature2 colorTemperature;
+    private @Nullable ColorXy color;
+    private @Nullable Alerts alert;
+    private @Nullable Effects effects;
+    private @Nullable @SerializedName("timed_effects") Effects timedEffects;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Scene Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable ResourceReference group;
+    private @Nullable List<ActionEntry> actions;
+    private @Nullable Recall recall;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Sensor Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable Boolean enabled;
+    private @Nullable LightLevel light;
+    private @Nullable Button button;
+    private @Nullable Temperature temperature;
+    private @Nullable Motion motion;
+    private @Nullable @SerializedName("power_state") Power powerState;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + Group Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable List<ResourceReference> children;
+
+    /**
+     * ++++++++++++++++++++++++++++++++++++++++
+     * + ZigBee Fields
+     * ++++++++++++++++++++++++++++++++++++++++
+     */
+    private @Nullable String status;
+
+    /**
+     * Constructor
+     *
+     * @param resourceType
+     */
+    public Resource(@Nullable ResourceType resourceType) {
+        if (resourceType != null) {
+            setType(resourceType);
+        }
+    }
+
+    /**
+     * Put this resource's control id in the given map of control ids.
+     *
+     * @param controlIds the map of control ids to be updated.
+     * @return this resource instance.
+     */
+    public Resource addControlIdToMap(Map<String, Integer> controlIds) {
+        if (!hasSparseData) {
+            MetaData metadata = this.metadata;
+            controlIds.put(getId(), metadata != null ? metadata.getControlId() : 0);
+        }
+        return this;
+    }
+
+    /**
+     * Method that uses reflection to copy fields from an other Resource instance into this instance. If the field in
+     * this instance is null and the same field in the other instance is not null, then the value from the other
+     * instance is copied to this instance.
+     *
+     * Usage: For color light resources, a full DTO requires both a Dimmer and a ColorXy field, but the SSE event DTOs
+     * only provide one or the other field, and never both. This method allows the binding to import the missing field
+     * from a prior cache copy of the resource into itself, in order to create the required full DTO.
+     *
+     * @param other the other resource instance.
+     * @return this instance.
+     */
+    public Resource copyMissingFieldsFrom(Resource other) {
+        for (String fieldName : Set.of("dimming", "color")) {
+            try {
+                Field field = getClass().getDeclaredField(fieldName);
+                Object thisField = field.get(this);
+                Object otherField = field.get(other);
+                if (thisField == null && otherField != null) {
+                    field.setAccessible(true);
+                    field.set(this, otherField);
+                }
+            } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
+            }
+        }
+        return this;
+    }
+
+    public @Nullable List<ActionEntry> getActions() {
+        return actions;
+    }
+
+    public @Nullable Alerts getAlert() {
+        return alert;
+    }
+
+    public String getArchetype() {
+        MetaData metaData = getMetaData();
+        if (metaData != null) {
+            return metaData.getArchetype().toString();
+        }
+        return getType().toString();
+    }
+
+    public State getBatteryLevelState() {
+        Power powerState = this.powerState;
+        return powerState != null ? powerState.getBatteryLevelState() : UnDefType.UNDEF;
+    }
+
+    public State getBatteryLowState() {
+        Power powerState = this.powerState;
+        return powerState != null ? powerState.getBatteryLowState() : UnDefType.UNDEF;
+    }
+
+    /**
+     * Get the brightness percentage.
+     *
+     * @return a PercentType with the brightness 0..100
+     */
+    public State getBrightnessState() {
+        Dimming dimming = this.dimming;
+        return dimming != null ? new PercentType(dimming.getBrightness()) : UnDefType.UNDEF;
+    }
+
+    public @Nullable Button getButton() {
+        return button;
+    }
+
+    /**
+     * Get the state corresponding to a button's last event value multiplied by the controlId found for it in the given
+     * controlIds map. States are decimal values formatted like '1002' where the first digit is the button's controlId
+     * and the last digit is the ordinal value of the button's last event.
+     *
+     * @param controlIds the map of control ids to be referenced.
+     * @return the state.
+     */
+    public State getButtonEventState(Map<String, Integer> controlIds) {
+        Button button = this.button;
+        if (button != null) {
+            try {
+                return new DecimalType(
+                        (controlIds.getOrDefault(getId(), 0).intValue() * 1000) + button.getLastEvent().ordinal());
+            } catch (IllegalArgumentException e) {
+                // fall through
+            }
+        }
+        return UnDefType.UNDEF;
+    }
+
+    public State getButtonLastEventState() {
+        Button button = this.button;
+        return button != null ? button.getLastEventState() : UnDefType.UNDEF;
+    }
+
+    public List<ResourceReference> getChildren() {
+        List<ResourceReference> children = this.children;
+        return children != null ? children : List.of();
+    }
+
+    /**
+     * Get the color as an HSBType. Take its Hue & Saturation parts from the 'ColorXy' JSON element, and take its
+     * Brightness part from the 'Dimming' JSON element.
+     *
+     * @return an HSBType containing the current color and brightness level.
+     */
+    public State getColorState() {
+        ColorXy col = color;
+        if (col != null) {
+            HSBType hsb = getColorHSB(col.getXY());
+            Dimming dim = dimming;
+            return new HSBType(hsb.getHue(), hsb.getSaturation(),
+                    new PercentType(dim != null ? Math.max(0, Math.min(100, dim.getBrightness())) : 50));
+        }
+        return UnDefType.UNDEF;
+    }
+
+    public @Nullable ColorTemperature2 getColorTemperature() {
+        return colorTemperature;
+    }
+
+    /**
+     * Get the colour temperature in Kelvin.
+     *
+     * @return a QuantityType<Temperature> with the colour temperature in Kelvin.
+     */
+    public State getColorTemperatureKelvinState() {
+        ColorTemperature2 colorTemp = colorTemperature;
+        if (colorTemp != null) {
+            Float kelvin = colorTemp.getKelvin();
+            if (kelvin != null) {
+                return new QuantityType<>(kelvin, Units.KELVIN);
+            }
+        }
+        return UnDefType.UNDEF;
+    }
+
+    /**
+     * Get the colour temperature in percent based on the passed MirekSchema scale.
+     *
+     * @param mirekSchema the MirekSchema to be used in the scaling.
+     * @return a PercentType with the colour temperature percentage.
+     */
+    public State getColorTemperaturePercentState(MirekSchema mirekSchema) {
+        ColorTemperature2 colorTemp = colorTemperature;
+        if (colorTemp != null) {
+            Integer percent = colorTemp.getPercent(mirekSchema);
+            if (percent != null) {
+                return new PercentType(percent);
+            }
+        }
+        return UnDefType.UNDEF;
+    }
+
+    public @Nullable Effects getEffects() {
+        return effects;
+    }
+
+    public @Nullable Boolean getEnabled() {
+        return enabled;
+    }
+
+    public State getEnabledState() {
+        Boolean enabled = this.enabled;
+        return enabled != null ? OnOffType.from(enabled.booleanValue()) : UnDefType.UNDEF;
+    }
+
+    public @Nullable ResourceReference getGroup() {
+        return group;
+    }
+
+    public String getId() {
+        String id = this.id;
+        return id != null ? id : "";
+    }
+
+    public String getIdV1() {
+        String idV1 = this.idV1;
+        return idV1 != null ? idV1 : "";
+    }
+
+    public @Nullable LightLevel getLightLevel() {
+        return light;
+    }
+
+    public State getLightLevelState() {
+        LightLevel light = this.light;
+        return light != null ? light.getLightlevelState() : UnDefType.UNDEF;
+    }
+
+    public @Nullable MetaData getMetaData() {
+        return metadata;
+    }
+
+    public @Nullable MirekSchema getMirekSchema() {
+        ColorTemperature2 colorTemp = this.colorTemperature;
+        if (colorTemp != null) {
+            return colorTemp.getMirekSchema();
+        }
+        return null;
+    }
+
+    public @Nullable Motion getMotion() {
+        return motion;
+    }
+
+    public State getMotionState() {
+        Motion motion = this.motion;
+        return motion != null ? motion.getMotionState() : UnDefType.UNDEF;
+    }
+
+    public State getMotionValidState() {
+        Motion motion = this.motion;
+        return motion != null ? motion.getMotionValidState() : UnDefType.UNDEF;
+    }
+
+    public String getName() {
+        MetaData metaData = getMetaData();
+        if (metaData != null) {
+            String name = metaData.getName();
+            if (name != null) {
+                return name;
+            }
+        }
+        return getType().toString();
+    }
+
+    public @Nullable ResourceReference getOwner() {
+        return owner;
+    }
+
+    public @Nullable Power getPowerState() {
+        return powerState;
+    }
+
+    public @Nullable ProductData getProductData() {
+        return productData;
+    }
+
+    public String getProductName() {
+        ProductData productData = getProductData();
+        if (productData != null) {
+            return productData.getProductName();
+        }
+        return getType().toString();
+    }
+
+    public @Nullable Recall getRecall() {
+        return recall;
+    }
+
+    public List<ResourceReference> getServiceReferences() {
+        List<ResourceReference> services = this.services;
+        return services != null ? services : List.of();
+    }
+
+    /**
+     * Get the light on status.
+     *
+     * @return OnOffType with the on status.
+     */
+    public State getSwitch() {
+        OnState on = this.on;
+        return on != null ? OnOffType.from(on.isOn()) : UnDefType.UNDEF;
+    }
+
+    public @Nullable Temperature getTemperature() {
+        return temperature;
+    }
+
+    public State getTemperatureState() {
+        Temperature temperature = this.temperature;
+        return temperature != null ? temperature.getTemperatureState() : UnDefType.UNDEF;
+    }
+
+    public State getTemperatureValidState() {
+        Temperature temperature = this.temperature;
+        return temperature != null ? temperature.getTemperatureValidState() : UnDefType.UNDEF;
+    }
+
+    public @Nullable Effects getTimedEffects() {
+        return timedEffects;
+    }
+
+    public ResourceType getType() {
+        return ResourceType.of(type);
+    }
+
+    public State getZigBeeState() {
+        ZigBeeState zigBeeState = getZigBeeStatus();
+        return zigBeeState != null ? new StringType(zigBeeState.toString()) : UnDefType.UNDEF;
+    }
+
+    public @Nullable ZigBeeState getZigBeeStatus() {
+        String status = this.status;
+        return status != null ? ZigBeeState.of(status) : null;
+    }
+
+    /**
+     * Check if the resource has complete or sparse data.
+     *
+     * @return true if the resource has complete data.
+     */
+    public boolean hasFullState() {
+        return !hasSparseData;
+    }
+
+    /**
+     * Mark that the resource has sparse data.
+     *
+     * @return this instance.
+     */
+    public Resource markAsSparse() {
+        hasSparseData = true;
+        return this;
     }
 
     /**
@@ -321,64 +531,20 @@ public class Resource {
         return this;
     }
 
-    public @Nullable ColorTemperature2 getColorTemperature() {
-        return colorTemperature;
-    }
-
-    public @Nullable MirekSchema getMirekSchema() {
-        ColorTemperature2 colorTemp = this.colorTemperature;
-        if (colorTemp != null) {
-            return colorTemp.getMirekSchema();
-        }
-        return null;
-    }
-
     /**
-     * Get the colour temperature in percent based on the passed MirekSchema scale.
+     * Set the color from an HSBType. Put its Hue & Saturation parts in the 'ColorXy' JSON element, and put its
+     * Brightness part in the 'Dimming' JSON element.
      *
-     * @param mirekSchema the MirekSchema to be used in the scaling.
-     * @return a PercentType with the colour temperature percentage.
-     */
-    public State getColorTemperaturePercentState(MirekSchema mirekSchema) {
-        ColorTemperature2 colorTemp = colorTemperature;
-        if (colorTemp != null) {
-            Integer percent = colorTemp.getPercent(mirekSchema);
-            if (percent != null) {
-                return new PercentType(percent);
-            }
-        }
-        return UnDefType.UNDEF;
-    }
-
-    /**
-     * Get the colour temperature in Kelvin.
-     *
-     * @return a QuantityType<Temperature> with the colour temperature in Kelvin.
-     */
-    public State getColorTemperatureKelvinState() {
-        ColorTemperature2 colorTemp = colorTemperature;
-        if (colorTemp != null) {
-            Float kelvin = colorTemp.getKelvin();
-            if (kelvin != null) {
-                return new QuantityType<>(kelvin, Units.KELVIN);
-            }
-        }
-        return UnDefType.UNDEF;
-    }
-
-    /**
-     * Set the colour temperature in percent based on the passed MirekSchema scale.
-     *
-     * @param command a PercentType command value.
-     * @param mirekSchema the MirekSchema to be used in the scaling.
+     * @param command an HSBType with the new color value
      * @return this resource instance.
      */
-    public Resource setColorTemperaturePercent(Command command, MirekSchema mirekSchema) {
-        if (command instanceof PercentType) {
-            ColorTemperature2 colorTemperature = this.colorTemperature;
-            colorTemperature = colorTemperature != null ? colorTemperature : new ColorTemperature2();
-            colorTemperature.setPercent(((PercentType) command).intValue(), mirekSchema);
-            this.colorTemperature = colorTemperature;
+    public Resource setColor(Command command) {
+        if (command instanceof HSBType) {
+            HSBType hsb = (HSBType) command;
+            ColorXy col = color;
+            Dimming dim = dimming;
+            color = (col != null ? col : new ColorXy()).setXY(getColorXY(hsb));
+            dimming = (dim != null ? dim : new Dimming()).setBrightness(hsb.getBrightness().intValue());
         }
         return this;
     }
@@ -409,78 +575,20 @@ public class Resource {
     }
 
     /**
-     * Get the color as an HSBType. Take its Hue & Saturation parts from the 'ColorXy' JSON element, and take its
-     * Brightness part from the 'Dimming' JSON element.
+     * Set the colour temperature in percent based on the passed MirekSchema scale.
      *
-     * @return an HSBType containing the current color and brightness level.
-     */
-    public State getColorState() {
-        ColorXy col = color;
-        if (col != null) {
-            HSBType hsb = getColorHSB(col.getXY());
-            Dimming dim = dimming;
-            return new HSBType(hsb.getHue(), hsb.getSaturation(),
-                    new PercentType(dim != null ? Math.max(0, Math.min(100, dim.getBrightness())) : 50));
-        }
-        return UnDefType.UNDEF;
-    }
-
-    /**
-     * Set the color from an HSBType. Put its Hue & Saturation parts in the 'ColorXy' JSON element, and put its
-     * Brightness part in the 'Dimming' JSON element.
-     *
-     * @param command an HSBType with the new color value
+     * @param command a PercentType command value.
+     * @param mirekSchema the MirekSchema to be used in the scaling.
      * @return this resource instance.
      */
-    public Resource setColor(Command command) {
-        if (command instanceof HSBType) {
-            HSBType hsb = (HSBType) command;
-            ColorXy col = color;
-            Dimming dim = dimming;
-            color = (col != null ? col : new ColorXy()).setXY(getColorXY(hsb));
-            dimming = (dim != null ? dim : new Dimming()).setBrightness(hsb.getBrightness().intValue());
+    public Resource setColorTemperaturePercent(Command command, MirekSchema mirekSchema) {
+        if (command instanceof PercentType) {
+            ColorTemperature2 colorTemperature = this.colorTemperature;
+            colorTemperature = colorTemperature != null ? colorTemperature : new ColorTemperature2();
+            colorTemperature.setPercent(((PercentType) command).intValue(), mirekSchema);
+            this.colorTemperature = colorTemperature;
         }
         return this;
-    }
-
-    public @Nullable Alerts getAlert() {
-        return alert;
-    }
-
-    public @Nullable Effects getEffects() {
-        return effects;
-    }
-
-    public @Nullable Effects getTimedEffects() {
-        return timedEffects;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Scene Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
-    public @Nullable List<ActionEntry> getActions() {
-        return actions;
-    }
-
-    public @Nullable ResourceReference getGroup() {
-        return group;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Sensor Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    public @Nullable Boolean getEnabled() {
-        return enabled;
-    }
-
-    public State getEnabledState() {
-        Boolean enabled = this.enabled;
-        return enabled != null ? OnOffType.from(enabled.booleanValue()) : UnDefType.UNDEF;
     }
 
     public Resource setEnabled(Command command) {
@@ -490,73 +598,9 @@ public class Resource {
         return this;
     }
 
-    public @Nullable LightLevel getLightLevel() {
-        return light;
-    }
-
-    public State getLightLevelState() {
-        LightLevel light = this.light;
-        return light != null ? light.getLightlevelState() : UnDefType.UNDEF;
-    }
-
-    public @Nullable Button getButton() {
-        return button;
-    }
-
-    public State getButtonLastEventState() {
-        Button button = this.button;
-        return button != null ? button.getLastEventState() : UnDefType.UNDEF;
-    }
-
-    public @Nullable Temperature getTemperature() {
-        return temperature;
-    }
-
-    public State getTemperatureState() {
-        Temperature temperature = this.temperature;
-        return temperature != null ? temperature.getTemperatureState() : UnDefType.UNDEF;
-    }
-
-    public State getTemperatureValidState() {
-        Temperature temperature = this.temperature;
-        return temperature != null ? temperature.getTemperatureValidState() : UnDefType.UNDEF;
-    }
-
-    public @Nullable Motion getMotion() {
-        return motion;
-    }
-
-    public State getMotionState() {
-        Motion motion = this.motion;
-        return motion != null ? motion.getMotionState() : UnDefType.UNDEF;
-    }
-
-    public State getMotionValidState() {
-        Motion motion = this.motion;
-        return motion != null ? motion.getMotionValidState() : UnDefType.UNDEF;
-    }
-
-    public @Nullable Power getPowerState() {
-        return powerState;
-    }
-
-    public State getBatteryLowState() {
-        Power powerState = this.powerState;
-        return powerState != null ? powerState.getBatteryLowState() : UnDefType.UNDEF;
-    }
-
-    public State getBatteryLevelState() {
-        Power powerState = this.powerState;
-        return powerState != null ? powerState.getBatteryLevelState() : UnDefType.UNDEF;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Scene Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    public @Nullable Recall getRecall() {
-        return recall;
+    public Resource setId(String id) {
+        this.id = id;
+        return this;
     }
 
     public Resource setRecall(Command command) {
@@ -568,97 +612,25 @@ public class Resource {
         return this;
     }
 
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Group Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    public List<ResourceReference> getChildren() {
-        List<ResourceReference> children = this.children;
-        return children != null ? children : List.of();
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Zigbee Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-    public @Nullable ZigBeeState getZigBeeStatus() {
-        String status = this.status;
-        return status != null ? ZigBeeState.of(status) : null;
-    }
-
-    public State getZigBeeState() {
-        ZigBeeState zigBeeState = getZigBeeStatus();
-        return zigBeeState != null ? new StringType(zigBeeState.toString()) : UnDefType.UNDEF;
-    }
-
-    /*
-     * ++++++++++++++++++++++++++++++++++++++++
-     * + Button Field Getters & Setters
-     * ++++++++++++++++++++++++++++++++++++++++
-     */
-
     /**
-     * Put this resource's control id in the given map of control ids.
+     * Set the light on status.
      *
-     * @param controlIds the map of control ids to be updated.
+     * @param command and OnOffType with either on / off.
      * @return this resource instance.
      */
-    public Resource addControlIdToMap(Map<String, Integer> controlIds) {
-        if (!hasSparseData) {
-            MetaData metadata = this.metadata;
-            controlIds.put(getId(), metadata != null ? metadata.getControlId() : 0);
+    public Resource setSwitch(Command command) {
+        if (command instanceof OnOffType) {
+            OnState on = this.on;
+            on = on != null ? on : new OnState();
+            on.setOn(OnOffType.ON.equals(command));
+            this.on = on;
         }
         return this;
     }
 
-    /**
-     * Get the state corresponding to a button's last event value multiplied by the controlId found for it in the given
-     * controlIds map. States are decimal values formatted like '1002' where the first digit is the button's controlId
-     * and the last digit is the ordinal value of the button's last event.
-     *
-     * @param controlIds the map of control ids to be referenced.
-     * @return the state.
-     */
-    public State getButtonEventState(Map<String, Integer> controlIds) {
-        Button button = this.button;
-        if (button != null) {
-            try {
-                return new DecimalType(
-                        (controlIds.getOrDefault(getId(), 0).intValue() * 1000) + button.getLastEvent().ordinal());
-            } catch (IllegalArgumentException e) {
-                // fall through
-            }
-        }
-        return UnDefType.UNDEF;
-    }
-
-    public String getName() {
-        MetaData metaData = getMetaData();
-        if (metaData != null) {
-            String name = metaData.getName();
-            if (name != null) {
-                return name;
-            }
-        }
-        return getType().toString();
-    }
-
-    public String getArchetype() {
-        MetaData metaData = getMetaData();
-        if (metaData != null) {
-            return metaData.getArchetype().toString();
-        }
-        return getType().toString();
-    }
-
-    public String getProductName() {
-        ProductData productData = getProductData();
-        if (productData != null) {
-            return productData.getProductName();
-        }
-        return getType().toString();
+    public Resource setType(ResourceType resourceType) {
+        this.type = resourceType.name().toLowerCase();
+        return this;
     }
 
     @Override
