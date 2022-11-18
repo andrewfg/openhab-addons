@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
 
@@ -43,6 +44,7 @@ import org.openhab.binding.hue.internal.dto.clip2.enums.BatteryStateType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ButtonEventType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ZigBeeState;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
@@ -436,5 +438,46 @@ class Clip2DtoTests {
             State state = resource.getColorState();
             assertEquals(color, state);
         }
+    }
+
+    @Test
+    void testResoureceMerging() {
+        // create resource one
+        Resource one = new Resource(ResourceType.LIGHT).setId("AARDVARK");
+        assertNotNull(one);
+        one.setColor(HSBType.RED);
+        assertEquals(HSBType.RED, one.getColorState());
+        assertEquals(PercentType.HUNDRED, one.getBrightnessState());
+
+        // null its Dimming field
+        try {
+            Field dimming = one.getClass().getDeclaredField("dimming");
+            dimming.setAccessible(true);
+            dimming.set(one, null);
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+            fail();
+        }
+
+        // confirm that brightness is no longer valid, and therefore that color has also changed
+        assertEquals(UnDefType.UNDEF, one.getBrightnessState());
+        assertEquals(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)), one.getColorState());
+
+        PercentType testBrightness = new PercentType(42);
+
+        // create resource two
+        Resource two = new Resource(ResourceType.DEVICE).setId("ALLIGATOR");
+        assertNotNull(two);
+        two.setBrightness(testBrightness);
+        assertEquals(UnDefType.UNDEF, two.getColorState());
+        assertEquals(testBrightness, two.getBrightnessState());
+
+        // merge two => one
+        one.copyMissingFieldsFrom(two);
+
+        // confirm that brightness and color are both once more valid
+        assertEquals("AARDVARK", one.getId());
+        assertEquals(ResourceType.LIGHT, one.getType());
+        assertEquals(testBrightness, one.getBrightnessState());
+        assertEquals(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness), one.getColorState());
     }
 }

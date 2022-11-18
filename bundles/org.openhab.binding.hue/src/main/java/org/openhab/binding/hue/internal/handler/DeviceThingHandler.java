@@ -262,11 +262,12 @@ public class DeviceThingHandler extends BaseThingHandler {
                     scheduler.submit(() -> updateDependencies());
                 }
             } else {
-                Resource contributorResource = contributorsCache.get(resource.getId());
-                if (contributorResource != null) {
-                    if (updateChannels(resource)) {
-                        contributorsCache.put(contributorResource.getId(), resource);
-                    }
+                String cacheId = resource.getId();
+                Resource cacheResource = contributorsCache.get(cacheId);
+                if (cacheResource != null) {
+                    resource.copyMissingFieldsFrom(cacheResource);
+                    updateChannels(resource);
+                    contributorsCache.put(cacheId, resource);
                 }
             }
         }
