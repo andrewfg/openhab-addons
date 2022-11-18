@@ -424,6 +424,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
      * Close the SSE link.
      */
     private synchronized void sseClose() {
+        logger.debug("sseClose() called");
         ScheduledFuture<?> task = sseQuietCheck;
         if (task != null && !task.isCancelled()) {
             task.cancel(true);
@@ -441,7 +442,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
      */
     public synchronized void sseOpen() {
         sseClose();
-
+        logger.debug("sseOpen() called");
         Client client;
         if (clientBuilder.getConfiguration().isRegistered(Clip2Filter.class)) {
             // recycle existing filter; and apply actual application key
@@ -469,6 +470,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
      * fails, then completely destroy and re-create the eventSource.
      */
     private synchronized void sseReOpen() {
+        logger.debug("sseReOpen() called");
         SseEventSource eventSource = this.eventSource;
         if (eventSource != null) {
             try {
@@ -481,6 +483,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
                 return;
             } catch (Exception e) {
                 // SSE documentation does not say what exceptions may be thrown, so catch anything
+                logger.warn("sseReOpen() {}", e.getMessage(), e);
             }
         }
         sseOpen();
