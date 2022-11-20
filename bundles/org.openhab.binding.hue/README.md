@@ -372,7 +372,16 @@ Therefore it is a thing of type **0210**.
 **bulb2** is an OSRAM tunable white bulb (PAR16 50 TW) supporting `color_temperature` and so the type is **0220**.
 And there is one Hue Motion Sensor (represented by three devices) and a Hue Dimmer Switch **dimmer-switch** with a Rule to trigger an action when a key has been pressed.
 
-### demo.things:
+### demo.things (CLIP v2):
+
+```
+Bridge hue:clip2:g24 "Philips Hue Hub" @ "Home" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+    Thing device 11111111-2222-3333-4444-555555555555 "Living Room Standard Lamp Left" @ "Living Room" [resourceId="11111111-2222-3333-4444-555555555555"]
+    Thing device 11111111-2222-3333-4444-666666666666 "Kitchen Wallplate Switch" @ "Kitchen" [resourceId="11111111-2222-3333-4444-666666666666"]
+}
+```
+
+### demo.things (CLIP v1):
 
 ```
 Bridge hue:bridge:1         "Hue Bridge"                    [ ipAddress="192.168.0.64" ] {
@@ -386,7 +395,18 @@ Bridge hue:bridge:1         "Hue Bridge"                    [ ipAddress="192.168
 }
 ```
 
-### demo.items:
+### demo.items (CLIP v2):
+
+```
+Color Living_Room_Standard_Lamp_Left_Colour "Living Room Standard Lamp Left Colour" {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:color"}
+Dimmer Living_Room_Standard_Lamp_Left_Brightness "Living Room Standard Lamp Left Brightness [%.0f %%]" {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:brightness"}
+Switch Living_Room_Standard_Lamp_Left_Switch "Living Room Standard Lamp Left Switch" (g_Lights_On_Count) {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:switch"}
+
+Number Kitchen_Wallplate_Switch_Last_Event "Kitchen Wallplate Switch Last Event" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:button_last_event"}
+Switch Kitchen_Wallplate_Switch_Battery_Low_Alarm "Kitchen Wallplate Switch Battery Low Alarm" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:battery_low"}
+```
+
+### demo.items (CLIP v1):
 
 ```
 // Bulb1
@@ -427,7 +447,15 @@ String LightScene { channel="hue:bridge:1:scene"}
 Note: The bridge ID is in this example **1** but can be different in each system.
 Also, if you are doing all your configuration through files, you may add the full bridge id to the channel definitions (e.g. `channel="hue:0210:00178810d0dc:bulb1:color`) instead of the short version (e.g. `channel="hue:0210:1:bulb1:color`) to prevent frequent discovery messages in the log file.
 
-### demo.sitemap:
+### demo.sitemap (CLIP v2):
+
+```
+Switch item=Living_Room_Standard_Lamp_Left_Switch
+Slider item=Living_Room_Standard_Lamp_Left_Brightness
+Colorpicker item=Living_Room_Standard_Lamp_Left_Colour
+```
+
+### demo.sitemap (CLIP v1):
 
 ```
 sitemap demo label="Main Menu"
@@ -485,3 +513,51 @@ if (receivedEvent == "1000.0")) {
     //do stuff
 }       
 ```
+
+## Console Command for finding the ResourceId of Things in CLIP v2
+
+The openHAB console has a command named `openhab:hue` that (among other things) lists the `resourceId` of all device things in the bridge.
+The console command usage is `openhab:hue <brigeUID> devices`.
+An exampe of such a console command, and its respective output, is shown below..
+
+```
+openhab> openhab:hue hue:clip2:g24 devices
+Bridge hue:clip2:g24 "Philips Hue Bridge" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+  Thing device 11111111-2222-3333-4444-555555555555 "Standard Lamp L" [resourceId="11111111-2222-3333-4444-555555555555"] // Hue color lamp
+  Thing device 11111111-2222-3333-4444-666666666666 "Kitchen Wallplate Switch" [resourceId="11111111-2222-3333-4444-666666666666"] // Hue wall switch module
+  ..
+}
+```
+
+The `openhab:hue <brigeUID> devices` produces an output that can be used to directly create a `.things' file, as shown below..
+
+```
+openhab> openhab:hue hue:clip2:g24 devices > myThingsFile.things
+```
+
+## Migration from CLIP v1 to CLIP v2
+
+You need to manually edit your bridge and thing definitions as shown below..
+- Bridge definitions change from `hue:bridge:bridgename` to `hue:clip2:bridgename`.
+- Bridge configuration parameters change `userName` to `applicationKey`.
+- Thing definitions change from `hue:0100:thingname` or `hue:0210:thingname` etc. to `hue:resource:thingname`.
+- Thing configuration parameters change from `lightId` or `sesorId` etc. to `resourceId`.
+
+Notes:
+1. In CIP v1 different things have different types (`0100`, `0220`, `0830`, etc.) but in CLIP 2 all things have the same type `resource`.
+2. In CIP v1 different things are configured by different parameters (`sensorId`, `lightId`, etc.) bit in CLIP 2 all things are configured via the same `resourceId` parameter.
+3. You can use the Console Command (described above) to discover the `resourceId` of all the things in the bridge.
+
+```
+// old (clip v1) ..
+Bridge hue:bridge:g24 "Philips Hue Hub (CLIP 1)" @ "Under Stairs" [ipAddress="192.168.1.234", userName="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+   Thing 0210 b01 "Living Room Standard Lamp Left" @ "Living Room" [lightId="1"]
+}
+
+// new (clip v2) ...
+Bridge hue:clip2:g24 "Philips Hue Hub (CLIP 2)" @ "Home" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+    Thing device 11111111-2222-3333-4444-555555555555 "Living Room Standard Lamp Left" @ "Living Room" [resourceId="11111111-2222-3333-4444-555555555555"]
+}
+```
+
+You might also need to edit the names and types of your items, depending on individual circumstances.
