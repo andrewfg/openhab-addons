@@ -371,7 +371,6 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
             case HttpStatus.UNAUTHORIZED_401:
             case HttpStatus.FORBIDDEN_403:
                 throw new IllegalAccessException("HTTP request not authorized");
-            // TODO HttpStatus.NOT_FOUND_404 / HttpStatus.SERVICE_UNAVAILABLE_503 if device power is off ??
             case HttpStatus.OK_200:
             default:
         }

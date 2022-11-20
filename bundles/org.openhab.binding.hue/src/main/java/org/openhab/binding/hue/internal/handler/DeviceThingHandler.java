@@ -33,6 +33,7 @@ import org.openhab.binding.hue.internal.dto.clip2.ProductData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
+import org.openhab.binding.hue.internal.dto.clip2.enums.ZigBeeStatus;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
 import org.openhab.core.library.types.DateTimeType;
@@ -69,6 +70,7 @@ public class DeviceThingHandler extends BaseThingHandler {
     private final Set<String> supportedChannelIds = ConcurrentHashMap.newKeySet(16); // 16 = thing max channel count
 
     private boolean disposing;
+    private boolean hasConnectivityIssue;
     private boolean updatePropertiesDone;
     private boolean updateDependenciesDone;
 
@@ -189,20 +191,24 @@ public class DeviceThingHandler extends BaseThingHandler {
         String resourceId = config.resourceId;
         if (resourceId == null || resourceId.isEmpty()) {
             logger.debug("initialize() configuration resourceId is bad");
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/TODO");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.clip2.conf-error-resource-id-bad");
             return;
         }
 
         updateStatus(ThingStatus.UNKNOWN);
 
         thisResource.setId(resourceId);
+
         supportedChannelIds.clear();
         commandResourceIds.clear();
         contributorsCache.clear();
         controlIds.clear();
+
         disposing = false;
-        updateDependenciesDone = false;
+        hasConnectivityIssue = false;
         updatePropertiesDone = false;
+        updateDependenciesDone = false;
     }
 
     /**
@@ -348,6 +354,7 @@ public class DeviceThingHandler extends BaseThingHandler {
                 break;
 
             case ZIGBEE_CONNECTIVITY:
+                updateConnectivityState(resource);
                 updateState(HueBindingConstants.CHANNEL_ZIGBEE_STATUS, resource.getZigBeeState(), fullUpdate);
                 break;
 
@@ -385,7 +392,9 @@ public class DeviceThingHandler extends BaseThingHandler {
                 updateContributors();
                 updateChannelList();
                 updateDependenciesDone = true;
-                updateStatus(ThingStatus.ONLINE);
+                if (!hasConnectivityIssue) {
+                    updateStatus(ThingStatus.ONLINE);
+                }
             } catch (ApiException e) {
                 logger.debug("updateDependencies() {}", e.getMessage(), e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
@@ -488,6 +497,27 @@ public class DeviceThingHandler extends BaseThingHandler {
         }
         if (fullUpdate && isDefined) {
             supportedChannelIds.add(channelID);
+        }
+    }
+
+    /**
+     * Check the ZigBee connectivity and set the thing online status accordingly.
+     *
+     * @param resource a Resource that potentially contains the ZigBee connectivity state.
+     */
+    private void updateConnectivityState(Resource resource) {
+        ZigBeeStatus zigBeeStatus = resource.getZigBeeStatus();
+        if (zigBeeStatus != null) {
+            logger.debug("updateConnectivityState() thingStatus:{}, zigBeeStatus:{}", thing.getStatus(), zigBeeStatus);
+            hasConnectivityIssue = zigBeeStatus != ZigBeeStatus.CONNECTED;
+            if (hasConnectivityIssue) {
+                if (thing.getStatusInfo().getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.clip2.communication-error.zigbee-connectivity-issue");
+                }
+            } else if (thing.getStatus() != ThingStatus.ONLINE) {
+                updateStatus(ThingStatus.ONLINE);
+            }
         }
     }
 }

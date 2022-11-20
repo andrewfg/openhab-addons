@@ -23,13 +23,13 @@ import org.eclipse.jdt.annotation.Nullable;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public enum ZigBeeState {
+public enum ZigBeeStatus {
     CONNECTED,
     DISCONNECTED,
     CONNECTIVITY_ISSUE,
     UNIDIRECTIONAL_INCOMING;
 
-    public static ZigBeeState of(@Nullable String value) {
+    public static ZigBeeStatus of(@Nullable String value) {
         if (value != null) {
             try {
                 return valueOf(value.toUpperCase());

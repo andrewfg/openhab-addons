@@ -21,7 +21,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.dto.clip2.enums.RecallAction;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ZigBeeState;
+import org.openhab.binding.hue.internal.dto.clip2.enums.ZigBeeStatus;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -248,11 +248,6 @@ public class Resource {
         return powerState != null ? powerState.getBatteryLowState() : UnDefType.UNDEF;
     }
 
-    /**
-     * Get the brightness percentage.
-     *
-     * @return a PercentType with the brightness 0..100
-     */
     public State getBrightnessState() {
         Dimming dimming = this.dimming;
         return dimming != null ? new PercentType(dimming.getBrightness()) : UnDefType.UNDEF;
@@ -314,11 +309,6 @@ public class Resource {
         return colorTemperature;
     }
 
-    /**
-     * Get the colour temperature in Kelvin.
-     *
-     * @return a QuantityType<Temperature> with the colour temperature in Kelvin.
-     */
     public State getColorTemperatureKelvinState() {
         ColorTemperature2 colorTemp = colorTemperature;
         if (colorTemp != null) {
@@ -449,11 +439,6 @@ public class Resource {
         return services != null ? services : List.of();
     }
 
-    /**
-     * Get the light on status.
-     *
-     * @return OnOffType with the on status.
-     */
     public State getSwitch() {
         OnState on = this.on;
         return on != null ? OnOffType.from(on.isOn()) : UnDefType.UNDEF;
@@ -482,20 +467,15 @@ public class Resource {
     }
 
     public State getZigBeeState() {
-        ZigBeeState zigBeeState = getZigBeeStatus();
-        return zigBeeState != null ? new StringType(zigBeeState.toString()) : UnDefType.UNDEF;
+        ZigBeeStatus zigBeeStatus = getZigBeeStatus();
+        return zigBeeStatus != null ? new StringType(zigBeeStatus.toString()) : UnDefType.UNDEF;
     }
 
-    public @Nullable ZigBeeState getZigBeeStatus() {
+    public @Nullable ZigBeeStatus getZigBeeStatus() {
         String status = this.status;
-        return status != null ? ZigBeeState.of(status) : null;
+        return status != null ? ZigBeeStatus.of(status) : null;
     }
 
-    /**
-     * Check if the resource has complete or sparse data.
-     *
-     * @return true if the resource has complete data.
-     */
     public boolean hasFullState() {
         return !hasSparseData;
     }
@@ -612,12 +592,6 @@ public class Resource {
         return this;
     }
 
-    /**
-     * Set the light on status.
-     *
-     * @param command and OnOffType with either on / off.
-     * @return this resource instance.
-     */
     public Resource setSwitch(Command command) {
         if (command instanceof OnOffType) {
             OnState on = this.on;
