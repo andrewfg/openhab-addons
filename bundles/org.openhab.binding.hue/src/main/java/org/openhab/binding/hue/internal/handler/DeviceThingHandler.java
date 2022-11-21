@@ -74,7 +74,7 @@ public class DeviceThingHandler extends BaseThingHandler {
     private boolean updatePropertiesDone;
     private boolean updateDependenciesDone;
 
-    private @Nullable ScheduledFuture<?> updateContributors;
+    private @Nullable ScheduledFuture<?> updateContributorsTask;
 
     public DeviceThingHandler(Thing thing) {
         super(thing);
@@ -84,11 +84,11 @@ public class DeviceThingHandler extends BaseThingHandler {
     public void dispose() {
         logger.debug("dispose() called");
         disposing = true;
-        ScheduledFuture<?> updateTask = updateContributors;
-        if ((updateTask != null) && !updateTask.isCancelled()) {
-            updateTask.cancel(true);
+        ScheduledFuture<?> task = updateContributorsTask;
+        if ((task != null) && !task.isCancelled()) {
+            task.cancel(true);
         }
-        updateContributors = null;
+        updateContributorsTask = null;
     }
 
     /**
@@ -120,15 +120,15 @@ public class DeviceThingHandler extends BaseThingHandler {
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
             if ((thing.getStatus() == ThingStatus.ONLINE) && updateDependenciesDone) {
-                ScheduledFuture<?> updateTask = updateContributors;
-                if (updateTask == null || !updateTask.isDone()) {
-                    updateContributors = scheduler.schedule(() -> {
+                ScheduledFuture<?> task = updateContributorsTask;
+                if (task == null || !task.isDone()) {
+                    updateContributorsTask = scheduler.schedule(() -> {
                         try {
                             updateContributors();
                         } catch (ApiException | AssetNotLoadedException e) {
                             // exceptions will not occur here since thing is already online
                         }
-                    }, 10, TimeUnit.SECONDS);
+                    }, 3, TimeUnit.SECONDS);
                 }
             }
             return;
@@ -366,8 +366,42 @@ public class DeviceThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Execute a series of HTTP GET commands to fetch the cached resource data for all resources that contribute to the
-     * thing state.
+     * Check the ZigBee connectivity and set the thing online status accordingly. If the thing is offline then set all
+     * its channel states to undefined, otherwise execute a refresh command to update channels to the latest current
+     * state.
+     *
+     * @param resource a Resource that potentially contains the ZigBee connectivity state.
+     */
+    private void updateConnectivityState(Resource resource) {
+        ZigBeeStatus zigBeeStatus = resource.getZigBeeStatus();
+        if (zigBeeStatus != null) {
+            logger.debug("updateConnectivityState() thingStatus:{}, zigBeeStatus:{}", thing.getStatus(), zigBeeStatus);
+            hasConnectivityIssue = zigBeeStatus != ZigBeeStatus.CONNECTED;
+            if (hasConnectivityIssue) {
+                if (thing.getStatusInfo().getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.clip2.communication-error.zigbee-connectivity-issue");
+                    // change all channel states, except the ZigBee channel itself, to undefined
+                    for (String channelId : supportedChannelIds) {
+                        if (!HueBindingConstants.CHANNEL_ZIGBEE_STATUS.equals(channelId)) {
+                            updateState(channelId, UnDefType.UNDEF);
+                        }
+                    }
+                }
+            } else if (thing.getStatus() != ThingStatus.ONLINE) {
+                updateStatus(ThingStatus.ONLINE);
+                // one single refresh command will update all channels
+                Channel zigBeeChannel = thing.getChannel(HueBindingConstants.CHANNEL_ZIGBEE_STATUS);
+                if (zigBeeChannel != null) {
+                    handleCommand(zigBeeChannel.getUID(), RefreshType.REFRESH);
+                }
+            }
+        }
+    }
+
+    /**
+     * Execute a series of HTTP GET commands to fetch the resource data for all resources that contribute to the thing
+     * state.
      *
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
@@ -497,27 +531,6 @@ public class DeviceThingHandler extends BaseThingHandler {
         }
         if (fullUpdate && isDefined) {
             supportedChannelIds.add(channelID);
-        }
-    }
-
-    /**
-     * Check the ZigBee connectivity and set the thing online status accordingly.
-     *
-     * @param resource a Resource that potentially contains the ZigBee connectivity state.
-     */
-    private void updateConnectivityState(Resource resource) {
-        ZigBeeStatus zigBeeStatus = resource.getZigBeeStatus();
-        if (zigBeeStatus != null) {
-            logger.debug("updateConnectivityState() thingStatus:{}, zigBeeStatus:{}", thing.getStatus(), zigBeeStatus);
-            hasConnectivityIssue = zigBeeStatus != ZigBeeStatus.CONNECTED;
-            if (hasConnectivityIssue) {
-                if (thing.getStatusInfo().getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
-                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                            "@text/offline.clip2.communication-error.zigbee-connectivity-issue");
-                }
-            } else if (thing.getStatus() != ThingStatus.ONLINE) {
-                updateStatus(ThingStatus.ONLINE);
-            }
         }
     }
 }
