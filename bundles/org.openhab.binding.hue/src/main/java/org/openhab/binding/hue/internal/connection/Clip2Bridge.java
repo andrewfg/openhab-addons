@@ -438,15 +438,18 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
 
     /**
      * Open the SSE link.
+     *
+     * @throws ApiException if an error was encountered.
      */
-    public synchronized void sseOpen() {
+    public synchronized void sseOpen() throws ApiException {
         sseClose();
         logger.debug("sseOpen() called");
         Client client;
         if (clientBuilder.getConfiguration().isRegistered(Clip2Filter.class)) {
             // recycle existing filter; and apply actual application key
-            clientBuilder.getConfiguration().getInstances().stream().filter(instance -> instance instanceof Clip2Filter)
-                    .map(instance -> (Clip2Filter) instance).findAny().orElseThrow().setApplicationKey(applicationKey);
+            clientBuilder.getConfiguration().getInstances().stream()
+                    .filter(instance -> (instance instanceof Clip2Filter)).map(instance -> (Clip2Filter) instance)
+                    .findAny().orElseThrow().setApplicationKey(applicationKey);
             // create client; do not try to register filter again
             client = clientBuilder.sslContext(httpClient.getSslContextFactory().getSslContext()).hostnameVerifier(this)
                     .readTimeout(0, TimeUnit.SECONDS).build();
@@ -460,8 +463,15 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
 
         SseEventSource eventSource = eventSourceFactory.newBuilder(client.target(eventUrl)).build();
         eventSource.register(this::onSseEvent, this::onSseError);
-        eventSource.open();
-        this.eventSource = eventSource;
+        try {
+            eventSource.open();
+            this.eventSource = eventSource;
+        } catch (Exception e) {
+            // SSE documentation does not say what exceptions may be thrown, so catch anything
+            logger.warn("sseOpen() {}", e.getMessage(), e);
+            this.eventSource = null;
+            throw new ApiException("Failed to open event source", e);
+        }
     }
 
     /**
@@ -485,7 +495,11 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
                 logger.warn("sseReOpen() {}", e.getMessage(), e);
             }
         }
-        sseOpen();
+        try {
+            sseOpen();
+        } catch (ApiException e) {
+            logger.warn("sseReOpen() {}", e.getMessage(), e);
+        }
     }
 
     /**
