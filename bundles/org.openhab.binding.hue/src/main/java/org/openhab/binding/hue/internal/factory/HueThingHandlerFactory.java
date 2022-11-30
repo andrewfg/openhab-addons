@@ -75,14 +75,14 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
 
     public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Stream.of(
             // include CLIP 2 thing types
-            HueBindingConstants.SUPPORTED_THING_TYPES2.stream(),
+            Clip2BridgeHandler.SUPPORTED_THING_TYPES.stream(), DeviceThingHandler.SUPPORTED_THING_TYPES.stream(),
             // etc. ..
             HueBridgeHandler.SUPPORTED_THING_TYPES.stream(), HueLightHandler.SUPPORTED_THING_TYPES.stream(),
             DimmerSwitchHandler.SUPPORTED_THING_TYPES.stream(), TapSwitchHandler.SUPPORTED_THING_TYPES.stream(),
             PresenceHandler.SUPPORTED_THING_TYPES.stream(), GeofencePresenceHandler.SUPPORTED_THING_TYPES.stream(),
             TemperatureHandler.SUPPORTED_THING_TYPES.stream(), LightLevelHandler.SUPPORTED_THING_TYPES.stream(),
-            ClipHandler.SUPPORTED_THING_TYPES.stream(), HueGroupHandler.SUPPORTED_THING_TYPES.stream()).flatMap(i -> i)
-            .collect(Collectors.toUnmodifiableSet());
+            ClipHandler.SUPPORTED_THING_TYPES.stream(), HueGroupHandler.SUPPORTED_THING_TYPES.stream()) //
+            .flatMap(i -> i).collect(Collectors.toUnmodifiableSet());
 
     private final HttpClient httpClient;
     private final HueStateDescriptionProvider stateDescriptionProvider;

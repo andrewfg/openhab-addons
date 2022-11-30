@@ -44,6 +44,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.thing.binding.BridgeHandler;
 import org.openhab.core.types.Command;
@@ -60,6 +61,8 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class DeviceThingHandler extends BaseThingHandler {
+
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Set.of(HueBindingConstants.THING_TYPE_DEVICE);
 
     private final Logger logger = LoggerFactory.getLogger(DeviceThingHandler.class);
 
