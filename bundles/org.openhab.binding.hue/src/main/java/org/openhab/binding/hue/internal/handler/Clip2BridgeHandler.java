@@ -78,7 +78,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private static final String FORMAT_HOST_PORT = "%s:443";
     private static final int FAST_SCHEDULE_MILLI_SECONDS = 500;
-    private static final int FAST_SCHEDULE_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
+    private static final int APPLICATION_KEY_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
+    private static final int RECONNECT_MAX_TRIES = 5;
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
 
@@ -94,7 +95,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private Object assetsChanging = new Object();
     private boolean assetsLoaded;
-    private int retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
+    private int applKeyRetriesRemaining;
+    private int connectRetriesRemaining;
 
     public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
             SseEventSourceFactory eventSourceFactory) {
@@ -142,17 +144,18 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
 
         // update the thing status
-        boolean tryAgainFast = false;
+        boolean retryApplicationKey = false;
+        boolean retryConnection = false;
         switch (thingStatus) {
             case CONFIGURATION_ERROR:
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.clip2.conf-error-press-pairing-button");
-                if (retriesRemaining > 0) {
+                if (applKeyRetriesRemaining > 0) {
                     try {
                         registerApplicationKey();
-                        tryAgainFast = true;
+                        retryApplicationKey = true;
                     } catch (IllegalAccessException e) {
-                        tryAgainFast = true;
+                        retryApplicationKey = true;
                     } catch (ApiException e) {
                         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "@text/offline.communication-error");
@@ -172,6 +175,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             case COMMUNICATION_ERROR:
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.communication-error");
+                retryConnection = connectRetriesRemaining > 0;
                 break;
 
             case BRIDGE_UNINITIALIZED:
@@ -184,15 +188,29 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 updateSelf();
                 break;
         }
-        retriesRemaining = tryAgainFast ? retriesRemaining-- : FAST_SCHEDULE_MAX_TRIES;
 
-        /*
-         * This method continuously schedules itself to be called again. Note: there is no need to cancel or null the
-         * prior future that called this method here, since the method is self evidently terminating itself right now!
-         */
-        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-        checkConnectionTask = scheduler.schedule(() -> checkConnection(),
-                tryAgainFast ? FAST_SCHEDULE_MILLI_SECONDS : 1000 * config.refreshSeconds, TimeUnit.MILLISECONDS);
+        // this method schedules itself to be called again in a loop..
+        ScheduledFuture<?> task = checkConnectionTask;
+        if (task != null) {
+            task.cancel(false);
+        }
+        int milliSeconds;
+        if (retryApplicationKey) {
+            // short delay used during attempts to create or validate an application key
+            milliSeconds = FAST_SCHEDULE_MILLI_SECONDS;
+            applKeyRetriesRemaining--;
+        } else {
+            // default maximum delay, set via configuration parameter, used as heart-beat 'just-in-case'
+            Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
+            milliSeconds = config.refreshSeconds * 1000;
+            if (retryConnection) {
+                // exponential back off delay used during attempts to reconnect
+                int backOffDelay = 60000 * (int) Math.pow(2, RECONNECT_MAX_TRIES - connectRetriesRemaining);
+                milliSeconds = Math.min(milliSeconds, backOffDelay);
+                connectRetriesRemaining--;
+            }
+        }
+        checkConnectionTask = scheduler.schedule(() -> checkConnection(), milliSeconds, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -356,7 +374,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     public void initialize() {
         logger.debug("initialize() called");
         updateStatus(ThingStatus.UNKNOWN);
-        retriesRemaining = FAST_SCHEDULE_MAX_TRIES;
+        applKeyRetriesRemaining = APPLICATION_KEY_MAX_TRIES;
+        connectRetriesRemaining = RECONNECT_MAX_TRIES;
         scheduler.submit(() -> initializeAssets());
     }
 
@@ -448,6 +467,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     public void onSseConnect() {
         if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
             logger.debug("onSseConnect() ThingStatus:ONLINE");
+            connectRetriesRemaining = RECONNECT_MAX_TRIES;
             updateStatus(ThingStatus.ONLINE);
             try {
                 updateDevices();
@@ -458,12 +478,18 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Called when the SSE link has returned an error.
+     * Called when the SSE link reports an error. Schedule a reconnection attempt.
      */
     public void onSseError(Throwable e) {
         if (assetsLoaded) {
             logger.warn("onSseError() ThingStatus:UNKNOWN ({})", e.getMessage(), e);
             updateStatus(ThingStatus.UNKNOWN);
+            ScheduledFuture<?> task = checkConnectionTask;
+            if (task != null) {
+                task.cancel(false);
+            }
+            checkConnectionTask = scheduler.schedule(() -> checkConnection(), FAST_SCHEDULE_MILLI_SECONDS,
+                    TimeUnit.MILLISECONDS);
         }
     }
 
@@ -482,13 +508,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Called when the SSE event channel has not received any events for a long time. This could mean that the event
-     * source socket has dropped, or the physical link broken.
+     * Called when the SSE event channel has not received any events for a long time.
      */
     public void onSseQuiet() {
         if (assetsLoaded) {
-            logger.warn("onSseQuiet() ThingStatus:UNKNOWN (SSE link is quiet)");
-            updateStatus(ThingStatus.UNKNOWN);
+            logger.info("onSseQuiet() SSE link is quiet");
         }
     }
 
