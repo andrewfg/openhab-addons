@@ -1,4 +1,4 @@
-# Philips Hue Binding API v1
+# Philips Hue Binding Configuration for API v1
 
 [Back to Overview](../README.md#philips-hue-binding)
 
@@ -67,7 +67,7 @@ Finally, the Hue binding also supports the groups of lights and rooms set up on 
 The Hue Bridge requires the IP address as a configuration value in order for the binding to know where to access it.
 In the thing file, this looks e.g. like
 
-```
+```java
 Bridge hue:bridge:1 [ ipAddress="192.168.0.64" ]
 ```
 
@@ -95,13 +95,13 @@ Bridge hue:bridge:1 [ ipAddress="192.168.0.64", userName="qwertzuiopasdfghjklyxc
 The devices are identified by the number that the Hue Bridge assigns to them (also shown in the Hue App as an identifier).
 Thus, all it needs for manual configuration is this single value like
 
-```
+```java
 0210 bulb1 "Lamp 1" @ "Office" [ lightId="1" ]
 ```
 
 or
 
-```
+```java
 0107 motion-sensor "Motion Sensor" @ "Entrance" [ sensorId="4" ]
 ```
 
@@ -109,11 +109,11 @@ You can freely choose the thing identifier (such as motion-sensor), its name (su
 
 The following device types also have an optional configuration value to specify the fade time in milliseconds for the transition to a new state:
 
-* Dimmable Light
-* Dimmable Plug-in Unit
-* Colour Light
-* Extended Colour Light
-* Colour Temperature Light
+- Dimmable Light
+- Dimmable Plug-in Unit
+- Colour Light
+- Extended Colour Light
+- Colour Temperature Light
 
 | Parameter | Description                                                                   |
 |-----------|-------------------------------------------------------------------------------|
@@ -126,7 +126,7 @@ The following device types also have an optional configuration value to specify 
 The groups are identified by the number that the Hue Bridge assigns to them.
 Thus, all it needs for manual configuration is this single value like
 
-```
+```java
 group kitchen-bulbs "Kitchen Lamps" @ "Kitchen" [ groupId="1" ]
 ```
 
@@ -242,7 +242,7 @@ And there is one Hue Motion Sensor (represented by three devices) and a Hue Dimm
 
 ### demo.things:
 
-```
+```java
 Bridge hue:bridge:1         "Hue Bridge"                    [ ipAddress="192.168.0.64" ] {
     0210  bulb1              "Lamp 1"        @ "Kitchen"    [ lightId="1" ]
     0220  bulb2              "Lamp 2"        @ "Kitchen"    [ lightId="2" ]
@@ -256,7 +256,7 @@ Bridge hue:bridge:1         "Hue Bridge"                    [ ipAddress="192.168
 
 ### demo.items:
 
-```
+```java
 // Bulb1
 Switch  Light1_Toggle       { channel="hue:0210:1:bulb1:color" }
 Dimmer  Light1_Dimmer       { channel="hue:0210:1:bulb1:color" }
@@ -297,7 +297,7 @@ Also, if you are doing all your configuration through files, you may add the ful
 
 ### demo.sitemap:
 
-```
+```perl
 sitemap demo label="Main Menu"
 {
     Frame {
@@ -349,7 +349,7 @@ Be aware that the events have a '.0' attached to them, like `2001.0` or `34.0`.
 So, testing for specific events looks like this:
 
 ```php
-if (receivedEvent == "1000.0")) {
+if (receivedEvent == "1000.0") {
     //do stuff
 }
 ```
