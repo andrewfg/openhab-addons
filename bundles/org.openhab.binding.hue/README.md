@@ -61,8 +61,8 @@ You need to manually edit your bridge and thing definitions as shown below..
 Notes:
 
 1. In API v1 different things have different types (`0100`, `0220`, `0830`, etc.) but in API v2 all things have the same type `device`.
-2. In API v1 different things are configured by different parameters (`sensorId`, `lightId`, etc.) but in API v2 all things are configured via the same `resourceId` parameter.
-3. You can use the [console command](doc/readme_v2.md#console-command-for-finding-resourceids) to discover the `resourceId` of all the things in the bridge.
+1. In API v1 different things are configured by different parameters (`sensorId`, `lightId`, etc.) but in API v2 all things are configured via the same `resourceId` parameter.
+1. You can use the [console command](doc/readme_v2.md#console-command-for-finding-resourceids) to discover the `resourceId` of all the things in the bridge.
 
 ```
 // old (API v1) ..
