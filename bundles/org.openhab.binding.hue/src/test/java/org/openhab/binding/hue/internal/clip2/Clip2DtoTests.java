@@ -53,6 +53,7 @@ import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 
@@ -91,7 +92,8 @@ class Clip2DtoTests {
                 try {
                     String file = res.name().toLowerCase();
                     String json = load(file);
-                    JsonParser.parseString(json);
+                    JsonElement jsonElement = JsonParser.parseString(json);
+                    assertTrue(jsonElement.isJsonObject());
                 } catch (JsonSyntaxException e) {
                     fail(res.name());
                 }
