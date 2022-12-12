@@ -10,18 +10,20 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.nanoleaf.internal.layout;
+package org.openhab.binding.somfytahoma.internal.model;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.core.library.types.HSBType;
 
 /**
- * Stores the state of the panels.
+ * The {@link SomfyTahomaTokenReponse} holds information about generated token
  *
- * @author Jørgen Austvik - Initial contribution
+ * @author Ondrej Pecta - Initial contribution
  */
 @NonNullByDefault
-public interface PanelState {
+public class SomfyTahomaTokenReponse {
+    private String token = "";
 
-    HSBType getHSBForPanel(Integer panelId);
+    public String getToken() {
+        return token;
+    }
 }

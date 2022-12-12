@@ -10,18 +10,26 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.nanoleaf.internal.layout;
+package org.openhab.binding.somfytahoma.internal.model;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.core.library.types.HSBType;
 
 /**
- * Stores the state of the panels.
+ * The {@link SomfyTahomaError} is used to parse error from API server.
  *
- * @author Jørgen Austvik - Initial contribution
+ * @author Ondrej Pecta - Initial contribution
  */
 @NonNullByDefault
-public interface PanelState {
+public class SomfyTahomaError {
 
-    HSBType getHSBForPanel(Integer panelId);
+    private String error = "";
+    private String errorCode = "";
+
+    public String getError() {
+        return error;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
 }
