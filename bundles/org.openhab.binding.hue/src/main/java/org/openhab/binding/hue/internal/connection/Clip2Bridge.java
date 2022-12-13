@@ -261,6 +261,16 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
     /**
      * Called when the SSE event channel has not received any events for a long time. This could mean that the event
      * source socket has dropped. So restart the SSE connection.
+     * <p>
+     * DEVELOPER NOTE: currently the Hue Bridge does not send any ping messages over the SSE link, so is possible that
+     * at quiet periods (e.g. during daytime) the binding might not receive any SSE messages for a long time. And
+     * unfortunately the binding cannot tell if such a quiet period is due to an actual quiet period, or alternatively
+     * due to the socket having become a 'zombie' (i.e. where server thinks the socket is down but the client still
+     * thinks it is up). Ideally Signify should fix this by sending dummy ping messages periodically. But a kludge
+     * solution would be to have a dummy resource on the Hue bridge, and use this method to mess with that resource so
+     * that the bridge sends another SSE event. (e.g. the folks on Home Assistant have a kludge that creates a dummy
+     * geofence client resource and periodically sends a PUT to change the reource's UI name, which causes the Hue
+     * bridge to send a new SSE event message).
      */
     public void onSseQuiet() {
         if (online && !closing) {
