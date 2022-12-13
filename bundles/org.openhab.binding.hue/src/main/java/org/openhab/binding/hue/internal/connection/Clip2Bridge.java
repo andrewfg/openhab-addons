@@ -271,6 +271,7 @@ public class Clip2Bridge implements Closeable, HostnameVerifier {
      * that the bridge sends another SSE event. (e.g. the folks on Home Assistant have a kludge that creates a dummy
      * geofence client resource and periodically sends a PUT to change the reource's UI name, which causes the Hue
      * bridge to send a new SSE event message).
+     * </p>
      */
     public void onSseQuiet() {
         if (online && !closing) {
