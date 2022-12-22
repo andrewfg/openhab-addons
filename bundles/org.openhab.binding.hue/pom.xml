@@ -14,4 +14,28 @@
 
   <name>openHAB Add-ons :: Bundles :: hue Binding</name>
 
+  <dependencies>
+    <!-- TODO the following modules should be explicitly in OH core -->
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-client</artifactId>
+      <version>9.4.46.v20220331</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-common</artifactId>
+      <version>9.4.46.v20220331</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-hpack</artifactId>
+      <version>9.4.46.v20220331</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-alpn-java-client</artifactId>
+      <version>9.4.46.v20220331</version>
+    </dependency>
+  </dependencies>
+
 </project>

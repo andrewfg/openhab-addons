@@ -88,8 +88,6 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
     private final HueStateDescriptionProvider stateDescriptionProvider;
     private final TranslationProvider i18nProvider;
     private final LocaleProvider localeProvider;
-    private final ClientBuilder clientBuilder;
-    private final SseEventSourceFactory eventSourceFactory;
 
     private final Map<ThingUID, ServiceRegistration<?>> discoveryServices = new HashMap<>();
 
@@ -102,8 +100,6 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
         this.stateDescriptionProvider = stateDescriptionProvider;
         this.i18nProvider = i18nProvider;
         this.localeProvider = localeProvider;
-        this.clientBuilder = clientBuilder;
-        this.eventSourceFactory = eventSourceFactory;
     }
 
     @Override
@@ -183,8 +179,7 @@ public class HueThingHandlerFactory extends BaseThingHandlerFactory {
         // create CLIP 2 handlers
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
         if (HueBindingConstants.THING_TYPE_CLIP2.equals(thingTypeUID)) {
-            Clip2BridgeHandler handler = new Clip2BridgeHandler((Bridge) thing, httpClient, clientBuilder,
-                    eventSourceFactory);
+            Clip2BridgeHandler handler = new Clip2BridgeHandler((Bridge) thing, httpClient);
             createDiscoveryService(handler);
             return handler;
         } else if (HueBindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {

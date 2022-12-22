@@ -24,8 +24,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import javax.ws.rs.client.ClientBuilder;
-
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
@@ -58,7 +56,6 @@ import org.openhab.core.types.RefreshType;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceRegistration;
-import org.osgi.service.jaxrs.client.SseEventSourceFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,8 +83,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClient httpClient;
-    private final ClientBuilder clientBuilder;
-    private final SseEventSourceFactory eventSourceFactory;
 
     private @Nullable Clip2Bridge clip2Bridge;
     private @Nullable ScheduledFuture<?> checkConnectionTask;
@@ -98,12 +93,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private int applKeyRetriesRemaining;
     private int connectRetriesRemaining;
 
-    public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ClientBuilder clientBuilder,
-            SseEventSourceFactory eventSourceFactory) {
+    public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient) {
         super(bridge);
         this.httpClient = httpClient;
-        this.clientBuilder = clientBuilder;
-        this.eventSourceFactory = eventSourceFactory;
     }
 
     /**
@@ -185,7 +177,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
             case NONE:
             default:
-                updateSelf();
+                updateSelf(); // go online
                 break;
         }
 
@@ -219,9 +211,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             logger.debug("childHandlerInitialized() {}", childThing.getUID());
             try {
                 ResourceReference reference = ((DeviceThingHandler) childHandler).getResourceReference();
-                for (Resource resource : getClip2Bridge().getResources(reference).getResources()) {
-                    onResource(resource);
-                }
+                getClip2Bridge().getResources(reference).getResources().forEach(r -> onResource(r));
             } catch (ApiException | AssetNotLoadedException e) {
                 // exceptions should not occur here; but log anyway (just in case)
                 logger.warn("childHandlerInitialized() {}", e.getMessage(), e);
@@ -437,8 +427,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
             String applicationKey = config.applicationKey;
             applicationKey = applicationKey != null ? applicationKey : "";
-            clip2Bridge = new Clip2Bridge(httpClient, clientBuilder, eventSourceFactory, this, ipAddress,
-                    applicationKey);
+            clip2Bridge = new Clip2Bridge(httpClient, this, ipAddress, applicationKey);
 
             assetsLoaded = true;
         }
@@ -447,42 +436,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Inform all child thing handlers about the contents of the given resource.
-     *
-     * @param resource the given resource.
+     * Called when the connection goes offline. Schedule a reconnection event.
      */
-    private void onResource(Resource resource) {
-        logger.debug("onResource(..) {}", resource);
-        for (Thing thing : getThing().getThings()) {
-            ThingHandler handler = thing.getHandler();
-            if (handler instanceof DeviceThingHandler) {
-                ((DeviceThingHandler) handler).onResource(resource);
-            }
-        }
-    }
-
-    /**
-     * Called when an SSE event message comes in. If the bridge is offline, then switch to online.
-     */
-    public void onSseConnect() {
-        if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
-            logger.debug("onSseConnect() ThingStatus:ONLINE");
-            connectRetriesRemaining = RECONNECT_MAX_TRIES;
-            updateStatus(ThingStatus.ONLINE);
-            try {
-                updateDevices();
-            } catch (ApiException | AssetNotLoadedException e) {
-                // should never happen as we are already online
-            }
-        }
-    }
-
-    /**
-     * Called when the SSE link reports an error. Schedule a reconnection attempt.
-     */
-    public void onSseError(Throwable e) {
+    public void onConnectionOffline() {
         if (assetsLoaded) {
-            logger.warn("onSseError() ThingStatus:UNKNOWN ({})", e.getMessage(), e);
+            logger.warn("onOffline() ThingStatus:UNKNOWN");
             updateStatus(ThingStatus.UNKNOWN);
             ScheduledFuture<?> task = checkConnectionTask;
             if (task != null) {
@@ -494,25 +452,45 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Called when an SSE event message comes in with a valid list of resources.
-     *
-     * @param resources a list of incoming resource objects.
+     * Called when the connection goes online.
      */
-    public void onSseEvent(List<Resource> resources) {
-        if (assetsLoaded) {
-            logger.debug("onSseEvent() called with resource count {}", resources.size());
-            for (Resource resource : resources) {
-                onResource(resource.markAsSparse());
+    public void onConnectionOnline() {
+        if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
+            logger.debug("onOnline() ThingStatus:ONLINE");
+            connectRetriesRemaining = RECONNECT_MAX_TRIES;
+            updateStatus(ThingStatus.ONLINE);
+            try {
+                updateDevices();
+            } catch (ApiException | AssetNotLoadedException e) {
+                // should never happen as we are already online
             }
         }
     }
 
     /**
-     * Called when the SSE event channel has not received any events for a long time.
+     * Inform all child thing handlers about the contents of the given resource.
+     *
+     * @param resource the given resource.
      */
-    public void onSseQuiet() {
+    private void onResource(Resource resource) {
+        logger.debug("onResource(..) {}", resource);
+        getThing().getThings().forEach(thing -> {
+            ThingHandler handler = thing.getHandler();
+            if (handler instanceof DeviceThingHandler) {
+                ((DeviceThingHandler) handler).onResource(resource);
+            }
+        });
+    }
+
+    /**
+     * Called when an SSE event message comes in with a valid list of resources.
+     *
+     * @param resources a list of incoming resource objects.
+     */
+    public void onSseResources(List<Resource> resources) {
         if (assetsLoaded) {
-            logger.info("onSseQuiet() SSE link is quiet");
+            logger.debug("onSseEvent() called with resource count {}", resources.size());
+            resources.forEach(resource -> onResource(resource));
         }
     }
 
@@ -557,9 +535,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateDevices() throws ApiException, AssetNotLoadedException {
         logger.debug("updateDevices() called");
-        for (Resource resource : getClip2Bridge().getResources(DEVICE).getResources()) {
-            onResource(resource);
-        }
+        getClip2Bridge().getResources(DEVICE).getResources().forEach(resource -> onResource(resource));
     }
 
     /**
@@ -620,7 +596,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             checkAssetsLoaded();
             updateProperties();
             updateStatus(ThingStatus.UNKNOWN);
-            getClip2Bridge().sseOpen();
+            getClip2Bridge().open();
         } catch (ApiException e) {
             logger.debug("updateSelf() {}", e.getMessage(), e);
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
@@ -629,6 +605,10 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             logger.debug("updateSelf() {}", e.getMessage(), e);
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.clip2.conf-error-assets-not-loaded");
+        } catch (IllegalAccessException e) {
+            logger.debug("updateSelf() {}", e.getMessage(), e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.clip2.conf-error-access_denied");
         }
     }
 }
