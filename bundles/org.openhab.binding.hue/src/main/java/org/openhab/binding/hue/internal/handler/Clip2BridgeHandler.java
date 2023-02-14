@@ -15,6 +15,7 @@ package org.openhab.binding.hue.internal.handler;
 import static org.openhab.binding.hue.internal.HueBindingConstants.*;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.config.Clip2BridgeConfig;
 import org.openhab.binding.hue.internal.connection.Clip2Bridge;
 import org.openhab.binding.hue.internal.connection.HueTlsTrustManagerProvider;
+import org.openhab.binding.hue.internal.discovery.Clip2ThingDiscoveryService;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.ProductData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
@@ -47,11 +49,13 @@ import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingRegistry;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandler;
+import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.osgi.framework.FrameworkUtil;
@@ -75,22 +79,26 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private static final int RECONNECT_MAX_TRIES = 5;
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
+    private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
     private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClient httpClient;
+    private final ThingRegistry thingRegistry;
 
     private @Nullable Clip2Bridge clip2Bridge;
     private @Nullable ScheduledFuture<?> checkConnectionTask;
     private @Nullable ServiceRegistration<?> trustManagerRegistration;
+    private @Nullable Clip2ThingDiscoveryService discoveryService;
 
     private boolean assetsLoaded;
     private int applKeyRetriesRemaining;
     private int connectRetriesRemaining;
 
-    public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient) {
+    public Clip2BridgeHandler(Bridge bridge, HttpClient httpClient, ThingRegistry thingRegistry) {
         super(bridge);
         this.httpClient = httpClient;
+        this.thingRegistry = thingRegistry;
     }
 
     /**
@@ -275,7 +283,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 clip2Bridge = null;
             }
             ServiceRegistration<?> registration = trustManagerRegistration;
-            if (registration != null) {
+            if (Objects.nonNull(registration)) {
                 registration.unregister();
                 trustManagerRegistration = null;
             }
@@ -318,6 +326,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public ScheduledExecutorService getScheduler() {
         return scheduler;
+    }
+
+    @Override
+    public Collection<Class<? extends ThingHandlerService>> getServices() {
+        return Set.of(Clip2ThingDiscoveryService.class);
     }
 
     @Override
@@ -376,7 +389,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             HueTlsTrustManagerProvider trustManagerProvider = new HueTlsTrustManagerProvider(ipAddress + ":443",
                     config.useSelfSignedCertificate);
 
-            if (trustManagerProvider.getPEMTrustManager() == null) {
+            if (Objects.isNull(trustManagerProvider.getPEMTrustManager())) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.clip2.conf-error-certificate-load");
                 return;
@@ -400,7 +413,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public void onConnectionOffline() {
         if (assetsLoaded) {
-            logger.debug("onOffline() ThingStatus:OFFLINE");
+            logger.debug("onConnectionOffline() ThingStatus:OFFLINE");
             updateStatus(ThingStatus.OFFLINE);
             ScheduledFuture<?> task = checkConnectionTask;
             if (Objects.nonNull(task)) {
@@ -416,11 +429,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public void onConnectionOnline() {
         if (assetsLoaded && (thing.getStatus() != ThingStatus.ONLINE)) {
-            logger.debug("onOnline() ThingStatus:ONLINE");
+            logger.debug("onConnectionOnline() ThingStatus:ONLINE");
             connectRetriesRemaining = RECONNECT_MAX_TRIES;
             updateStatus(ThingStatus.ONLINE);
             try {
                 updateDevices();
+                Clip2ThingDiscoveryService discoveryService = this.discoveryService;
+                if (Objects.nonNull(discoveryService)) {
+                    discoveryService.startScan(null);
+                }
             } catch (ApiException | AssetNotLoadedException e) {
                 // should never happen as we are already online
             }
@@ -486,6 +503,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
+     * Register or unregister the discovery service.
+     *
+     * @param discoveryService new discoveryService, or null if un-registering.
+     */
+    public void registerDiscoveryService(@Nullable Clip2ThingDiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
+
+    /**
      * Get the data for all devices in the bridge, and inform all child thing handlers.
      *
      * @throws ApiException if a communication error occurred.
@@ -504,20 +530,29 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateProperties() throws ApiException, AssetNotLoadedException {
         logger.debug("updateProperties() called");
+        Map<String, String> properties = new HashMap<>(thing.getProperties());
+
+        for (Resource device : getClip2Bridge().getResources(BRIDGE).getResources()) {
+            // set the serial number
+            String bridgeId = device.getBridgeId();
+            if (Objects.nonNull(bridgeId)) {
+                properties.put(Thing.PROPERTY_SERIAL_NUMBER, bridgeId);
+            }
+            break;
+        }
 
         for (Resource device : getClip2Bridge().getResources(DEVICE).getResources()) {
             MetaData metaData = device.getMetaData();
-
             if (Objects.nonNull(metaData) && metaData.getArchetype() == Archetype.BRIDGE_V2) {
-                Map<String, @Nullable String> properties = new HashMap<>(thing.getProperties());
-
                 // set resource properties
-                properties.put(Thing.PROPERTY_SERIAL_NUMBER, device.getBridgeId());
                 properties.put(HueBindingConstants.PROPERTY_RESOURCE_ID, device.getId());
                 properties.put(HueBindingConstants.PROPERTY_RESOURCE_TYPE, device.getType().toString());
 
                 // set metadata properties
-                properties.put(HueBindingConstants.PROPERTY_RESOURCE_NAME, metaData.getName());
+                String metaDataName = metaData.getName();
+                if (Objects.nonNull(metaDataName)) {
+                    properties.put(HueBindingConstants.PROPERTY_RESOURCE_NAME, metaDataName);
+                }
                 properties.put(HueBindingConstants.PROPERTY_RESOURCE_ARCHETYPE, metaData.getArchetype().toString());
 
                 // set product data properties
@@ -540,10 +575,10 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                             productData.getCertified().toString());
                 }
 
-                thing.setProperties(properties);
                 break;
             }
         }
+        thing.setProperties(properties);
     }
 
     /**
@@ -569,5 +604,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.clip2.conf-error-access_denied");
         }
+    }
+
+    public ThingRegistry getThingRegistry() {
+        return thingRegistry;
     }
 }

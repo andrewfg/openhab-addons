@@ -468,9 +468,7 @@ public class DeviceThingHandler extends BaseThingHandler {
      */
     private void updateProperties(Resource resource) {
         logger.debug("updateProperties() {}", resource);
-
-        // actualise the properties
-        Map<String, String> properties = new HashMap<>();
+        Map<String, String> properties = new HashMap<>(thing.getProperties());
 
         // resource data
         properties.put(HueBindingConstants.PROPERTY_RESOURCE_ID, thisResource.getId());
