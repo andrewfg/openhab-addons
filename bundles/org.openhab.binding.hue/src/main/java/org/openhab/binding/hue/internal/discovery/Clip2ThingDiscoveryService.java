@@ -31,7 +31,6 @@ import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
 import org.openhab.binding.hue.internal.handler.Clip2BridgeHandler;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
-import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.config.discovery.DiscoveryResultBuilder;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -50,8 +49,8 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
     public static final int DISCOVERY_TIMEOUT_SECONDS = 20;
     public static final int DISCOVERY_INTERVAL_SECONDS = 600;
 
+    private @Nullable Clip2BridgeHandler bridgeHandler;
     private @Nullable ScheduledFuture<?> discoveryTask;
-    private @Nullable Clip2BridgeHandler clip2BridgeHandler;
 
     public Clip2ThingDiscoveryService() {
         super(Set.of(HueBindingConstants.THING_TYPE_DEVICE), DISCOVERY_TIMEOUT_SECONDS, true);
@@ -59,9 +58,9 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
 
     @Override
     public void activate() {
-        Clip2BridgeHandler clip2BridgeHandler = this.clip2BridgeHandler;
-        if (Objects.nonNull(clip2BridgeHandler)) {
-            clip2BridgeHandler.registerDiscoveryService(this);
+        Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
+        if (Objects.nonNull(bridgeHandler)) {
+            bridgeHandler.registerDiscoveryService(this);
         }
         super.activate(null);
     }
@@ -69,10 +68,10 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
     @Override
     public void deactivate() {
         super.deactivate();
-        Clip2BridgeHandler clip2BridgeHandler = this.clip2BridgeHandler;
-        if (Objects.nonNull(clip2BridgeHandler)) {
-            clip2BridgeHandler.registerDiscoveryService(null);
-            removeOlderResults(new Date().getTime(), clip2BridgeHandler.getThing().getBridgeUID());
+        Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
+        if (Objects.nonNull(bridgeHandler)) {
+            bridgeHandler.registerDiscoveryService(null);
+            removeOlderResults(new Date().getTime(), bridgeHandler.getThing().getBridgeUID());
         }
     }
 
@@ -81,11 +80,11 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
      * as OH things, and announce those respective things by calling the core 'thingDiscovered()' method.
      */
     private synchronized void discoverDevices() {
-        Clip2BridgeHandler clip2BridgeHandler = this.clip2BridgeHandler;
-        if (Objects.nonNull(clip2BridgeHandler) && clip2BridgeHandler.getThing().getStatus() == ThingStatus.ONLINE) {
+        Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
+        if (Objects.nonNull(bridgeHandler) && bridgeHandler.getThing().getStatus() == ThingStatus.ONLINE) {
             try {
-                ThingUID bridgeUID = clip2BridgeHandler.getThing().getUID();
-                for (Resource resource : clip2BridgeHandler
+                ThingUID bridgeUID = bridgeHandler.getThing().getUID();
+                for (Resource resource : bridgeHandler
                         .getResources(new ResourceReference().setType(ResourceType.DEVICE)).getResources()) {
 
                     MetaData metaData = resource.getMetaData();
@@ -98,24 +97,30 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
                         String resId = resource.getId();
                         String resType = resource.getType().toString();
                         String label = resource.getName();
+                        String location = null;
 
-                        Optional<Thing> legacyThing = getLegacyThing(resource.getIdV1());
-                        if (legacyThing.isPresent()) {
-                            String label2 = legacyThing.get().getLabel();
-                            label = Objects.nonNull(label2) ? label2 : label;
+                        Optional<Thing> legacyThingOptional = getLegacyThing(resource.getIdV1());
+                        if (legacyThingOptional.isPresent()) {
+                            Thing legacyThing = legacyThingOptional.get();
+                            String label2 = legacyThing.getLabel();
+                            label = Objects.nonNull(label2) && !label2.isBlank() ? label2 : label;
+                            location = legacyThing.getLocation();
+                            location = Objects.nonNull(location) && !location.isBlank() ? location : null;
                         }
 
-                        DiscoveryResult thing = DiscoveryResultBuilder
+                        DiscoveryResultBuilder builder = DiscoveryResultBuilder
                                 .create(new ThingUID(HueBindingConstants.THING_TYPE_DEVICE, bridgeUID, resId))
                                 .withBridge(bridgeUID) //
                                 .withLabel(label) //
                                 .withProperty(HueBindingConstants.PROPERTY_RESOURCE_ID, resId)
                                 .withProperty(HueBindingConstants.PROPERTY_RESOURCE_TYPE, resType)
                                 .withProperty(HueBindingConstants.PROPERTY_RESOURCE_NAME, label)
-                                .withRepresentationProperty(HueBindingConstants.PROPERTY_RESOURCE_ID) //
-                                .build();
+                                .withRepresentationProperty(HueBindingConstants.PROPERTY_RESOURCE_ID);
 
-                        thingDiscovered(thing);
+                        if (Objects.nonNull(location)) {
+                            builder = builder.withProperty(HueBindingConstants.PROPERTY_LOCATION, location);
+                        }
+                        thingDiscovered(builder.build());
                     }
                 }
             } catch (ApiException | AssetNotLoadedException e) {
@@ -141,9 +146,9 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
             config = null;
         }
         if (Objects.nonNull(config)) {
-            Clip2BridgeHandler clip2BridgeHandler = this.clip2BridgeHandler;
-            if (Objects.nonNull(clip2BridgeHandler)) {
-                return clip2BridgeHandler.getThingRegistry().getAll().stream() //
+            Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
+            if (Objects.nonNull(bridgeHandler)) {
+                return bridgeHandler.getThingRegistry().getAll().stream() //
                         .filter(thing -> HueBindingConstants.V1_THING_TYPE_UIDS.contains(thing.getThingTypeUID())) //
                         .filter(thing -> {
                             Object id = thing.getConfiguration().get(config);
@@ -156,13 +161,13 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
 
     @Override
     public @Nullable ThingHandler getThingHandler() {
-        return clip2BridgeHandler;
+        return bridgeHandler;
     }
 
     @Override
     public void setThingHandler(ThingHandler handler) {
         if (handler instanceof Clip2BridgeHandler) {
-            clip2BridgeHandler = (Clip2BridgeHandler) handler;
+            bridgeHandler = (Clip2BridgeHandler) handler;
         }
     }
 

@@ -333,6 +333,10 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         return Set.of(Clip2ThingDiscoveryService.class);
     }
 
+    public ThingRegistry getThingRegistry() {
+        return thingRegistry;
+    }
+
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (RefreshType.REFRESH.equals(command)) {
@@ -351,6 +355,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     public void initialize() {
         logger.debug("initialize() {} called", this);
         updateStatus(ThingStatus.UNKNOWN);
+        updateThingLocation();
         applKeyRetriesRemaining = APPLICATION_KEY_MAX_TRIES;
         connectRetriesRemaining = RECONNECT_MAX_TRIES;
         scheduler.submit(() -> initializeAssets());
@@ -606,7 +611,16 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
     }
 
-    public ThingRegistry getThingRegistry() {
-        return thingRegistry;
+    /**
+     * Check if the discovery process found a thing location property, and if so apply it to the thing itself.
+     */
+    private void updateThingLocation() {
+        Map<String, String> properties = thing.getProperties();
+        String location = properties.get(HueBindingConstants.PROPERTY_LOCATION);
+        if (Objects.nonNull(location) && !location.isBlank()) {
+            Map<String, String> newProperties = new HashMap<>(properties);
+            newProperties.remove(HueBindingConstants.PROPERTY_LOCATION);
+            updateThing(editThing().withLocation(location).withProperties(newProperties).build());
+        }
     }
 }
