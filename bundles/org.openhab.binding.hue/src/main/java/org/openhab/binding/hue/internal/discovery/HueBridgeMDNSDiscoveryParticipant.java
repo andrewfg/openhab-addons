@@ -120,14 +120,18 @@ public class HueBridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipa
                 String serial = service.getPropertyString(MDNS_PROPERTY_BRIDGE_ID);
                 String label = String.format("%s (%s)", service.getName(), host);
                 String applicationKey = null;
+                String location = null;
 
                 if (uid.getAsString().startsWith(HueBindingConstants.CLIP2_THING_TYPE_PREFIX)) {
-                    Optional<Thing> legacyBridge = getLegacyBridge(host);
-                    if (legacyBridge.isPresent()) {
-                        String label2 = legacyBridge.get().getLabel();
+                    Optional<Thing> legacyBridgeOptional = getLegacyBridge(host);
+                    if (legacyBridgeOptional.isPresent()) {
+                        Thing legacyBridge = legacyBridgeOptional.get();
+                        String label2 = legacyBridge.getLabel();
                         label = Objects.nonNull(label2) ? label2 : label;
-                        Object userName = legacyBridge.get().getConfiguration().get(HueBindingConstants.USER_NAME);
+                        Object userName = legacyBridge.getConfiguration().get(HueBindingConstants.USER_NAME);
                         applicationKey = userName instanceof String ? (String) userName : null;
+                        location = legacyBridge.getLocation();
+                        location = Objects.nonNull(location) && !location.isBlank() ? location : null;
                     }
                     serial = serial + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
                     label = label + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
@@ -143,6 +147,9 @@ public class HueBridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipa
 
                 if (Objects.nonNull(applicationKey)) {
                     builder = builder.withProperty(Clip2BridgeConfig.APPLICATION_KEY, applicationKey);
+                }
+                if (Objects.nonNull(location)) {
+                    builder = builder.withProperty(HueBindingConstants.PROPERTY_LOCATION, location);
                 }
                 return builder.build();
             }
