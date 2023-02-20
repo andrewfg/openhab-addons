@@ -15,18 +15,20 @@ package org.openhab.binding.hue.internal.exceptions;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * Thrown when an HTTP call to the CLIP 2 bridge returns with an 'unauthorized' status code.
+ * Thrown when a DTO is present but empty. In some circumstances the API v2 returns an empty DTO ("dtoName":{}) rather
+ * than null ("dtoName":null). This indicates that the DTO is in principle supported by the containing resource, but
+ * currently the DTO contains no actual state fields.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class HttpUnAuthorizedException extends Exception {
+public class DTOPresentButEmptyException extends Exception {
     private static final long serialVersionUID = -1;
 
-    public HttpUnAuthorizedException() {
+    public DTOPresentButEmptyException() {
     }
 
-    public HttpUnAuthorizedException(String message) {
+    public DTOPresentButEmptyException(String message) {
         super(message);
     }
 }
