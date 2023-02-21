@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
-import org.openhab.binding.hue.internal.config.DeviceConfig;
+import org.openhab.binding.hue.internal.config.Clip2ThingConfig;
 import org.openhab.binding.hue.internal.dto.clip2.ColorTemperature2;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.MirekSchema;
@@ -250,7 +250,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         logger.debug("initialize() called");
-        DeviceConfig config = getConfigAs(DeviceConfig.class);
+        Clip2ThingConfig config = getConfigAs(Clip2ThingConfig.class);
 
         String resourceId = config.resourceId;
         if (Objects.isNull(resourceId) || resourceId.isEmpty()) {
