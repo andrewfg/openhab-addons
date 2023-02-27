@@ -123,7 +123,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * If the connection attempt throws an ApiException then set the thing status to offline. This method is called on a
      * scheduler thread, which reschedules itself repeatedly until the thing is shutdown.
      */
-    private void checkConnection() {
+    private synchronized void checkConnection() {
         logger.debug("checkConnection() called");
 
         // check connection to the hub
@@ -428,13 +428,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         if (assetsLoaded) {
             logger.debug("onConnectionOffline() called");
             scheduler.submit(() -> checkConnection());
-            // updateStatus(ThingStatus.OFFLINE);
-            // ScheduledFuture<?> task = checkConnectionTask;
-            // if (Objects.nonNull(task)) {
-            // task.cancel(false);
-            // }
-            // checkConnectionTask = scheduler.schedule(() -> checkConnection(), FAST_SCHEDULE_MILLI_SECONDS,
-            // TimeUnit.MILLISECONDS);
         }
     }
 
