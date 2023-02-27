@@ -285,15 +285,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 task.cancel(false);
                 checkConnectionTask = null;
             }
-            Clip2Bridge bridge = clip2Bridge;
-            if (Objects.nonNull(bridge)) {
-                bridge.close();
-                clip2Bridge = null;
-            }
             ServiceRegistration<?> registration = trustManagerRegistration;
             if (Objects.nonNull(registration)) {
                 registration.unregister();
                 trustManagerRegistration = null;
+            }
+            Clip2Bridge bridge = clip2Bridge;
+            if (Objects.nonNull(bridge)) {
+                bridge.close(); // NB this may take ~15 seconds
+                clip2Bridge = null;
             }
         }
     }
@@ -426,14 +426,15 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public void onConnectionOffline() {
         if (assetsLoaded) {
-            logger.debug("onConnectionOffline() ThingStatus:OFFLINE");
-            updateStatus(ThingStatus.OFFLINE);
-            ScheduledFuture<?> task = checkConnectionTask;
-            if (Objects.nonNull(task)) {
-                task.cancel(false);
-            }
-            checkConnectionTask = scheduler.schedule(() -> checkConnection(), FAST_SCHEDULE_MILLI_SECONDS,
-                    TimeUnit.MILLISECONDS);
+            logger.debug("onConnectionOffline() called");
+            scheduler.submit(() -> checkConnection());
+            // updateStatus(ThingStatus.OFFLINE);
+            // ScheduledFuture<?> task = checkConnectionTask;
+            // if (Objects.nonNull(task)) {
+            // task.cancel(false);
+            // }
+            // checkConnectionTask = scheduler.schedule(() -> checkConnection(), FAST_SCHEDULE_MILLI_SECONDS,
+            // TimeUnit.MILLISECONDS);
         }
     }
 
