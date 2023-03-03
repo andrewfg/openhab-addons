@@ -78,6 +78,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
     private static final int FAST_SCHEDULE_MILLI_SECONDS = 500;
     private static final int APPLICATION_KEY_MAX_TRIES = 600; // i.e. 300 seconds, 5 minutes
+    private static final int RECONNECT_DELAY_SECONDS = 10;
     private static final int RECONNECT_MAX_TRIES = 5;
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
@@ -351,8 +352,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             return;
         }
         if (CHANNEL_SCENE.equals(channelUID.getId()) && command instanceof StringType) {
+            String sceneId = ((StringType) command).toString();
+            if (!sceneId.isBlank()) {
+            }
             try {
-                putResource(new Resource(ResourceType.SCENE).setId(command.toString()));
+                putResource(new Resource(ResourceType.SCENE).setId(sceneId));
             } catch (ApiException | AssetNotLoadedException e) {
                 logger.warn("handleCommand() error {}", e.getMessage(), e);
             }
@@ -422,11 +426,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
-     * Called when the connection goes offline. Schedule a reconnection event.
+     * Called when the connection goes offline. Schedule a reconnection.
      */
     public void onConnectionOffline() {
         if (assetsLoaded) {
-            scheduler.submit(() -> checkConnection());
+            scheduler.schedule(() -> checkConnection(), RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
         }
     }
 
