@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,7 +16,6 @@ import static org.openhab.binding.hdpowerview.internal.HDPowerViewBindingConstan
 
 import java.util.Collections;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import javax.jmdns.ServiceInfo;
 
@@ -42,9 +41,6 @@ import org.slf4j.LoggerFactory;
 public class HDPowerViewHubDiscoveryParticipant implements MDNSDiscoveryParticipant {
 
     private final Logger logger = LoggerFactory.getLogger(HDPowerViewHubDiscoveryParticipant.class);
-
-    private static final Pattern VALID_IP_V4_ADDRESS = Pattern
-            .compile("\\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}\\b");
 
     @Override
     public Set<ThingTypeUID> getSupportedThingTypeUIDs() {
