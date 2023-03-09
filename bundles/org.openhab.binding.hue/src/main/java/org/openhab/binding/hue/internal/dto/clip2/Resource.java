@@ -470,9 +470,9 @@ public class Resource {
         return ResourceType.of(type);
     }
 
-    public State getZigBeeState() {
-        ZigbeeStatus zigBeeStatus = getZigbeeStatus();
-        return Objects.nonNull(zigBeeStatus) ? new StringType(zigBeeStatus.toString()) : UnDefType.NULL;
+    public State getZigbeeState() {
+        ZigbeeStatus zigbeeStatus = getZigbeeStatus();
+        return Objects.nonNull(zigbeeStatus) ? new StringType(zigbeeStatus.toString()) : UnDefType.NULL;
     }
 
     public @Nullable ZigbeeStatus getZigbeeStatus() {
