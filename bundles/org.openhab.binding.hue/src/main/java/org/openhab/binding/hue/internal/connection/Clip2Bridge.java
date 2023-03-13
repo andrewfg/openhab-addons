@@ -438,19 +438,10 @@ public class Clip2Bridge implements Closeable {
             String applicationKey) {
         logger.debug("Clip2Bridge()");
         httpClient = httpClientFactory.getCommonHttpClient();
-        // TODO PR #3433 adds methods to HttpClientFactory for creating HTTP/2 clients
-        // this.http2Client = HttpClientFactory.createHttp2Client("hue-clip2", httpClient.getSslContextFactory());
         http2Client = new HTTP2Client();
         http2Client.addBean(httpClient.getSslContextFactory());
-        // TODO PR #3433 END
         http2Client.setConnectTimeout(Clip2Bridge.TIMEOUT_SECONDS * 1000);
         http2Client.setIdleTimeout(-1);
-        this.applicationKey = applicationKey;
-        this.bridgeHandler = bridgeHandler;
-        this.hostName = hostName;
-        baseUrl = String.format(FORMAT_URL_RESOURCE, hostName);
-        eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
-        registrationUrl = String.format(FORMAT_URL_REGISTER, hostName);
         boolean http2HpackLoaded = false;
         try {
             PreEncodedHttpField field = new PreEncodedHttpField(HttpHeader.C_METHOD, "PUT");
@@ -461,6 +452,12 @@ public class Clip2Bridge implements Closeable {
             logger.warn("Clip2Bridge() HTTP/2 hpack module not yet loaded; falling back to HTTP/1.1");
         }
         useHttp1 = !http2HpackLoaded;
+        this.applicationKey = applicationKey;
+        this.bridgeHandler = bridgeHandler;
+        this.hostName = hostName;
+        baseUrl = String.format(FORMAT_URL_RESOURCE, hostName);
+        eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
+        registrationUrl = String.format(FORMAT_URL_REGISTER, hostName);
     }
 
     /**
