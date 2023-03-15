@@ -621,7 +621,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateThingFromLegacy() {
         if (isInitialized()) {
-            logger.warn("updateThingFromLegacy() was called after handler was initialized.");
             return;
         }
         Map<String, String> properties = thing.getProperties();
@@ -647,6 +646,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 newProperties.remove(HueBindingConstants.PROPERTY_LEGACY_THING_UID);
 
                 updateThing(editBuilder.withProperties(newProperties).build());
+                logger.info("updateThingFromLegacy() API v2 thing parameters updated from API v1 thing");
             }
         }
     }
