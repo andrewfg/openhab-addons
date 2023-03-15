@@ -418,8 +418,8 @@ public class Clip2Bridge implements Closeable {
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
     private final boolean useHttp1;
-    private final Object restartLock = new Object();
 
+    private boolean restarting = false;
     private State onlineState = State.CLOSED;
     private Instant lastRequestTime = Instant.MIN;
     private Instant sessionExpireTime = Instant.MAX;
@@ -541,29 +541,29 @@ public class Clip2Bridge implements Closeable {
      * @param error the type of error.
      */
     private void fatalError(Object cause, BaseAdapter.Error error) {
-        if (onlineState == State.CLOSED) {
+        if (onlineState == State.CLOSED || restarting) {
             return;
         }
         String causeId = cause.getClass().getSimpleName();
         if (cause instanceof ContentAdapter) {
             logger.debug("fatalError() {} {} ignoring", causeId, error);
         } else if (error == AdapterErrorHandler.Error.GO_AWAY) {
-            synchronized (restartLock) {
-                State priorState = onlineState;
-                try {
-                    logger.debug("fatalError() {} {} reconnecting", causeId, error);
-                    onlineState = State.PASSIVE; // suppress handler notification
-                    close();
-                    openPassive();
-                    if (priorState == State.ACTIVE) {
-                        openActive();
-                    }
-                } catch (ApiException | HttpUnauthorizedException e) {
-                    logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
-                    onlineState = priorState; // re-enable handler notification
-                    close();
+            restarting = true;
+            State priorState = onlineState;
+            try {
+                logger.debug("fatalError() {} {} reconnecting", causeId, error);
+                onlineState = State.PASSIVE; // suppress handler notification
+                close();
+                openPassive();
+                if (priorState == State.ACTIVE) {
+                    openActive();
                 }
+            } catch (ApiException | HttpUnauthorizedException e) {
+                logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
+                onlineState = priorState; // re-enable handler notification
+                close();
             }
+            restarting = false;
         } else {
             logger.warn("fatalError() {} {} closing", causeId, error);
             close();
