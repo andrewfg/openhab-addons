@@ -14,16 +14,20 @@ package org.openhab.binding.hue.internal.console;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
+import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
+import org.openhab.binding.hue.internal.dto.clip2.enums.Archetype;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.handler.Clip2BridgeHandler;
 import org.openhab.binding.hue.internal.handler.HueBridgeHandler;
@@ -156,33 +160,41 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
 
                                 if (!resources.isEmpty()) {
                                     console.println(String.format(FMT_COMMENT, resourceType.toString()));
+                                    Map<String, String> lines = new TreeMap<>();
 
                                     resources.forEach(resource -> {
-                                        String label = resource.getName();
-                                        String comment = resource.getProductName();
+                                        MetaData metaData = resource.getMetaData();
+                                        // do not list the bridge itself
+                                        if (Objects.isNull(metaData)
+                                                || (metaData.getArchetype() != Archetype.BRIDGE_V2)) {
 
-                                        if (ResourceType.GROUPED_LIGHT == resourceType) {
-                                            ResourceReference owner = resource.getOwner();
-                                            if (Objects.nonNull(owner)) {
-                                                Optional<Resource> ownerResource = clip2BridgeHandlerFinal
-                                                        .consoleGetResources(owner).stream().findFirst();
-                                                if (ownerResource.isPresent()) {
-                                                    Resource ownerRes = ownerResource.get();
-                                                    ResourceType ownerType = ownerRes.getType();
-                                                    if (ownerType == ResourceType.BRIDGE_HOME) {
-                                                        label = "Bridge (Home)";
-                                                    } else {
-                                                        label = String.format("%s (%s)", ownerRes.getName(),
-                                                                ownerType.toString());
+                                            String label = resource.getName();
+                                            String comment = resource.getProductName();
+
+                                            if (ResourceType.GROUPED_LIGHT == resourceType) {
+                                                ResourceReference owner = resource.getOwner();
+                                                if (Objects.nonNull(owner)) {
+                                                    Optional<Resource> ownerResource = clip2BridgeHandlerFinal
+                                                            .consoleGetResources(owner).stream().findFirst();
+                                                    if (ownerResource.isPresent()) {
+                                                        Resource ownerRes = ownerResource.get();
+                                                        ResourceType ownerType = ownerRes.getType();
+                                                        if (ownerType == ResourceType.BRIDGE_HOME) {
+                                                            label = "Bridge (Home)";
+                                                        } else {
+                                                            label = String.format("%s (%s)", ownerRes.getName(),
+                                                                    ownerType.toString());
+                                                        }
                                                     }
                                                 }
                                             }
+                                            lines.put(label,
+                                                    String.format(FMT_THING,
+                                                            resourceType.name().replace("_", "").toLowerCase(),
+                                                            resource.getId(), label, resource.getId(), comment));
                                         }
-
-                                        console.println(String.format(FMT_THING,
-                                                resourceType.name().replace("_", "").toLowerCase(), resource.getId(),
-                                                label, resource.getId(), comment));
                                     });
+                                    lines.entrySet().forEach(entry -> console.println(entry.getValue()));
                                 }
                             }
                             console.println("}");
