@@ -417,7 +417,6 @@ public class Clip2Bridge implements Closeable {
     private final String applicationKey;
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
-    private final boolean useHttp1;
 
     private boolean restarting = false;
     private State onlineState = State.CLOSED;
@@ -451,7 +450,6 @@ public class Clip2Bridge implements Closeable {
         } catch (Exception e) {
             logger.warn("Clip2Bridge() HTTP/2 hpack module not yet loaded; falling back to HTTP/1.1");
         }
-        useHttp1 = !http2HpackLoaded;
         this.applicationKey = applicationKey;
         this.bridgeHandler = bridgeHandler;
         this.hostName = hostName;
@@ -541,7 +539,7 @@ public class Clip2Bridge implements Closeable {
      * @param error the type of error.
      */
     private void fatalError(Object cause, BaseAdapter.Error error) {
-        if (onlineState == State.CLOSED || restarting) {
+        if (restarting || (onlineState == State.CLOSED)) {
             return;
         }
         String causeId = cause.getClass().getSimpleName();
@@ -549,21 +547,23 @@ public class Clip2Bridge implements Closeable {
             logger.debug("fatalError() {} {} ignoring", causeId, error);
         } else if (error == AdapterErrorHandler.Error.GO_AWAY) {
             restarting = true;
-            State priorState = onlineState;
-            try {
-                logger.debug("fatalError() {} {} reconnecting", causeId, error);
-                onlineState = State.PASSIVE; // suppress handler notification
-                close();
-                openPassive();
-                if (priorState == State.ACTIVE) {
-                    openActive();
+            bridgeHandler.getScheduler().schedule(() -> {
+                State priorState = onlineState;
+                try {
+                    logger.debug("fatalError() {} {} reconnecting", causeId, error);
+                    onlineState = State.PASSIVE; // suppress handler notification
+                    close();
+                    openPassive();
+                    if (priorState == State.ACTIVE) {
+                        openActive();
+                    }
+                } catch (ApiException | HttpUnauthorizedException e) {
+                    logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
+                    onlineState = priorState; // re-enable handler notification
+                    close();
                 }
-            } catch (ApiException | HttpUnauthorizedException e) {
-                logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
-                onlineState = priorState; // re-enable handler notification
-                close();
-            }
-            restarting = false;
+                restarting = false;
+            }, 5, TimeUnit.SECONDS);
         } else {
             logger.warn("fatalError() {} {} closing", causeId, error);
             close();
@@ -595,6 +595,7 @@ public class Clip2Bridge implements Closeable {
      * @throws ApiException if anything fails.
      */
     public Resources getResources(ResourceReference reference) throws ApiException {
+        sleepDuringRestart();
         if (onlineState == State.CLOSED) {
             throw new ApiException("getResources() offline");
         }
@@ -614,11 +615,11 @@ public class Clip2Bridge implements Closeable {
      * @throws HttpUnauthorizedException if the request was refused as not authorised or forbidden.
      */
     private Resources getResourcesImpl(ResourceReference reference) throws ApiException, HttpUnauthorizedException {
-        throttle();
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or closed");
         }
+        throttle();
         String url = getUrl(reference);
         HttpFields fields = new HttpFields();
         fields.put(HttpHeader.ACCEPT, MediaType.APPLICATION_JSON);
@@ -832,71 +833,21 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
-     * Use an HTTP/1.1 or HTTP/2 PUT command to send a resource to the server.
-     *
-     * <p>
-     * <b>Developer Note:</b>
-     * For best performance this method should use a new stream on the existing HTTP/2 session. However the Jetty HTTP2
-     * library version currently used by OH [v9.4.50.v20221201] fails with an 'hpack' (header compression) error
-     * <a href="https://github.com/eclipse/jetty.project/issues/9168">(Jetty Issue 9168)</a> when attempting to encode
-     * the PUT method. This may be fixed when the OH Jetty library is increased to a higher version, or when Jetty
-     * HTTP/2 is included in the OH core, but in the meantime we can fall back to using a regular HTTP/1.1 call.
-     * </p>
+     * Use an HTTP/2 PUT command to send a resource to the server.
      *
      * @param resource the resource to put.
      * @throws ApiException if something fails.
      */
     public void putResource(Resource resource) throws ApiException {
+        sleepDuringRestart();
         if (onlineState == State.CLOSED) {
             return;
         }
-        if (useHttp1) {
-            putResourceHttp1Impl(resource);
-        } else {
-            putResourceHttp2Impl(resource);
-        }
-    }
-
-    /**
-     * Use an HTTP/1.1 PUT to send a Resource to the server.
-     *
-     * @param resource the resource to put.
-     * @throws ApiException if something fails.
-     */
-    private void putResourceHttp1Impl(Resource resource) throws ApiException {
-        throttle();
-        String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
-        String json = jsonParser.toJson(resource);
-        logger.trace("PUT {} HTTP/1.1 >> {}", url, json);
-        try {
-            json = httpClient.newRequest(url).method(HttpMethod.PUT).header(APPLICATION_KEY, applicationKey)
-                    .header(HttpHeader.USER_AGENT, APPLICATION_ID).accept(MediaType.APPLICATION_JSON)
-                    .content(new StringContentProvider(MediaType.APPLICATION_JSON, json, StandardCharsets.UTF_8))
-                    .timeout(TIMEOUT_SECONDS, TimeUnit.SECONDS).send().getContentAsString().trim();
-            logger.trace("HTTP/1.1 200 OK << {}", json);
-            Resources result = Objects.requireNonNull(jsonParser.fromJson(json, Resources.class));
-            if (logger.isDebugEnabled()) {
-                result.getErrors().forEach(error -> logger.debug("Resources error:{}", error));
-            }
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-            throw new ApiException("Error sending request", e);
-        } catch (JsonParseException e) {
-            throw new ApiException("Parsing error", e);
-        }
-    }
-
-    /**
-     * Use an HTTP/2 PUT to send a Resource to the server.
-     *
-     * @param resource the resource to put.
-     * @throws ApiException if something fails.
-     */
-    private void putResourceHttp2Impl(Resource resource) throws ApiException {
-        throttle();
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or closed");
         }
+        throttle();
         String json = jsonParser.toJson(resource);
         ByteBuffer jsonBytes = ByteBuffer.wrap(json.getBytes(StandardCharsets.UTF_8));
         String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
@@ -981,6 +932,24 @@ public class Clip2Bridge implements Closeable {
             // fall through
         }
         throw new HttpUnauthorizedException("Application key registration failed");
+    }
+
+    /**
+     * Sleep the caller during any period when the connection is marked as restarting.
+     * Force time out after 10 seconds.
+     */
+    private void sleepDuringRestart() {
+        int iteration = 0;
+        while (restarting) {
+            try {
+                Thread.sleep(500);
+                if (++iteration > 20) {
+                    break;
+                }
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
     }
 
     /**
