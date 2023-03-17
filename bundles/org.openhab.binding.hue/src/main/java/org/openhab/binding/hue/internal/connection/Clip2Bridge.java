@@ -547,10 +547,10 @@ public class Clip2Bridge implements Closeable {
             logger.debug("fatalError() {} {} ignoring", causeId, error);
         } else if (error == AdapterErrorHandler.Error.GO_AWAY) {
             restarting = true;
+            logger.debug("fatalError() {} {} scheduling reconnect attempt", causeId, error);
             bridgeHandler.getScheduler().schedule(() -> {
                 State priorState = onlineState;
                 try {
-                    logger.debug("fatalError() {} {} reconnecting", causeId, error);
                     onlineState = State.PASSIVE; // suppress handler notification
                     close();
                     openPassive();
@@ -562,6 +562,7 @@ public class Clip2Bridge implements Closeable {
                     onlineState = priorState; // re-enable handler notification
                     close();
                 }
+                logger.debug("fatalError() reconnect attempt finished");
                 restarting = false;
             }, 5, TimeUnit.SECONDS);
         } else {
