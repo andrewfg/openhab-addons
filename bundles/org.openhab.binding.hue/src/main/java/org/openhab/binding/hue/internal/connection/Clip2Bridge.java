@@ -491,7 +491,7 @@ public class Clip2Bridge implements Closeable {
     public void close() {
         synchronized (this) {
             logger.debug("close()");
-            boolean wasActive = onlineState == State.ACTIVE;
+            boolean notifyHandler = (onlineState == State.ACTIVE) && !restarting;
             onlineState = State.CLOSED;
             closeCheckAliveTask();
             closeSession();
@@ -500,7 +500,7 @@ public class Clip2Bridge implements Closeable {
             } catch (Exception e) {
                 // ignore
             }
-            if (wasActive) {
+            if (notifyHandler) {
                 bridgeHandler.onConnectionOffline();
             }
         }
@@ -546,23 +546,25 @@ public class Clip2Bridge implements Closeable {
         if (cause instanceof ContentAdapter) {
             logger.debug("fatalError() {} {} ignoring", causeId, error);
         } else if (error == AdapterErrorHandler.Error.GO_AWAY) {
+            logger.debug("fatalError() {} {} reconnecting", causeId, error);
+
+            // close
             restarting = true;
-            logger.debug("fatalError() {} {} scheduling reconnect attempt", causeId, error);
+            boolean active = onlineState == State.ACTIVE;
+            close();
+
+            // schedule task to open again
             bridgeHandler.getScheduler().schedule(() -> {
-                State priorState = onlineState;
                 try {
-                    onlineState = State.PASSIVE; // suppress handler notification
-                    close();
                     openPassive();
-                    if (priorState == State.ACTIVE) {
+                    if (active) {
                         openActive();
                     }
                 } catch (ApiException | HttpUnauthorizedException e) {
                     logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
-                    onlineState = priorState; // re-enable handler notification
+                    restarting = false;
                     close();
                 }
-                logger.debug("fatalError() reconnect attempt finished");
                 restarting = false;
             }, 5, TimeUnit.SECONDS);
         } else {
