@@ -317,8 +317,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param key the i18n text key.
      * @return the localized text.
      */
-    public String getLocalizedText(String key) {
-        String result = translationProvider.getText(bundle, key, key, localeProvider.getLocale());
+    public String getLocalizedText(String key, @Nullable Object @Nullable... arguments) {
+        String result = translationProvider.getText(bundle, key, key, localeProvider.getLocale(), arguments);
         return Objects.nonNull(result) ? result : key;
     }
 
