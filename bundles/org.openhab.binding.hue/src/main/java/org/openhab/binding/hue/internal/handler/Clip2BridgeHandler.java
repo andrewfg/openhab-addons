@@ -12,7 +12,7 @@
  */
 package org.openhab.binding.hue.internal.handler;
 
-import static org.openhab.binding.hue.internal.HueBindingConstants.*;
+import static org.openhab.binding.hue.internal.HueBindingConstants.THING_TYPE_CLIP2;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -43,9 +43,10 @@ import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
 import org.openhab.binding.hue.internal.exceptions.HttpUnauthorizedException;
 import org.openhab.core.config.core.Configuration;
+import org.openhab.core.i18n.LocaleProvider;
+import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.io.net.http.TlsTrustManagerProvider;
-import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
@@ -60,6 +61,7 @@ import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.thing.binding.builder.BridgeBuilder;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
@@ -82,15 +84,21 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private static final int RECONNECT_MAX_TRIES = 5;
 
     private static final ResourceReference DEVICE = new ResourceReference().setType(ResourceType.DEVICE);
-    private static final ResourceReference GROUPED_LIGHT = new ResourceReference().setType(ResourceType.GROUPED_LIGHT);
+    private static final ResourceReference ROOM = new ResourceReference().setType(ResourceType.ROOM);
+    private static final ResourceReference ZONE = new ResourceReference().setType(ResourceType.ZONE);
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
+    private static final ResourceReference BRIDGE_HOME = new ResourceReference().setType(ResourceType.BRIDGE_HOME);
+    private static final ResourceReference SCENE = new ResourceReference().setType(ResourceType.SCENE);
 
-    private static final Set<ResourceReference> THING_SET = Set.of(DEVICE, GROUPED_LIGHT);
+    private static final Set<ResourceReference> POLL_RESOURCE_SET = Set.of(DEVICE, ROOM, ZONE, BRIDGE_HOME);
 
     private final Logger logger = LoggerFactory.getLogger(Clip2BridgeHandler.class);
 
     private final HttpClientFactory httpClientFactory;
     private final ThingRegistry thingRegistry;
+    private final Bundle bundle;
+    private final LocaleProvider localeProvider;
+    private final TranslationProvider translationProvider;
 
     private @Nullable Clip2Bridge clip2Bridge;
     private @Nullable ScheduledFuture<?> checkConnectionTask;
@@ -101,10 +109,14 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private int applKeyRetriesRemaining;
     private int connectRetriesRemaining;
 
-    public Clip2BridgeHandler(Bridge bridge, HttpClientFactory httpClientFactory, ThingRegistry thingRegistry) {
+    public Clip2BridgeHandler(Bridge bridge, HttpClientFactory httpClientFactory, ThingRegistry thingRegistry,
+            Bundle bundle, LocaleProvider localeProvider, TranslationProvider translationProvider) {
         super(bridge);
         this.httpClientFactory = httpClientFactory;
         this.thingRegistry = thingRegistry;
+        this.bundle = bundle;
+        this.localeProvider = localeProvider;
+        this.translationProvider = translationProvider;
     }
 
     /**
@@ -203,7 +215,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         } else {
             // default delay, set via configuration parameter, used as heart-beat 'just-in-case'
             Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-            milliSeconds = config.checkSeconds * 1000;
+            milliSeconds = config.checkMinutes * 60000;
             if (retryConnection) {
                 // exponential back off delay used during attempts to reconnect
                 int backOffDelay = 60000 * (int) Math.pow(2, RECONNECT_MAX_TRIES - connectRetriesRemaining);
@@ -222,47 +234,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         if (thing.getStatus() == ThingStatus.ONLINE && (childHandler instanceof Clip2ThingHandler)) {
             logger.debug("childHandlerInitialized() {}", childThing.getUID());
             try {
-                ResourceReference reference = ((Clip2ThingHandler) childHandler).getResourceReference();
-                getClip2Bridge().getResources(reference).getResources().forEach(r -> onResource(r));
+                updateThings();
+                updateThingsSceneChannels();
             } catch (ApiException | AssetNotLoadedException e) {
                 // exceptions should not occur here; but log anyway (just in case)
                 logger.warn("childHandlerInitialized() {}", e.getMessage(), e);
             }
         }
-    }
-
-    /**
-     * Return the application key for the console app.
-     *
-     * @return the application key.
-     */
-    public @Nullable String consoleGetApplicationKey() {
-        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-        return config.applicationKey;
-    }
-
-    /**
-     * Return the ip address for the console app.
-     *
-     * @return the ip address.
-     */
-    public @Nullable String consoleGetIpAddress() {
-        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
-        return config.ipAddress;
-    }
-
-    /**
-     * Return a list of resources for the console app.
-     *
-     * @param reference the resource reference to return.
-     * @return list of resources of the given type.
-     */
-    public List<Resource> consoleGetResources(ResourceReference reference) {
-        try {
-            return getClip2Bridge().getResources(reference).getResources();
-        } catch (ApiException | AssetNotLoadedException e) {
-        }
-        return List.of();
     }
 
     @Override
@@ -300,6 +278,16 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     }
 
     /**
+     * Return the application key for the console app.
+     *
+     * @return the application key.
+     */
+    public @Nullable String getApplicationKey() {
+        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
+        return config.applicationKey;
+    }
+
+    /**
      * Get the Clip2Bridge connection and throw an exception if it is null.
      *
      * @return the Clip2Bridge.
@@ -311,6 +299,27 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             return clip2Bridge;
         }
         throw new AssetNotLoadedException("Clip2Bridge is null");
+    }
+
+    /**
+     * Return the ip address for the console app.
+     *
+     * @return the ip address.
+     */
+    public @Nullable String getIpAddress() {
+        Clip2BridgeConfig config = getConfigAs(Clip2BridgeConfig.class);
+        return config.ipAddress;
+    }
+
+    /**
+     * Return a localized text.
+     *
+     * @param key the i18n text key.
+     * @return the localized text.
+     */
+    public String getLocalizedText(String key) {
+        String result = translationProvider.getText(bundle, key, key, localeProvider.getLocale());
+        return Objects.nonNull(result) ? result : key;
     }
 
     /**
@@ -326,6 +335,20 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         logger.debug("getResources() {}", reference);
         checkAssetsLoaded();
         return getClip2Bridge().getResources(reference);
+    }
+
+    /**
+     * Return a list of resources for the console app.
+     *
+     * @param reference the resource reference to return.
+     * @return list of resources of the given type.
+     */
+    public List<Resource> getResourcesConsole(ResourceReference reference) {
+        try {
+            return getClip2Bridge().getResources(reference).getResources();
+        } catch (ApiException | AssetNotLoadedException e) {
+        }
+        return List.of();
     }
 
     /**
@@ -351,17 +374,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         if (RefreshType.REFRESH.equals(command)) {
             return;
         }
-        logger.debug("handleCommand() channelUID:{}, command:{}", channelUID, command);
-        if (CHANNEL_SCENE.equals(channelUID.getId()) && command instanceof StringType) {
-            String sceneId = ((StringType) command).toString();
-            if (!sceneId.isBlank()) {
-                try {
-                    putResource(new Resource(ResourceType.SCENE).setId(sceneId));
-                } catch (ApiException | AssetNotLoadedException e) {
-                    logger.warn("handleCommand() error {}", e.getMessage(), e);
-                }
-            }
-        }
+        logger.warn("handleCommand() bridge thing has no channels.");
     }
 
     @Override
@@ -384,7 +397,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
             String ipAddress = config.ipAddress;
             if (Objects.isNull(ipAddress) || ipAddress.isEmpty()) {
-                logger.debug("initializeAssets() invalid ip address '{}'", config.ipAddress);
+                logger.warn("initializeAssets() invalid ip address '{}'", config.ipAddress);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.conf-error-no-ip-address");
                 return;
@@ -392,13 +405,13 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
             try {
                 if (!Clip2Bridge.isClip2Supported(ipAddress)) {
-                    logger.debug("initializeAssets() hub does not support clip 2");
+                    logger.warn("initializeAssets() hub does not support clip 2");
                     updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                             "@text/offline.clip2.conf-error-clip2-not-supported");
                     return;
                 }
             } catch (IOException e) {
-                logger.debug("initializeAssets() communication error on '{}'", ipAddress, e);
+                logger.warn("initializeAssets() communication error on '{}'", ipAddress, e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.communication-error");
                 return;
@@ -521,6 +534,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
             try {
                 updateThings();
+                updateThingsSceneChannels();
                 Clip2ThingDiscoveryService discoveryService = this.discoveryService;
                 if (Objects.nonNull(discoveryService)) {
                     discoveryService.startScan(null);
@@ -570,7 +584,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                     // set generic thing properties
                     properties.put(Thing.PROPERTY_MODEL_ID, productData.getModelId());
                     properties.put(Thing.PROPERTY_VENDOR, productData.getManufacturerName());
-                    properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion().toString());
+                    properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion());
                     String hardwarePlatformType = productData.getHardwarePlatformType();
                     if (Objects.nonNull(hardwarePlatformType)) {
                         properties.put(Thing.PROPERTY_HARDWARE_VERSION, hardwarePlatformType);
@@ -583,8 +597,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                     properties.put(HueBindingConstants.PROPERTY_PRODUCT_CERTIFIED,
                             productData.getCertified().toString());
                 }
-
-                break;
             }
         }
         thing.setProperties(properties);
@@ -621,6 +633,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateThingFromLegacy() {
         if (isInitialized()) {
+            logger.warn("updateThingFromLegacy() was called after handler was initialized.");
             return;
         }
         Map<String, String> properties = thing.getProperties();
@@ -646,7 +659,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 newProperties.remove(HueBindingConstants.PROPERTY_LEGACY_THING_UID);
 
                 updateThing(editBuilder.withProperties(newProperties).build());
-                logger.info("updateThingFromLegacy() API v2 thing parameters updated from API v1 thing");
             }
         }
     }
@@ -660,8 +672,28 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     private void updateThings() throws ApiException, AssetNotLoadedException {
         logger.debug("updateThings()");
         Clip2Bridge bridge = getClip2Bridge();
-        for (ResourceReference reference : THING_SET) {
+        for (ResourceReference reference : POLL_RESOURCE_SET) {
             bridge.getResources(reference).getResources().forEach(resource -> onResource(resource));
         }
+    }
+
+    /**
+     * Get the data for all scenes in the bridge, and inform all child thing handlers, so they can dynamically create
+     * their respective scene channels.
+     *
+     * @throws ApiException if a communication error occurred.
+     * @throws AssetNotLoadedException if one of the assets is not loaded.
+     */
+    private void updateThingsSceneChannels() throws ApiException, AssetNotLoadedException {
+        logger.debug("updateThingSceneChannels()");
+        Clip2Bridge bridge = getClip2Bridge();
+        List<Resource> scenes = bridge.getResources(SCENE).getResources();
+        getThing().getThings().forEach(thing -> {
+            ThingHandler handler = thing.getHandler();
+            logger.debug("updateThingScenes() thing:{}, handler:{}", thing, handler);
+            if (handler instanceof Clip2ThingHandler) {
+                ((Clip2ThingHandler) handler).updateSceneChannels(scenes);
+            }
+        });
     }
 }

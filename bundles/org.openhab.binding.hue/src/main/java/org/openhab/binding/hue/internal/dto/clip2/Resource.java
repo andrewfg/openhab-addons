@@ -12,11 +12,9 @@
  */
 package org.openhab.binding.hue.internal.dto.clip2;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -37,6 +35,8 @@ import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
 
 /**
@@ -57,8 +57,8 @@ public class Resource {
      * @param xy colour x & y parameters.
      * @return a new HsbType.
      */
-    private static HSBType getColorHSB(float[] xy) {
-        return HSBType.fromXY(xy[0], xy[1]);
+    private static HSBType getColorHSB(double[] xy) {
+        return HSBType.fromXY((float) xy[0], (float) xy[1]);
     }
 
     /**
@@ -67,13 +67,13 @@ public class Resource {
      * @param hsb the HsbType.
      * @return colour x & y parameters.
      */
-    public static float[] getColorXY(HSBType hsb) {
+    public static double[] getColorXY(HSBType hsb) {
         PercentType[] percentTypes = hsb.toXY();
-        float[] floats = new float[percentTypes.length];
-        for (int i = 0; i < floats.length; i++) {
-            floats[i] = percentTypes[i].floatValue() / 100.0f;
+        double[] doubles = new double[percentTypes.length];
+        for (int i = 0; i < doubles.length; i++) {
+            doubles[i] = percentTypes[i].floatValue() / 100.0f;
         }
-        return floats;
+        return doubles;
     }
 
     /**
@@ -104,7 +104,6 @@ public class Resource {
      * as what it was previously set to by the last non-sparse resource.
      */
     private transient boolean hasSparseData;
-
     private @Nullable String type;
     private @Nullable String id;
     private @Nullable @SerializedName("bridge_id") String bridgeId;
@@ -130,8 +129,10 @@ public class Resource {
     private @Nullable Motion motion;
     private @Nullable @SerializedName("power_state") Power powerState;
     private @Nullable @SerializedName("relative_rotary") RelativeRotary relativeRotary;
+
     private @Nullable List<ResourceReference> children;
-    private @Nullable String status;
+
+    private @Nullable JsonElement status;
 
     /**
      * Constructor
@@ -159,9 +160,9 @@ public class Resource {
     }
 
     /**
-     * Method that uses reflection to copy fields from an other Resource instance into this instance. If the field in
-     * this instance is null and the same field in the other instance is not null, then the value from the other
-     * instance is copied to this instance.
+     * Method that copies fields from an other Resource instance into this instance. If the field in this instance is
+     * null and the same field in the other instance is not null, then the value from the other instance is copied to
+     * this instance.
      *
      * Usage: For color light resources, a full DTO requires both a Dimmer and a ColorXy field, but the SSE event DTOs
      * only provide one or the other field, and never both. This method allows the binding to import the missing field
@@ -171,17 +172,11 @@ public class Resource {
      * @return this instance.
      */
     public Resource copyMissingFieldsFrom(Resource other) {
-        for (String fieldName : Set.of("dimming", "color")) {
-            try {
-                Field field = getClass().getDeclaredField(fieldName);
-                Object thisField = field.get(this);
-                Object otherField = field.get(other);
-                if (Objects.isNull(thisField) && Objects.nonNull(otherField)) {
-                    field.setAccessible(true);
-                    field.set(this, otherField);
-                }
-            } catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
-            }
+        if (Objects.isNull(this.dimming) && Objects.nonNull(other.dimming)) {
+            this.dimming = other.dimming;
+        }
+        if (Objects.isNull(this.color) && Objects.nonNull(other.color)) {
+            this.color = other.color;
         }
         return this;
     }
@@ -212,6 +207,12 @@ public class Resource {
         return Objects.nonNull(powerState) ? powerState.getBatteryLowState() : UnDefType.NULL;
     }
 
+    public @Nullable String getBridgeId() {
+        String bridgeId = this.bridgeId;
+        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null
+                : bridgeId + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
+    }
+
     public State getBrightnessState() {
         Dimming dimming = this.dimming;
         try {
@@ -223,12 +224,6 @@ public class Resource {
 
     public @Nullable Button getButton() {
         return button;
-    }
-
-    public @Nullable String getBridgeId() {
-        String bridgeId = this.bridgeId;
-        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null
-                : bridgeId + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
     }
 
     /**
@@ -356,7 +351,7 @@ public class Resource {
 
     public State getLightLevelState() {
         LightLevel light = this.light;
-        return Objects.nonNull(light) ? light.getLightlevelState() : UnDefType.NULL;
+        return Objects.nonNull(light) ? light.getLightLevelState() : UnDefType.NULL;
     }
 
     public @Nullable MetaData getMetaData() {
@@ -439,6 +434,14 @@ public class Resource {
         return Objects.nonNull(services) ? services : List.of();
     }
 
+    public JsonObject getStatus() {
+        JsonElement status = this.status;
+        if (Objects.nonNull(status) && status.isJsonObject()) {
+            return status.getAsJsonObject();
+        }
+        return new JsonObject();
+    }
+
     public State getSwitch() {
         try {
             OnState on = this.on;
@@ -476,8 +479,11 @@ public class Resource {
     }
 
     public @Nullable ZigbeeStatus getZigbeeStatus() {
-        String status = this.status;
-        return Objects.nonNull(status) ? ZigbeeStatus.of(status) : null;
+        JsonElement status = this.status;
+        if (Objects.nonNull(status) && status.isJsonPrimitive()) {
+            return ZigbeeStatus.of(status.getAsString());
+        }
+        return null;
     }
 
     public boolean hasFullState() {
