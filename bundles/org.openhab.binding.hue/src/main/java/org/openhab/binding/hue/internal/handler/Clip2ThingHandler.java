@@ -38,7 +38,11 @@ import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ZigbeeStatus;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
 import org.openhab.binding.hue.internal.exceptions.AssetNotLoadedException;
+import org.openhab.core.i18n.LocaleProvider;
+import org.openhab.core.i18n.TranslationProvider;
+import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -50,6 +54,7 @@ import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.thing.binding.BridgeHandler;
+import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.thing.link.ItemChannelLink;
 import org.openhab.core.thing.link.ItemChannelLinkRegistry;
@@ -57,11 +62,12 @@ import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
+import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Handler for things based on CLIP 2 'device' or 'grouped light' resources.
+ * Handler for things based on CLIP 2 'device', 'room', or 'zone resources.
  *
  * @author Andrew Fiddian-Green - Initial contribution.
  */
@@ -69,14 +75,15 @@ import org.slf4j.LoggerFactory;
 public class Clip2ThingHandler extends BaseThingHandler {
 
     public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Set.of(HueBindingConstants.THING_TYPE_DEVICE,
-            HueBindingConstants.THING_TYPE_GROUPED_LIGHT);
+            HueBindingConstants.THING_TYPE_ROOM, HueBindingConstants.THING_TYPE_ZONE);
 
     private final Logger logger = LoggerFactory.getLogger(Clip2ThingHandler.class);
 
     /**
      * A cached map of associated resource DTO objects whose state contributes to the overall state of this thing. It is
      * a map between the resourceId (string) and an actual resource DTO object containing the last known state. e.g. the
-     * state of a LIGHT resource contributes to the overall state of a DEVICE thing.
+     * state of a LIGHT resource contributes to the overall state of a DEVICE thing, or the state of a GROUPED_LIGHT
+     * resource contributes to the overall state of a ROOM or ZONE thing.
      */
     private final Map<String, Resource> contributorsCache = new ConcurrentHashMap<>();
 
@@ -96,7 +103,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
     private final Map<String, Integer> controlIds = new ConcurrentHashMap<>();
 
     /**
-     * This is the set of channel ids that are actually supported by this device. e.g. an on/off light may support
+     * This is the set of channel ids that are actually supported by this thing. e.g. an on/off light may support
      * 'switch' and 'zigbeeStatus' channels, whereas a complex light may support 'switch', 'brightness', 'color', 'color
      * temperature' and 'zigbeeStatus' channels.
      */
@@ -110,6 +117,9 @@ public class Clip2ThingHandler extends BaseThingHandler {
 
     private final ThingRegistry thingRegistry;
     private final ItemChannelLinkRegistry itemChannelLinkRegistry;
+    private final Bundle bundle;
+    private final LocaleProvider localeProvider;
+    private final TranslationProvider translationProvider;
 
     private Resource thisResource;
 
@@ -117,24 +127,30 @@ public class Clip2ThingHandler extends BaseThingHandler {
     private boolean hasConnectivityIssue;
     private boolean updatePropertiesDone;
     private boolean updateDependenciesDone;
+    private boolean updateSceneChannelsDone;
 
     private @Nullable ScheduledFuture<?> updateContributorsTask;
 
-    public Clip2ThingHandler(Thing thing, ThingRegistry thingRegistry,
-            ItemChannelLinkRegistry itemChannelLinkRegistry) {
+    public Clip2ThingHandler(Thing thing, ThingRegistry thingRegistry, ItemChannelLinkRegistry itemChannelLinkRegistry,
+            Bundle bundle, LocaleProvider localeProvider, TranslationProvider translationProvider) {
         super(thing);
 
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
         if (HueBindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {
             thisResource = new Resource(ResourceType.DEVICE);
-        } else if (HueBindingConstants.THING_TYPE_GROUPED_LIGHT.equals(thingTypeUID)) {
-            thisResource = new Resource(ResourceType.GROUPED_LIGHT);
+        } else if (HueBindingConstants.THING_TYPE_ROOM.equals(thingTypeUID)) {
+            thisResource = new Resource(ResourceType.ROOM);
+        } else if (HueBindingConstants.THING_TYPE_ZONE.equals(thingTypeUID)) {
+            thisResource = new Resource(ResourceType.ZONE);
         } else {
             throw new IllegalArgumentException("Wrong thing type " + thingTypeUID.getAsString());
         }
 
         this.thingRegistry = thingRegistry;
         this.itemChannelLinkRegistry = itemChannelLinkRegistry;
+        this.bundle = bundle;
+        this.localeProvider = localeProvider;
+        this.translationProvider = translationProvider;
     }
 
     @Override
@@ -169,6 +185,17 @@ public class Clip2ThingHandler extends BaseThingHandler {
     }
 
     /**
+     * Return a localized text.
+     *
+     * @param key the i18n text key.
+     * @return the localized text.
+     */
+    public String getLocalizedText(String key) {
+        String result = translationProvider.getText(bundle, key, key, localeProvider.getLocale());
+        return Objects.nonNull(result) ? result : key;
+    }
+
+    /**
      * Return a ResourceReference to this handler's resource.
      *
      * @return a ResourceReference instance.
@@ -191,6 +218,26 @@ public class Clip2ThingHandler extends BaseThingHandler {
                         }
                     }, 3, TimeUnit.SECONDS);
                 }
+            }
+            return;
+        }
+
+        Channel channel = thing.getChannel(channelUID);
+        if (channel == null) {
+            logger.warn("handleCommand() channelUID:{} does not exist", channelUID);
+            return;
+        }
+
+        if (HueBindingConstants.SCENE_CHANNEL_TYPE_UID.equals(channel.getChannelTypeUID())) {
+            if (OnOffType.ON.equals(command)) {
+                String id = channelUID.getIdWithoutGroup();
+                Resource putResource = new Resource(ResourceType.SCENE).setId(id).setRecall(command);
+                try {
+                    getBridgeHandler().putResource(putResource);
+                } catch (ApiException | AssetNotLoadedException e) {
+                    logger.warn("handleSceneCommand() exception:{}, id:{}, command:{}", e.getMessage(), id, command, e);
+                }
+                scheduler.schedule(() -> updateState(channelUID, OnOffType.OFF), 3, TimeUnit.SECONDS);
             }
             return;
         }
@@ -273,6 +320,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
         hasConnectivityIssue = false;
         updatePropertiesDone = false;
         updateDependenciesDone = false;
+        updateSceneChannelsDone = false;
     }
 
     /**
@@ -417,12 +465,14 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 break;
 
             case LIGHT:
-            case GROUPED_LIGHT:
                 updateState(HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE,
                         resource.getColorTemperaturePercentState(mirekSchemaFrom(resource)), fullUpdate);
                 updateState(HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE_ABS,
                         resource.getColorTemperatureKelvinState(), fullUpdate);
                 updateState(HueBindingConstants.CHANNEL_COLOR, resource.getColorState(), fullUpdate);
+                // fall through for brightness and switch channels
+
+            case GROUPED_LIGHT:
                 updateState(HueBindingConstants.CHANNEL_BRIGHTNESS, resource.getBrightnessState(), fullUpdate);
                 updateState(HueBindingConstants.CHANNEL_SWITCH, resource.getSwitch(), fullUpdate);
                 break;
@@ -457,7 +507,9 @@ public class Clip2ThingHandler extends BaseThingHandler {
             default:
                 return false;
         }
-        updateState(HueBindingConstants.CHANNEL_2_LAST_UPDATED, new DateTimeType(), fullUpdate);
+        if (thisResource.getType() == ResourceType.DEVICE) {
+            updateState(HueBindingConstants.CHANNEL_2_LAST_UPDATED, new DateTimeType(), fullUpdate);
+        }
         return true;
     }
 
@@ -475,7 +527,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             hasConnectivityIssue = zigbeeStatus != ZigbeeStatus.CONNECTED;
             if (hasConnectivityIssue) {
                 if (thing.getStatusInfo().getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
-                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE,
                             "@text/offline.clip2.communication-error.zigbee-connectivity-issue");
                     // change all channel states, except the Zigbee channel itself, to undefined
                     for (String channelId : supportedChannelIds) {
@@ -528,8 +580,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 }
             } catch (ApiException e) {
                 logger.debug("updateDependencies() {}", e.getMessage(), e);
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "@text/offline.communication-error");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             } catch (AssetNotLoadedException e) {
                 logger.debug("updateDependencies() {}", e.getMessage(), e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -545,11 +596,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
         if (!disposing) {
             logger.debug("updateLookups() called");
             List<ResourceReference> references = thisResource.getServiceReferences();
-            if (thisResource.getType() == ResourceType.GROUPED_LIGHT) {
-                // grouped light resource DTOs are directly their own contributor and command resources
-                references = new ArrayList<>(references);
-                references.add(new ResourceReference().setType(ResourceType.GROUPED_LIGHT).setId(thisResource.getId()));
-            }
             contributorsCache.clear();
             contributorsCache.putAll(references.stream()
                     .collect(Collectors.toMap(ResourceReference::getId, r -> new Resource(r.getType()))));
@@ -596,7 +642,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             // standard properties
             properties.put(Thing.PROPERTY_MODEL_ID, productData.getModelId());
             properties.put(Thing.PROPERTY_VENDOR, productData.getManufacturerName());
-            properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion().toString());
+            properties.put(Thing.PROPERTY_FIRMWARE_VERSION, productData.getSoftwareVersion());
             String hardwarePlatformType = productData.getHardwarePlatformType();
             if (Objects.nonNull(hardwarePlatformType)) {
                 properties.put(Thing.PROPERTY_HARDWARE_VERSION, hardwarePlatformType);
@@ -614,7 +660,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Execute an HTTP GET command to fetch the resources data for referenced resource.
+     * Execute an HTTP GET command to fetch the resources data for the referenced resource.
      *
      * @param reference to the required resource.
      * @throws ApiException if a communication error occurred.
@@ -625,6 +671,44 @@ public class Clip2ThingHandler extends BaseThingHandler {
         for (Resource resource : getBridgeHandler().getResources(reference).getResources()) {
             onResource(resource);
         }
+    }
+
+    /**
+     * For room or zone things, iterate over the given list of scene Resources and for those scenes where the scene
+     * group refers to this thing, dynamically create the respective scene channels.
+     *
+     * @param scenes list of scene resources.
+     */
+    public void updateSceneChannels(List<Resource> scenes) {
+        if (updateSceneChannelsDone || (thisResource.getType() == ResourceType.DEVICE)) {
+            return;
+        }
+        logger.debug("updateSceneChannels()");
+        List<Channel> channels = new ArrayList<Channel>(thing.getChannels());
+
+        // remove prior scene channels
+        channels.removeIf(channel -> HueBindingConstants.SCENE_CHANNEL_TYPE_UID.equals(channel.getChannelTypeUID()));
+
+        ThingUID thingUID = thing.getUID();
+        String resourceId = thisResource.getId();
+
+        // add current scene channels
+        for (Resource scene : scenes) {
+            ResourceReference group = scene.getGroup();
+            if (Objects.nonNull(group) && resourceId.equals(group.getId())) {
+                String label = scene.getName();
+                String description = getLocalizedText(HueBindingConstants.SCENE_ACTIVATE_KEY);
+                ChannelUID channelUID = new ChannelUID(thingUID, scene.getId());
+                Channel channel = ChannelBuilder.create(channelUID, CoreItemFactory.SWITCH)
+                        .withType(HueBindingConstants.SCENE_CHANNEL_TYPE_UID).withLabel(label)
+                        .withDescription(Objects.requireNonNull(description)).build();
+                channels.add(channel);
+            }
+        }
+
+        // update the thing
+        updateThing(editThing().withChannels(channels).build());
+        updateSceneChannelsDone = true;
     }
 
     /**
@@ -653,6 +737,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      */
     private void updateThingFromLegacy() {
         if (isInitialized()) {
+            logger.warn("updateThingFromLegacy() was called after handler was initialized.");
             return;
         }
         Map<String, String> properties = thing.getProperties();
@@ -680,7 +765,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 newProperties.remove(HueBindingConstants.PROPERTY_LEGACY_THING_UID);
 
                 updateThing(editBuilder.withProperties(newProperties).build());
-                logger.info("updateThingFromLegacy() API v2 thing parameters updated from API v1 thing");
             }
         }
     }

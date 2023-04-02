@@ -83,10 +83,9 @@ import com.google.gson.JsonParser;
 /**
  * This class handles HTTP and SSE connections to/from a Hue Bridge running CLIP 2.
  *
- * It uses the following connection mechanisms..
+ * It uses the following connection mechanisms:
  *
  * <li>The primary communication uses HTTP 2 streams over a shared permanent HTTP 2 session.</li>
- * <li>The 'putResource()' method uses HTTP/1.1 over the OH common Jetty client if the HPACK jar is missing.</li>
  * <li>The 'registerApplicationKey()' method uses HTTP/1.1 over the OH common Jetty client.</li>
  * <li>The 'isClip2Supported()' static method uses HTTP/1.1 over the OH common Jetty client via 'HttpUtil'.</li>
  *
@@ -96,65 +95,32 @@ import com.google.gson.JsonParser;
 public class Clip2Bridge implements Closeable {
 
     /**
-     * Interface for processing adapter errors. It handles fatal errors by implementing the fatalError() method.
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
-     */
-    private static interface AdapterErrorHandler {
-
-        /**
-         * Enum of potential fatal HTTP 2 session/stream errors.
-         *
-         * @author Andrew Fiddian-Green - Initial Contribution
-         */
-        public static enum Error {
-            CLOSED,
-            ERROR,
-            FAILURE,
-            TIMEOUT,
-            RESET,
-            IDLE,
-            GO_AWAY,
-            UNAUTHORIZED;
-        }
-
-        public void fatalError(Error error);
-    }
-
-    /**
-     * Base (abstract) adapter for HTTP 2 stream events.
+     * Base (abstract) adapter for listening to HTTP 2 stream events.
      *
      * It implements a CompletableFuture by means of which the caller can wait for the response data to come in. And
      * which, in the case of fatal errors, gets completed exceptionally.
      *
-     * It handles the following fatal error events by notifying the owner..
+     * It handles the following fatal error events by notifying the containing class:
      *
      * <li>onHeaders() HTTP unauthorized codes</li>
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
      */
-    private abstract static class BaseAdapter extends Stream.Listener.Adapter implements AdapterErrorHandler {
-
-        protected final Clip2Bridge owner;
-        protected final List<String> strings = new ArrayList<>();
-        protected final CompletableFuture<String> completable = new CompletableFuture<>();
-
+    private abstract class BaseStreamListenerAdapter<T> extends Stream.Listener.Adapter {
+        protected final CompletableFuture<T> completable = new CompletableFuture<T>();
         private String contentType = "UNDEFINED";
 
-        protected BaseAdapter(Clip2Bridge owner) {
-            this.owner = owner;
+        protected T awaitResult() throws ExecutionException, InterruptedException, TimeoutException {
+            return completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
 
-        @Override
-        public void fatalError(Error error) {
+        protected void fatalError(Http2Error error) {
             Exception e;
-            if (Error.UNAUTHORIZED.equals(error)) {
+            if (Http2Error.UNAUTHORIZED.equals(error)) {
                 e = new HttpUnauthorizedException("HTTP 2 request not authorized");
             } else {
                 e = new ApiException("HTTP 2 stream " + error.toString().toLowerCase());
             }
             completable.completeExceptionally(e);
-            owner.fatalErrorDelayed(this, error);
+            fatalErrorDelayed(this, error);
         }
 
         /**
@@ -162,7 +128,7 @@ public class Clip2Bridge implements Closeable {
          *
          * @return content type e.g. 'application/json'
          */
-        public String getContentType() {
+        protected String getContentType() {
             return contentType;
         }
 
@@ -179,7 +145,7 @@ public class Clip2Bridge implements Closeable {
                 switch (httpStatus) {
                     case HttpStatus.UNAUTHORIZED_401:
                     case HttpStatus.FORBIDDEN_403:
-                        fatalError(Error.UNAUTHORIZED);
+                        fatalError(Http2Error.UNAUTHORIZED);
                     default:
                 }
                 contentType = responseMetaData.getFields().get(HttpHeader.CONTENT_TYPE).toLowerCase();
@@ -188,32 +154,28 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
-     * Adapter for regular HTTP GET/PUT request stream events.
+     * Adapter for listening to regular HTTP 2 GET/PUT request stream events.
      *
      * It assembles the incoming text data into an HTTP 'content' entity. And when the last data frame arrives, it
      * returns the full content by completing the CompletableFuture with that data.
      *
-     * In addition to those handled by the parent, it handles the following fatal error events by notifying the owner..
+     * In addition to those handled by the parent, it handles the following fatal error events by notifying the
+     * containing class:
      *
      * <li>onIdleTimeout()</li>
      * <li>onTimeout()</li>
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
      */
-    private static class ContentAdapter extends BaseAdapter {
-
-        protected ContentAdapter(Clip2Bridge owner) {
-            super(owner);
-        }
+    private class ContentStreamListenerAdapter extends BaseStreamListenerAdapter<String> {
+        protected final List<String> contentResult = new ArrayList<>();
 
         @Override
         public void onData(@Nullable Stream stream, @Nullable DataFrame frame, @Nullable Callback callback) {
             Objects.requireNonNull(frame);
             Objects.requireNonNull(callback);
             synchronized (this) {
-                strings.add(StandardCharsets.UTF_8.decode(frame.getData()).toString());
+                contentResult.add(StandardCharsets.UTF_8.decode(frame.getData()).toString());
                 if (frame.isEndStream() && !completable.isDone()) {
-                    completable.complete(String.join("", strings));
+                    completable.complete(String.join("", contentResult).trim());
                 }
             }
             callback.succeeded();
@@ -221,18 +183,18 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public boolean onIdleTimeout(@Nullable Stream stream, @Nullable Throwable x) {
-            fatalError(Error.IDLE);
+            fatalError(Http2Error.IDLE);
             return true;
         }
 
         @Override
         public void onTimeout(@Nullable Stream stream, @Nullable Throwable x) {
-            fatalError(Error.TIMEOUT);
+            fatalError(Http2Error.TIMEOUT);
         }
     }
 
     /**
-     * Adapter for SSE stream events.
+     * Adapter for listening to SSE event stream events.
      *
      * It receives the incoming text lines. Receipt of the first data line causes the CompletableFuture to complete. It
      * then parses subsequent data according to the SSE specification. If the line starts with a 'data:' message, it
@@ -242,22 +204,28 @@ public class Clip2Bridge implements Closeable {
      * The stream must be permanently connected, so it ignores onIdleTimeout() events.
      *
      * The parent class handles most fatal errors, but since the event stream is supposed to be permanently connected,
-     * the following events are also considered as fatal..
+     * the following events are also considered as fatal:
      *
-     * <li>OnClosed()</li>
+     * <li>onClosed()</li>
      * <li>onReset()</li>
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
      */
-    private static class EventAdapter extends BaseAdapter {
+    private class EventStreamListenerAdapter extends BaseStreamListenerAdapter<Boolean> {
+        private String buffer = "";
 
-        protected EventAdapter(Clip2Bridge owner) {
-            super(owner);
+        /**
+         * Publish the event buffer contents (if any) and flush it.
+         * Note: this method synchronized by the `OnData()` method.
+         */
+        private void flush() {
+            if (!buffer.isEmpty()) {
+                onEventData(buffer);
+                buffer = "";
+            }
         }
 
         @Override
         public void onClosed(@Nullable Stream stream) {
-            fatalError(Error.CLOSED);
+            fatalError(Http2Error.CLOSED);
         }
 
         @Override
@@ -265,17 +233,18 @@ public class Clip2Bridge implements Closeable {
             Objects.requireNonNull(frame);
             Objects.requireNonNull(callback);
             if (!completable.isDone()) {
-                completable.complete(Boolean.toString(true));
+                completable.complete(Boolean.TRUE);
             }
             synchronized (this) {
-                for (String line : StandardCharsets.UTF_8.decode(frame.getData()).toString().split("\\R")) {
-                    if (line.startsWith("data: ")) {
-                        strings.add(line.substring(6));
+                for (String line : StandardCharsets.UTF_8.decode(frame.getData()).toString().split("\\R", -1)) {
+                    if (line.isBlank() || line.startsWith("hi") || line.startsWith("id: ")) {
+                        flush();
+                    } else if (line.startsWith("data: ")) {
+                        flush();
+                        buffer = line.substring(6);
+                    } else if (!buffer.isEmpty()) {
+                        buffer = buffer + line;
                     }
-                }
-                if (!strings.isEmpty()) {
-                    owner.onEventData(String.join("", strings));
-                    strings.clear();
                 }
             }
             callback.succeeded();
@@ -288,49 +257,50 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onReset(@Nullable Stream stream, @Nullable ResetFrame frame) {
-            fatalError(Error.RESET);
+            fatalError(Http2Error.RESET);
         }
     }
 
     /**
-     * Adapter for HTTP 2 session status events.
+     * Enum of potential fatal HTTP/2 session/stream errors.
+     */
+    protected enum Http2Error {
+        CLOSED,
+        ERROR,
+        FAILURE,
+        TIMEOUT,
+        RESET,
+        IDLE,
+        GO_AWAY,
+        UNAUTHORIZED;
+    }
+
+    /**
+     * Adapter for listening to HTTP 2 session status events.
      *
      * The session must be permanently connected, so it ignores onIdleTimeout() events.
-     * It also handles the following fatal events by notifying the owner..
+     * It also handles the following fatal events by notifying the containing class:
      *
      * <li>onClose()</li>
      * <li>onFailure()</li>
      * <li>onGoAway()</li>
      * <li>onReset()</li>
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
      */
-    private static class SessionAdapter extends Session.Listener.Adapter implements AdapterErrorHandler {
-
-        private final Clip2Bridge owner;
-
-        protected SessionAdapter(Clip2Bridge owner) {
-            this.owner = owner;
-        }
-
-        @Override
-        public void fatalError(Error error) {
-            owner.fatalErrorDelayed(this, error);
-        }
+    private class SessionListenerAdapter extends Session.Listener.Adapter {
 
         @Override
         public void onClose(@Nullable Session session, @Nullable GoAwayFrame frame) {
-            fatalError(Error.CLOSED);
+            fatalErrorDelayed(this, Http2Error.CLOSED);
         }
 
         @Override
         public void onFailure(@Nullable Session session, @Nullable Throwable failure) {
-            fatalError(Error.FAILURE);
+            fatalErrorDelayed(this, Http2Error.FAILURE);
         }
 
         @Override
         public void onGoAway(@Nullable Session session, @Nullable GoAwayFrame frame) {
-            fatalError(Error.GO_AWAY);
+            fatalErrorDelayed(this, Http2Error.GO_AWAY);
         }
 
         @Override
@@ -340,7 +310,7 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onPing(@Nullable Session session, @Nullable PingFrame frame) {
-            owner.checkAliveOk();
+            checkAliveOk();
             if (Objects.nonNull(session) && Objects.nonNull(frame) && !frame.isReply()) {
                 session.ping(new PingFrame(true), Callback.NOOP);
             }
@@ -348,14 +318,12 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onReset(@Nullable Session session, @Nullable ResetFrame frame) {
-            fatalError(Error.RESET);
+            fatalErrorDelayed(this, Http2Error.RESET);
         }
     }
 
     /**
      * Enum showing the online state of the session connection.
-     *
-     * @author Andrew Fiddian-Green - Initial Contribution
      */
     private static enum State {
         CLOSED, // session closed
@@ -372,7 +340,7 @@ public class Clip2Bridge implements Closeable {
     private static final String FORMAT_URL_REGISTER = "http://%s/api";
     private static final String FORMAT_URL_EVENTS = "https://%s/eventstream/clip/v2";
 
-    private static final int CLIP2_MINIMUM_VERSION = 1948086000;
+    private static final long CLIP2_MINIMUM_VERSION = 1948086000L;
 
     public static final int TIMEOUT_SECONDS = 10;
     private static final int CHECK_ALIVE_SECONDS = 300;
@@ -387,6 +355,7 @@ public class Clip2Bridge implements Closeable {
      * @param hostName the bridge IP address.
      * @return true if bridge is online and it supports CLIP 2, or false if it is online and does not support CLIP 2.
      * @throws IOException if unable to communicate with the bridge.
+     * @throws NumberFormatException if the bridge firmware version is invalid.
      */
     public static boolean isClip2Supported(String hostName) throws IOException {
         String response;
@@ -398,7 +367,7 @@ public class Clip2Bridge implements Closeable {
         if (Objects.nonNull(config)) {
             String swVersion = config.swversion;
             if (Objects.nonNull(swVersion)) {
-                if (Integer.parseInt(swVersion) >= CLIP2_MINIMUM_VERSION) {
+                if (Long.parseLong(swVersion) >= CLIP2_MINIMUM_VERSION) {
                     return true;
                 }
             }
@@ -437,22 +406,23 @@ public class Clip2Bridge implements Closeable {
             String applicationKey) {
         logger.debug("Clip2Bridge()");
         httpClient = httpClientFactory.getCommonHttpClient();
+
         http2Client = new HTTP2Client();
         http2Client.addBean(httpClient.getSslContextFactory());
         http2Client.setConnectTimeout(Clip2Bridge.TIMEOUT_SECONDS * 1000);
         http2Client.setIdleTimeout(-1);
-        boolean http2HpackLoaded = false;
         try {
             PreEncodedHttpField field = new PreEncodedHttpField(HttpHeader.C_METHOD, "PUT");
             ByteBuffer bytes = ByteBuffer.allocate(32);
             field.putTo(bytes, HttpVersion.HTTP_2);
-            http2HpackLoaded = true;
         } catch (Exception e) {
             logger.warn("Clip2Bridge() HTTP/2 hpack module not yet loaded; falling back to HTTP/1.1");
         }
-        this.applicationKey = applicationKey;
+        http2Client.setConnectTimeout(Clip2Bridge.TIMEOUT_SECONDS * 1000);
+        http2Client.setIdleTimeout(-1);
         this.bridgeHandler = bridgeHandler;
         this.hostName = hostName;
+        this.applicationKey = applicationKey;
         baseUrl = String.format(FORMAT_URL_RESOURCE, hostName);
         eventUrl = String.format(FORMAT_URL_EVENTS, hostName);
         registrationUrl = String.format(FORMAT_URL_REGISTER, hostName);
@@ -471,7 +441,7 @@ public class Clip2Bridge implements Closeable {
             session.ping(new PingFrame(false), Callback.NOOP);
         }
         if (Instant.now().isAfter(sessionExpireTime)) {
-            fatalError(this, AdapterErrorHandler.Error.TIMEOUT);
+            fatalError(this, Http2Error.TIMEOUT);
         }
     }
 
@@ -538,14 +508,14 @@ public class Clip2Bridge implements Closeable {
      * @param cause the entity that caused this method to be called.
      * @param error the type of error.
      */
-    private void fatalError(Object cause, BaseAdapter.Error error) {
+    private void fatalError(Object cause, Http2Error error) {
         if (restarting || (onlineState == State.CLOSED)) {
             return;
         }
         String causeId = cause.getClass().getSimpleName();
-        if (cause instanceof ContentAdapter) {
+        if (cause instanceof ContentStreamListenerAdapter) {
             logger.debug("fatalError() {} {} ignoring", causeId, error);
-        } else if (error == AdapterErrorHandler.Error.GO_AWAY) {
+        } else if (error == Http2Error.GO_AWAY) {
             logger.debug("fatalError() {} {} reconnecting", causeId, error);
 
             // close
@@ -580,7 +550,7 @@ public class Clip2Bridge implements Closeable {
      * @param cause the entity that caused this method to be called.
      * @param error the type of error.
      */
-    private void fatalErrorDelayed(Object cause, BaseAdapter.Error error) {
+    protected void fatalErrorDelayed(Object cause, Http2Error error) {
         bridgeHandler.getScheduler().schedule(() -> fatalError(cause, error), 1, TimeUnit.SECONDS);
     }
 
@@ -624,39 +594,38 @@ public class Clip2Bridge implements Closeable {
         }
         throttle();
         String url = getUrl(reference);
-        HttpFields fields = new HttpFields();
-        fields.put(HttpHeader.ACCEPT, MediaType.APPLICATION_JSON);
-        fields.put(HttpHeader.USER_AGENT, APPLICATION_ID);
-        fields.put(APPLICATION_KEY, applicationKey);
-        HeadersFrame headers = new HeadersFrame(
-                new MetaData.Request("GET", new HttpURI(url), HttpVersion.HTTP_2, fields), null, true);
-        ContentAdapter adapter = new ContentAdapter(this);
-        Completable<@Nullable Stream> completable = new Completable<>();
+        HeadersFrame headers = prepareHeaders(url, MediaType.APPLICATION_JSON);
         logger.trace("GET {} HTTP/2", url);
         try {
-            session.newStream(headers, completable, adapter);
-            Objects.requireNonNull(completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-            String content = adapter.completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).trim();
-            String contentType = adapter.getContentType();
-            logger.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, content);
+            Completable<@Nullable Stream> streamPromise = new Completable<>();
+            ContentStreamListenerAdapter contentStreamListener = new ContentStreamListenerAdapter();
+            session.newStream(headers, streamPromise, contentStreamListener);
+            // wait for stream to be opened
+            Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            // wait for HTTP response contents
+            String contentJson = contentStreamListener.awaitResult();
+            String contentType = contentStreamListener.getContentType();
+            logger.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, contentJson);
             if (!MediaType.APPLICATION_JSON.equals(contentType)) {
                 throw new ApiException("Unexpected Content-Type: " + contentType);
             }
-            Resources resources = Objects.requireNonNull(jsonParser.fromJson(content, Resources.class));
-            if (logger.isDebugEnabled()) {
-                resources.getErrors().forEach(error -> logger.debug("Resources error:{}", error));
+            try {
+                Resources resources = Objects.requireNonNull(jsonParser.fromJson(contentJson, Resources.class));
+                if (logger.isDebugEnabled()) {
+                    resources.getErrors().forEach(error -> logger.debug("Resources error:{}", error));
+                }
+                return resources;
+            } catch (JsonParseException e) {
+                throw new ApiException("Parsing error", e);
             }
-            return resources;
         } catch (ExecutionException e) {
-            Throwable e2 = e.getCause();
-            if (e2 instanceof HttpUnauthorizedException) {
-                throw (HttpUnauthorizedException) e2;
+            Throwable cause = e.getCause();
+            if (cause instanceof HttpUnauthorizedException) {
+                throw (HttpUnauthorizedException) cause;
             }
             throw new ApiException("Error sending request", e);
         } catch (InterruptedException | TimeoutException e) {
             throw new ApiException("Error sending request", e);
-        } catch (JsonParseException e) {
-            throw new ApiException("Parsing error", e);
         }
     }
 
@@ -682,7 +651,7 @@ public class Clip2Bridge implements Closeable {
      *
      * @param data the incoming (presumed to be JSON) text.
      */
-    private void onEventData(String data) {
+    protected void onEventData(String data) {
         if (onlineState != State.ACTIVE) {
             return;
         }
@@ -767,22 +736,19 @@ public class Clip2Bridge implements Closeable {
             return;
         }
         logger.debug("openEventStream()");
-        HttpFields fields = new HttpFields();
-        fields.put(HttpHeader.ACCEPT, MediaType.SERVER_SENT_EVENTS);
-        fields.put(HttpHeader.USER_AGENT, APPLICATION_ID);
-        fields.put(APPLICATION_KEY, applicationKey);
-        MetaData.Request request = new MetaData.Request("GET", new HttpURI(eventUrl), HttpVersion.HTTP_2, fields);
-        HeadersFrame headers = new HeadersFrame(request, null, true);
-        EventAdapter adapter = new EventAdapter(this);
-        Completable<@Nullable Stream> completable = new Completable<>();
+        HeadersFrame headers = prepareHeaders(eventUrl, MediaType.SERVER_SENT_EVENTS);
         logger.trace("GET {} HTTP/2", eventUrl);
         Stream stream = null;
         try {
-            session.newStream(headers, completable, adapter);
-            stream = Objects.requireNonNull(completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            Completable<@Nullable Stream> streamPromise = new Completable<>();
+            EventStreamListenerAdapter eventStreamListener = new EventStreamListenerAdapter();
+            session.newStream(headers, streamPromise, eventStreamListener);
+            // wait for stream to be opened
+            stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
             stream.setIdleTimeout(0);
             stream.setAttribute(EVENT_STREAM_ID, session);
-            adapter.completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            // wait for "hi" from the bridge
+            eventStreamListener.awaitResult();
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             if (Objects.nonNull(stream)) {
                 stream.reset(new ResetFrame(stream.getId(), 0), Callback.NOOP);
@@ -824,15 +790,53 @@ public class Clip2Bridge implements Closeable {
         }
         logger.debug("openSession()");
         InetSocketAddress address = new InetSocketAddress(hostName, 443);
-        SessionAdapter adapter = new SessionAdapter(this);
-        Completable<@Nullable Session> completable = new Completable<>();
         try {
-            http2Client.connect(http2Client.getBean(SslContextFactory.class), address, adapter, completable);
-            http2Session = Objects.requireNonNull(completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            SessionListenerAdapter sessionListener = new SessionListenerAdapter();
+            Completable<@Nullable Session> sessionPromise = new Completable<>();
+            http2Client.connect(http2Client.getBean(SslContextFactory.class), address, sessionListener, sessionPromise);
+            // wait for the (SSL) session to be opened
+            http2Session = Objects.requireNonNull(sessionPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
             checkAliveOk(); // initialise the session timeout window
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new ApiException("Error opening HTTP 2 session", e);
         }
+    }
+
+    /**
+     * Helper class to create a HeadersFrame for a standard HTTP GET request.
+     *
+     * @param url the server url.
+     * @param acceptContentType the accepted content type for the response.
+     * @return the HeadersFrame.
+     */
+    private HeadersFrame prepareHeaders(String url, String acceptContentType) {
+        return prepareHeaders(url, acceptContentType, "GET", -1, null);
+    }
+
+    /**
+     * Helper class to create a HeadersFrame for a more exotic HTTP request.
+     *
+     * @param url the server url.
+     * @param acceptContentType the accepted content type for the response.
+     * @param method the HTTP request method.
+     * @param contentLength the length of the content e.g. for a PUT call.
+     * @param contentType the respective content type.
+     * @return the HeadersFrame.
+     */
+    private HeadersFrame prepareHeaders(String url, String acceptContentType, String method, long contentLength,
+            @Nullable String contentType) {
+        HttpFields fields = new HttpFields();
+        fields.put(HttpHeader.ACCEPT, acceptContentType);
+        if (contentType != null) {
+            fields.put(HttpHeader.CONTENT_TYPE, contentType);
+        }
+        if (contentLength >= 0) {
+            fields.putLongField(HttpHeader.CONTENT_LENGTH, contentLength);
+        }
+        fields.put(HttpHeader.USER_AGENT, APPLICATION_ID);
+        fields.put(APPLICATION_KEY, applicationKey);
+        return new HeadersFrame(new MetaData.Request(method, new HttpURI(url), HttpVersion.HTTP_2, fields), null,
+                contentLength <= 0);
     }
 
     /**
@@ -851,40 +855,37 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("HTTP 2 session is null or closed");
         }
         throttle();
-        String json = jsonParser.toJson(resource);
-        ByteBuffer jsonBytes = ByteBuffer.wrap(json.getBytes(StandardCharsets.UTF_8));
+        String requestJson = jsonParser.toJson(resource);
+        ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
         String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
-        HttpFields fields = new HttpFields();
-        fields.put(HttpHeader.ACCEPT, MediaType.APPLICATION_JSON);
-        fields.put(HttpHeader.USER_AGENT, APPLICATION_ID);
-        fields.put(HttpHeader.CONTENT_TYPE, MediaType.APPLICATION_JSON);
-        fields.putLongField(HttpHeader.CONTENT_LENGTH, jsonBytes.capacity());
-        fields.put(APPLICATION_KEY, applicationKey);
-        HeadersFrame headers = new HeadersFrame(
-                new MetaData.Request("PUT", new HttpURI(url), HttpVersion.HTTP_2, fields), null, false);
-        ContentAdapter adapter = new ContentAdapter(this);
-        Completable<@Nullable Stream> completable = new Completable<>();
-        logger.trace("PUT {} HTTP/2 >> {}", url, json);
-        String content = "";
+        HeadersFrame headers = prepareHeaders(url, MediaType.APPLICATION_JSON, "PUT", requestBytes.capacity(),
+                MediaType.APPLICATION_JSON);
+        logger.trace("PUT {} HTTP/2 >> {}", url, requestJson);
         try {
-            session.newStream(headers, completable, adapter);
-            Stream stream = Objects.requireNonNull(completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-            stream.data(new DataFrame(stream.getId(), jsonBytes, true), Callback.NOOP);
-            content = adapter.completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).trim();
-            String contentType = adapter.getContentType();
-            logger.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, content);
+            Completable<@Nullable Stream> streamPromise = new Completable<>();
+            ContentStreamListenerAdapter contentStreamListener = new ContentStreamListenerAdapter();
+            session.newStream(headers, streamPromise, contentStreamListener);
+            // wait for stream to be opened
+            Stream stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            stream.data(new DataFrame(stream.getId(), requestBytes, true), Callback.NOOP);
+            // wait for HTTP response
+            String contentJson = contentStreamListener.awaitResult();
+            String contentType = contentStreamListener.getContentType();
+            logger.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, contentJson);
             if (!MediaType.APPLICATION_JSON.equals(contentType)) {
                 throw new ApiException("Unexpected Content-Type: " + contentType);
             }
-            Resources resources = Objects.requireNonNull(jsonParser.fromJson(content, Resources.class));
-            if (logger.isDebugEnabled()) {
-                resources.getErrors().forEach(error -> logger.debug("Resources error:{}", error));
+            try {
+                Resources resources = Objects.requireNonNull(jsonParser.fromJson(contentJson, Resources.class));
+                if (logger.isDebugEnabled()) {
+                    resources.getErrors().forEach(error -> logger.debug("Resources error:{}", error));
+                }
+            } catch (JsonParseException e) {
+                logger.warn("putResource() error parsing JSON response:{}", contentJson);
+                throw new ApiException("Parsing error", e);
             }
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new ApiException("Error sending request", e);
-        } catch (JsonParseException e) {
-            logger.warn("putResourceHttp2Impl() error parsing JSON response:{}", content);
-            throw new ApiException("Parsing error", e);
         }
     }
 

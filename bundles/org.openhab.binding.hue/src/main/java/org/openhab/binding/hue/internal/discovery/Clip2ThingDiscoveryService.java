@@ -57,14 +57,16 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
      */
     public static final Map<ResourceType, ThingTypeUID> DISCOVERY_TYPES = Map.of( //
             ResourceType.DEVICE, HueBindingConstants.THING_TYPE_DEVICE, //
-            ResourceType.GROUPED_LIGHT, HueBindingConstants.THING_TYPE_GROUPED_LIGHT);
+            ResourceType.ROOM, HueBindingConstants.THING_TYPE_ROOM, //
+            ResourceType.ZONE, HueBindingConstants.THING_TYPE_ZONE, //
+            ResourceType.BRIDGE_HOME, HueBindingConstants.THING_TYPE_ZONE);
 
     private @Nullable Clip2BridgeHandler bridgeHandler;
     private @Nullable ScheduledFuture<?> discoveryTask;
 
     public Clip2ThingDiscoveryService() {
-        super(Set.of(HueBindingConstants.THING_TYPE_DEVICE, HueBindingConstants.THING_TYPE_GROUPED_LIGHT),
-                DISCOVERY_TIMEOUT_SECONDS, true);
+        super(Set.of(HueBindingConstants.THING_TYPE_DEVICE, HueBindingConstants.THING_TYPE_ROOM,
+                HueBindingConstants.THING_TYPE_ZONE), DISCOVERY_TIMEOUT_SECONDS, true);
     }
 
     @Override
@@ -90,7 +92,7 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
      * If the bridge is online, then query it to get all resource types within it, which are allowed to be instantiated
      * as OH things, and announce those respective things by calling the core 'thingDiscovered()' method.
      */
-    private synchronized void discoverDevices() {
+    private synchronized void discoverThings() {
         Clip2BridgeHandler bridgeHandler = this.bridgeHandler;
         if (Objects.nonNull(bridgeHandler) && bridgeHandler.getThing().getStatus() == ThingStatus.ONLINE) {
             try {
@@ -110,25 +112,9 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
                         String label = resource.getName();
                         String legacyThingUID = null;
 
-                        if (ResourceType.GROUPED_LIGHT == entry.getKey()) {
-                            ResourceReference owner = resource.getOwner();
-                            if (Objects.nonNull(owner)) {
-                                try {
-                                    Optional<Resource> ownerResource = bridgeHandler.getResources(owner).getResources()
-                                            .stream().findFirst();
-                                    if (ownerResource.isPresent()) {
-                                        Resource ownerRes = ownerResource.get();
-                                        ResourceType ownerType = ownerRes.getType();
-                                        if (ownerType == ResourceType.BRIDGE_HOME) {
-                                            label = "Bridge (Home)";
-                                        } else {
-                                            label = String.format("%s (%s)", ownerRes.getName(), ownerType.toString());
-                                        }
-                                    }
-                                } catch (ApiException e) {
-                                    // no valid owner resource
-                                }
-                            }
+                        // special zone 'all lights'
+                        if (resource.getType() == ResourceType.BRIDGE_HOME) {
+                            label = bridgeHandler.getLocalizedText(HueBindingConstants.ALL_LIGHTS_KEY);
                         }
 
                         Optional<Thing> legacyThingOptional = getLegacyThing(resource.getIdV1());
@@ -209,14 +195,14 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
     protected void startBackgroundDiscovery() {
         ScheduledFuture<?> discoveryTask = this.discoveryTask;
         if (Objects.isNull(discoveryTask) || discoveryTask.isCancelled()) {
-            this.discoveryTask = scheduler.scheduleWithFixedDelay(this::discoverDevices, 0, DISCOVERY_INTERVAL_SECONDS,
+            this.discoveryTask = scheduler.scheduleWithFixedDelay(this::discoverThings, 0, DISCOVERY_INTERVAL_SECONDS,
                     TimeUnit.SECONDS);
         }
     }
 
     @Override
     protected void startScan() {
-        scheduler.execute(this::discoverDevices);
+        scheduler.execute(this::discoverThings);
     }
 
     @Override

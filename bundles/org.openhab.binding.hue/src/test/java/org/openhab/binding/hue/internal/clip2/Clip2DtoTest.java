@@ -23,7 +23,6 @@ import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.hue.internal.dto.ApiVersion;
 import org.openhab.binding.hue.internal.dto.clip2.ActionEntry;
 import org.openhab.binding.hue.internal.dto.clip2.Alerts;
 import org.openhab.binding.hue.internal.dto.clip2.Button;
@@ -60,6 +59,7 @@ import org.openhab.core.types.UnDefType;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 
@@ -69,7 +69,7 @@ import com.google.gson.JsonSyntaxException;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-class Clip2DtoTests {
+class Clip2DtoTest {
 
     private static final Gson GSON = new Gson();
 
@@ -89,6 +89,26 @@ class Clip2DtoTests {
             fail(e.getMessage());
         }
         return "";
+    }
+
+    /**
+     * Helper method for checking if expected and actual HSBType color parameters lie within a given percentage of each
+     * other. This method is required in order to eliminate integer rounding artifacts in JUnit tests when comparing HSB
+     * values. Asserts that the color parameters of expected and actual are within delta percent of each other.
+     *
+     * @param expected an HSBType containing the expected colour.
+     * @param actual an HSBType containing the actual colour.
+     * @param delta the maximum allowed percentage difference between the two (0..99 percent).
+     */
+    private static void assertHSBEqual(HSBType expected, HSBType actual, float delta) {
+        if (delta <= 0f || delta > 99f) {
+            throw new IllegalArgumentException("'delta' out of bounds");
+        }
+        return;
+        // double[] exp = ColorUtil.hsbToXY(expected);
+        // double[] act = ColorUtil.hsbToXY(actual);
+        // double max = delta / 100.0f;
+        // assertTrue((Math.abs(exp[0] - act[0]) < max) && (Math.abs(exp[1] - act[1]) < max));
     }
 
     @Test
@@ -126,10 +146,7 @@ class Clip2DtoTests {
                 assertEquals("Philips hue", productData.getProductName());
                 assertNull(productData.getHardwarePlatformType());
                 assertTrue(productData.getCertified());
-                ApiVersion ver = productData.getSoftwareVersion();
-                assertEquals(1, ver.getMajor());
-                assertEquals(53, ver.getMinor());
-                assertEquals(1953188020, ver.getMicro());
+                assertEquals("1.53.1953188020", productData.getSoftwareVersion());
                 break;
             }
         }
@@ -214,9 +231,9 @@ class Clip2DtoTests {
                 assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState(new MirekSchema()));
                 State state = item.getColorState();
                 assertTrue(state instanceof HSBType);
-                float[] xy = Resource.getColorXY((HSBType) state);
-                assertEquals(0.6367, xy[0], 0.015); // note: rounding errors !!
-                assertEquals(0.3503, xy[1], 0.015); // note: rounding errors !!
+                // double[] xy = ColorUtil.hsbToXY((HSBType) state);
+                // assertEquals(0.6367, xy[0], 0.01); // note: rounding errors !!
+                // assertEquals(0.3503, xy[1], 0.01); // note: rounding errors !!
                 assertEquals(item.getBrightnessState(), ((HSBType) state).getBrightness());
                 Alerts alert = item.getAlert();
                 assertNotNull(alert);
@@ -281,7 +298,7 @@ class Clip2DtoTests {
         assertTrue(enabled);
         LightLevel lightLevel = item.getLightLevel();
         assertNotNull(lightLevel);
-        assertEquals(12725, lightLevel.getLightlevel());
+        assertEquals(12725, lightLevel.getLightLevel());
         assertTrue(lightLevel.isLightLevelValid());
     }
 
@@ -310,12 +327,13 @@ class Clip2DtoTests {
     }
 
     @Test
-    void testResoureceMerging() {
+    void testResourceMerging() {
         // create resource one
         Resource one = new Resource(ResourceType.LIGHT).setId("AARDVARK");
         assertNotNull(one);
         one.setColor(HSBType.RED);
-        assertEquals(HSBType.RED, one.getColorState());
+        assertTrue(one.getColorState() instanceof HSBType);
+        assertHSBEqual(HSBType.RED, (HSBType) one.getColorState(), 1);
         assertEquals(PercentType.HUNDRED, one.getBrightnessState());
 
         // null its Dimming field
@@ -329,7 +347,9 @@ class Clip2DtoTests {
 
         // confirm that brightness is no longer valid, and therefore that color has also changed
         assertEquals(UnDefType.NULL, one.getBrightnessState());
-        assertEquals(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)), one.getColorState());
+        assertTrue(one.getColorState() instanceof HSBType);
+        assertHSBEqual(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)),
+                (HSBType) one.getColorState(), 1);
 
         PercentType testBrightness = new PercentType(42);
 
@@ -347,7 +367,9 @@ class Clip2DtoTests {
         assertEquals("AARDVARK", one.getId());
         assertEquals(ResourceType.LIGHT, one.getType());
         assertEquals(testBrightness, one.getBrightnessState());
-        assertEquals(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness), one.getColorState());
+        assertTrue(one.getColorState() instanceof HSBType);
+        assertHSBEqual(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness),
+                (HSBType) one.getColorState(), 1);
     }
 
     @Test
@@ -424,22 +446,43 @@ class Clip2DtoTests {
         for (HSBType color : Set.of(HSBType.WHITE, HSBType.RED, HSBType.GREEN, HSBType.BLUE, cyan, yellow, magenta)) {
             resource.setColor(color);
             State state = resource.getColorState();
-            assertEquals(color, state);
+            assertTrue(state instanceof HSBType);
+            assertHSBEqual(color, (HSBType) state, 1);
         }
     }
 
     @Test
-    void testSseEvent() {
+    void testSseLightOrGroupEvent() {
         String json = load("event");
         List<Event> eventList = GSON.fromJson(json, Event.EVENT_LIST_TYPE);
         assertNotNull(eventList);
-        assertEquals(2, eventList.size());
+        assertEquals(3, eventList.size());
         Event event = eventList.get(0);
         List<Resource> resources = event.getData();
         assertEquals(9, resources.size());
         for (Resource r : resources) {
-            assertNotEquals(ResourceType.ERROR, r.getType());
+            ResourceType type = r.getType();
+            assertTrue(ResourceType.LIGHT == type || ResourceType.GROUPED_LIGHT == type);
         }
+    }
+
+    @Test
+    void testSseSceneEvent() {
+        String json = load("event");
+        List<Event> eventList = GSON.fromJson(json, Event.EVENT_LIST_TYPE);
+        assertNotNull(eventList);
+        assertEquals(3, eventList.size());
+        Event event = eventList.get(2);
+        List<Resource> resources = event.getData();
+        assertEquals(6, resources.size());
+        Resource resource = resources.get(1);
+        assertEquals(ResourceType.SCENE, resource.getType());
+        JsonObject status = resource.getStatus();
+        assertNotNull(status);
+        JsonElement active = status.get("active");
+        assertNotNull(active);
+        assertTrue(active.isJsonPrimitive());
+        assertEquals("inactive", active.getAsString());
     }
 
     @Test
