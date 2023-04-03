@@ -186,7 +186,7 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                                         // special zone 'all lights'
                                         if (resource.getType() == ResourceType.BRIDGE_HOME) {
                                             label = clip2BridgeHandler
-                                                    .getLocalizedText("discovery.group.all_lights.label");
+                                                    .getLocalizedText(HueBindingConstants.ALL_LIGHTS_KEY);
                                             type = "Zone";
                                             comment = type;
                                         }

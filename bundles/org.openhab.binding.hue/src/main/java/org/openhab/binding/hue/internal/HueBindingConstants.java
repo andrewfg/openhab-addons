@@ -171,4 +171,6 @@ public class HueBindingConstants {
             { CHANNEL_LAST_UPDATED, CHANNEL_2_LAST_UPDATED }, //
             { CHANNEL_SCENE, CHANNEL_SCENE }, //
     }).collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
+
+    public static final String ALL_LIGHTS_KEY = "discovery.group.all_lights.label";
 }
