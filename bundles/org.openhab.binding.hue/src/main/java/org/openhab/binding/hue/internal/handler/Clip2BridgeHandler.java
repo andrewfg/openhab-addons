@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -346,7 +347,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     public List<Resource> getScenes(ResourceReference resourceReference) {
         logger.debug("getScenes()");
-        return sceneCache.stream().filter(scene -> resourceReference.equals(scene.getGroup())).toList();
+        return sceneCache.stream().filter(scene -> resourceReference.equals(scene.getGroup()))
+                .collect(Collectors.toList());
     }
 
     /**

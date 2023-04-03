@@ -114,7 +114,7 @@ public class Clip2ThingDiscoveryService extends AbstractDiscoveryService impleme
 
                         // special zone 'all lights'
                         if (resource.getType() == ResourceType.BRIDGE_HOME) {
-                            label = "@text/discovery.group.all_lights.label";
+                            label = bridgeHandler.getLocalizedText(HueBindingConstants.ALL_LIGHTS_KEY);
                         }
 
                         Optional<Thing> legacyThingOptional = getLegacyThing(resource.getIdV1());
