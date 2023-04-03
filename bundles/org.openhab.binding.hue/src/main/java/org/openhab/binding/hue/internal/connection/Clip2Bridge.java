@@ -79,6 +79,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * This class handles HTTP and SSE connections to/from a Hue Bridge running CLIP 2.
@@ -112,17 +113,6 @@ public class Clip2Bridge implements Closeable {
             return completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
 
-        protected void fatalError(Http2Error error) {
-            Exception e;
-            if (Http2Error.UNAUTHORIZED.equals(error)) {
-                e = new HttpUnauthorizedException("HTTP 2 request not authorized");
-            } else {
-                e = new ApiException("HTTP 2 stream " + error.toString().toLowerCase());
-            }
-            completable.completeExceptionally(e);
-            fatalErrorDelayed(this, error);
-        }
-
         /**
          * Return the HTTP content type.
          *
@@ -130,6 +120,17 @@ public class Clip2Bridge implements Closeable {
          */
         protected String getContentType() {
             return contentType;
+        }
+
+        protected void handleHttp2Error(Http2Error error) {
+            Http2Exception e = new Http2Exception(error);
+            if (Http2Error.UNAUTHORIZED.equals(error)) {
+                // for external error handling, abstract authorization errors into a separate exception
+                completable.completeExceptionally(new HttpUnauthorizedException("HTTP 2 request not authorized"));
+            } else {
+                completable.completeExceptionally(e);
+            }
+            fatalErrorDelayed(this, e);
         }
 
         /**
@@ -145,7 +146,7 @@ public class Clip2Bridge implements Closeable {
                 switch (httpStatus) {
                     case HttpStatus.UNAUTHORIZED_401:
                     case HttpStatus.FORBIDDEN_403:
-                        fatalError(Http2Error.UNAUTHORIZED);
+                        handleHttp2Error(Http2Error.UNAUTHORIZED);
                     default:
                 }
                 contentType = responseMetaData.getFields().get(HttpHeader.CONTENT_TYPE).toLowerCase();
@@ -166,16 +167,16 @@ public class Clip2Bridge implements Closeable {
      * <li>onTimeout()</li>
      */
     private class ContentStreamListenerAdapter extends BaseStreamListenerAdapter<String> {
-        protected final List<String> contentResult = new ArrayList<>();
+        protected final StringBuilder contentResult = new StringBuilder();
 
         @Override
         public void onData(@Nullable Stream stream, @Nullable DataFrame frame, @Nullable Callback callback) {
             Objects.requireNonNull(frame);
             Objects.requireNonNull(callback);
             synchronized (this) {
-                contentResult.add(StandardCharsets.UTF_8.decode(frame.getData()).toString());
+                contentResult.append(StandardCharsets.UTF_8.decode(frame.getData()).toString());
                 if (frame.isEndStream() && !completable.isDone()) {
-                    completable.complete(String.join("", contentResult).trim());
+                    completable.complete(contentResult.toString().trim());
                 }
             }
             callback.succeeded();
@@ -183,13 +184,13 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public boolean onIdleTimeout(@Nullable Stream stream, @Nullable Throwable x) {
-            fatalError(Http2Error.IDLE);
+            handleHttp2Error(Http2Error.IDLE);
             return true;
         }
 
         @Override
         public void onTimeout(@Nullable Stream stream, @Nullable Throwable x) {
-            fatalError(Http2Error.TIMEOUT);
+            handleHttp2Error(Http2Error.TIMEOUT);
         }
     }
 
@@ -210,22 +211,22 @@ public class Clip2Bridge implements Closeable {
      * <li>onReset()</li>
      */
     private class EventStreamListenerAdapter extends BaseStreamListenerAdapter<Boolean> {
-        private String buffer = "";
+        private final StringBuilder eventContent = new StringBuilder();
 
         /**
          * Publish the event buffer contents (if any) and flush it.
          * Note: this method synchronized by the `OnData()` method.
          */
         private void flush() {
-            if (!buffer.isEmpty()) {
-                onEventData(buffer);
-                buffer = "";
+            if (!eventContent.isEmpty()) {
+                onEventData(eventContent.toString());
+                eventContent.setLength(0);
             }
         }
 
         @Override
         public void onClosed(@Nullable Stream stream) {
-            fatalError(Http2Error.CLOSED);
+            handleHttp2Error(Http2Error.CLOSED);
         }
 
         @Override
@@ -241,9 +242,9 @@ public class Clip2Bridge implements Closeable {
                         flush();
                     } else if (line.startsWith("data: ")) {
                         flush();
-                        buffer = line.substring(6);
-                    } else if (!buffer.isEmpty()) {
-                        buffer = buffer + line;
+                        eventContent.append(line.substring(6));
+                    } else if (!eventContent.isEmpty()) {
+                        eventContent.append(line);
                     }
                 }
             }
@@ -257,22 +258,38 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onReset(@Nullable Stream stream, @Nullable ResetFrame frame) {
-            fatalError(Http2Error.RESET);
+            handleHttp2Error(Http2Error.RESET);
         }
     }
 
     /**
-     * Enum of potential fatal HTTP/2 session/stream errors.
+     * Enum of potential fatal HTTP 2 session/stream errors.
      */
-    protected enum Http2Error {
+    private enum Http2Error {
         CLOSED,
-        ERROR,
         FAILURE,
         TIMEOUT,
         RESET,
         IDLE,
         GO_AWAY,
         UNAUTHORIZED;
+    }
+
+    /**
+     * Private exception for handling HTTP 2 stream and session errors.
+     */
+    @SuppressWarnings("serial")
+    private static class Http2Exception extends ApiException {
+        public final Http2Error error;
+
+        public Http2Exception(Http2Error error) {
+            this(error, null);
+        }
+
+        public Http2Exception(Http2Error error, @Nullable Throwable cause) {
+            super("HTTP 2 stream " + error.toString().toLowerCase(), cause);
+            this.error = error;
+        }
     }
 
     /**
@@ -290,17 +307,17 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onClose(@Nullable Session session, @Nullable GoAwayFrame frame) {
-            fatalErrorDelayed(this, Http2Error.CLOSED);
+            fatalErrorDelayed(this, new Http2Exception(Http2Error.CLOSED));
         }
 
         @Override
         public void onFailure(@Nullable Session session, @Nullable Throwable failure) {
-            fatalErrorDelayed(this, Http2Error.FAILURE);
+            fatalErrorDelayed(this, new Http2Exception(Http2Error.FAILURE));
         }
 
         @Override
         public void onGoAway(@Nullable Session session, @Nullable GoAwayFrame frame) {
-            fatalErrorDelayed(this, Http2Error.GO_AWAY);
+            fatalErrorDelayed(this, new Http2Exception(Http2Error.GO_AWAY));
         }
 
         @Override
@@ -318,7 +335,7 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onReset(@Nullable Session session, @Nullable ResetFrame frame) {
-            fatalErrorDelayed(this, Http2Error.RESET);
+            fatalErrorDelayed(this, new Http2Exception(Http2Error.RESET));
         }
     }
 
@@ -328,7 +345,7 @@ public class Clip2Bridge implements Closeable {
     private static enum State {
         CLOSED, // session closed
         PASSIVE, // session open for HTTP calls only
-        ACTIVE; // session open for HTTP calls, and actively sending call-backs
+        ACTIVE; // session open for HTTP calls and actively receiving SSE events
     }
 
     private static final String APPLICATION_ID = "org-openhab-binding-hue-clip2";
@@ -420,6 +437,7 @@ public class Clip2Bridge implements Closeable {
         }
         http2Client.setConnectTimeout(Clip2Bridge.TIMEOUT_SECONDS * 1000);
         http2Client.setIdleTimeout(-1);
+
         this.bridgeHandler = bridgeHandler;
         this.hostName = hostName;
         this.applicationKey = applicationKey;
@@ -441,7 +459,7 @@ public class Clip2Bridge implements Closeable {
             session.ping(new PingFrame(false), Callback.NOOP);
         }
         if (Instant.now().isAfter(sessionExpireTime)) {
-            fatalError(this, Http2Error.TIMEOUT);
+            fatalError(this, new Http2Exception(Http2Error.TIMEOUT));
         }
     }
 
@@ -505,18 +523,19 @@ public class Clip2Bridge implements Closeable {
      * Bridge sends a 'soft' GO_AWAY command every nine or ten hours, so we handle such soft errors by attempting to
      * silently close and re-open the connection without notifying the handler of an actual 'hard' error.
      *
-     * @param cause the entity that caused this method to be called.
-     * @param error the type of error.
+     * @param listener the entity that caused this method to be called.
+     * @param cause the exception that caused the error.
      */
-    private void fatalError(Object cause, Http2Error error) {
+    private synchronized void fatalError(Object listener, Http2Exception cause) {
         if (restarting || (onlineState == State.CLOSED)) {
             return;
         }
-        String causeId = cause.getClass().getSimpleName();
-        if (cause instanceof ContentStreamListenerAdapter) {
-            logger.debug("fatalError() {} {} ignoring", causeId, error);
-        } else if (error == Http2Error.GO_AWAY) {
-            logger.debug("fatalError() {} {} reconnecting", causeId, error);
+        String causeId = listener.getClass().getSimpleName();
+        if (listener instanceof ContentStreamListenerAdapter) {
+            // on GET / PUT requests the caller handles errors and closes the stream; the session is still OK
+            logger.debug("fatalError() {} {} ignoring", causeId, cause.error);
+        } else if (cause.error == Http2Error.GO_AWAY) {
+            logger.debug("fatalError() {} {} reconnecting", causeId, cause.error);
 
             // close
             restarting = true;
@@ -531,14 +550,14 @@ public class Clip2Bridge implements Closeable {
                         openActive();
                     }
                 } catch (ApiException | HttpUnauthorizedException e) {
-                    logger.warn("fatalError() {} {} reconnect failed {}", causeId, error, e.getMessage(), e);
+                    logger.warn("fatalError() {} {} reconnect failed {}", causeId, cause.error, e.getMessage(), e);
                     restarting = false;
                     close();
                 }
                 restarting = false;
             }, 5, TimeUnit.SECONDS);
         } else {
-            logger.warn("fatalError() {} {} closing", causeId, error);
+            logger.warn("fatalError() {} {} closing", causeId, cause.error, cause);
             close();
         }
     }
@@ -547,11 +566,11 @@ public class Clip2Bridge implements Closeable {
      * Method that is called back in case of fatal stream or session events. Schedules fatalError() to be called after a
      * delay in order to prevent sequencing issues.
      *
-     * @param cause the entity that caused this method to be called.
-     * @param error the type of error.
+     * @param listener the entity that caused this method to be called.
+     * @param cause the exception that caused the error.
      */
-    protected void fatalErrorDelayed(Object cause, Http2Error error) {
-        bridgeHandler.getScheduler().schedule(() -> fatalError(cause, error), 1, TimeUnit.SECONDS);
+    protected void fatalErrorDelayed(Object listener, Http2Exception cause) {
+        bridgeHandler.getScheduler().schedule(() -> fatalError(listener, cause), 1, TimeUnit.SECONDS);
     }
 
     /**
@@ -656,7 +675,13 @@ public class Clip2Bridge implements Closeable {
             return;
         }
         logger.trace("onEventData() << {}", data);
-        JsonElement jsonElement = JsonParser.parseString(data);
+        JsonElement jsonElement;
+        try {
+            jsonElement = JsonParser.parseString(data);
+        } catch (JsonSyntaxException e) {
+            logger.debug("onEventData() invalid data '{}'", data, e);
+            return;
+        }
         if (!(jsonElement instanceof JsonArray)) {
             logger.debug("onEventData() data is not a JsonArray {}", data);
             return;
