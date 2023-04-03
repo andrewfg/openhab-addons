@@ -34,6 +34,7 @@ import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
+import org.openhab.core.util.ColorUtil;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -50,31 +51,6 @@ import com.google.gson.annotations.SerializedName;
 public class Resource {
 
     private static final int DELTA = 30;
-
-    /**
-     * Static method to create an HsbType from an array of floats of colour x & y parameters.
-     *
-     * @param xy colour x & y parameters.
-     * @return a new HsbType.
-     */
-    private static HSBType getColorHSB(double[] xy) {
-        return HSBType.fromXY((float) xy[0], (float) xy[1]);
-    }
-
-    /**
-     * Static method to get the x & y colour parameters of an HsbType instance.
-     *
-     * @param hsb the HsbType.
-     * @return colour x & y parameters.
-     */
-    public static double[] getColorXY(HSBType hsb) {
-        PercentType[] percentTypes = hsb.toXY();
-        double[] doubles = new double[percentTypes.length];
-        for (int i = 0; i < doubles.length; i++) {
-            doubles[i] = percentTypes[i].floatValue() / 100.0f;
-        }
-        return doubles;
-    }
 
     /**
      * Static method to get a new percent value depending on the type of command and if relevant the current value.
@@ -104,6 +80,7 @@ public class Resource {
      * as what it was previously set to by the last non-sparse resource.
      */
     private transient boolean hasSparseData;
+
     private @Nullable String type;
     private @Nullable String id;
     private @Nullable @SerializedName("bridge_id") String bridgeId;
@@ -129,9 +106,7 @@ public class Resource {
     private @Nullable Motion motion;
     private @Nullable @SerializedName("power_state") Power powerState;
     private @Nullable @SerializedName("relative_rotary") RelativeRotary relativeRotary;
-
     private @Nullable List<ResourceReference> children;
-
     private @Nullable JsonElement status;
 
     /**
@@ -207,12 +182,6 @@ public class Resource {
         return Objects.nonNull(powerState) ? powerState.getBatteryLowState() : UnDefType.NULL;
     }
 
-    public @Nullable String getBridgeId() {
-        String bridgeId = this.bridgeId;
-        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null
-                : bridgeId + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
-    }
-
     public State getBrightnessState() {
         Dimming dimming = this.dimming;
         try {
@@ -224,6 +193,12 @@ public class Resource {
 
     public @Nullable Button getButton() {
         return button;
+    }
+
+    public @Nullable String getBridgeId() {
+        String bridgeId = this.bridgeId;
+        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null
+                : bridgeId + HueBindingConstants.CLIP2_PROPERTY_SUFFIX;
     }
 
     /**
@@ -267,7 +242,7 @@ public class Resource {
         ColorXy color = this.color;
         if (Objects.nonNull(color)) {
             try {
-                HSBType hsb = getColorHSB(color.getXY());
+                HSBType hsb = ColorUtil.xyToHsv(color.getXY());
                 Dimming dimming = this.dimming;
                 return new HSBType(hsb.getHue(), hsb.getSaturation(), new PercentType(
                         Objects.nonNull(dimming) ? Math.max(0, Math.min(100, dimming.getBrightness())) : 50));
@@ -533,7 +508,7 @@ public class Resource {
             HSBType hsb = (HSBType) command;
             ColorXy col = color;
             Dimming dim = dimming;
-            color = (Objects.nonNull(col) ? col : new ColorXy()).setXY(getColorXY(hsb));
+            color = (Objects.nonNull(col) ? col : new ColorXy()).setXY(ColorUtil.hsbToXY(hsb));
             dimming = (Objects.nonNull(dim) ? dim : new Dimming()).setBrightness(hsb.getBrightness().intValue());
         }
         return this;
@@ -593,12 +568,10 @@ public class Resource {
         return this;
     }
 
-    public Resource setRecall(Command command) {
-        if (OnOffType.ON.equals(command)) {
-            Recall recall = new Recall();
-            recall.setAction(RecallAction.ACTIVE);
-            this.recall = recall;
-        }
+    public Resource setRecall() {
+        Recall recall = new Recall();
+        recall.setAction(RecallAction.ACTIVE);
+        this.recall = recall;
         return this;
     }
 

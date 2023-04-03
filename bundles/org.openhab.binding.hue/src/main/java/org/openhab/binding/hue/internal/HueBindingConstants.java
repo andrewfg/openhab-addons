@@ -19,7 +19,6 @@ import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.thing.ThingTypeUID;
-import org.openhab.core.thing.type.ChannelTypeUID;
 
 /**
  * The {@link HueBindingConstants} class defines common constants, which are
@@ -151,7 +150,6 @@ public class HueBindingConstants {
     public static final String CHANNEL_2_TEMPERATURE_ENABLED = "temperatureEnabled";
     public static final String CHANNEL_2_ZIGBEE_STATUS = "zigbeeStatus";
 
-    public static final String CLIP2_THING_TYPE_PREFIX = "hue:clip2:";
     public static final String CLIP2_PROPERTY_SUFFIX = " (api2)";
 
     /*
@@ -171,10 +169,6 @@ public class HueBindingConstants {
             { CHANNEL_BATTERY_LEVEL, CHANNEL_2_BATTERY_LEVEL }, //
             { CHANNEL_BATTERY_LOW, CHANNEL_2_BATTERY_LOW }, //
             { CHANNEL_LAST_UPDATED, CHANNEL_2_LAST_UPDATED }, //
+            { CHANNEL_SCENE, CHANNEL_SCENE }, //
     }).collect(Collectors.toMap(entry -> entry[0], entry -> entry[1]));
-
-    public static final ChannelTypeUID SCENE_CHANNEL_TYPE_UID = new ChannelTypeUID(BINDING_ID, "scene");
-
-    public static final String SCENE_ACTIVATE_KEY = "scene.channel.activate";
-    public static final String ALL_LIGHTS_KEY = "discovery.group.all_lights.label";
 }
