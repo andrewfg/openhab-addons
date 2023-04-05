@@ -239,11 +239,9 @@ public class Clip2Bridge implements Closeable {
         public void onData(@Nullable Stream stream, @Nullable DataFrame frame, @Nullable Callback callback) {
             Objects.requireNonNull(frame);
             Objects.requireNonNull(callback);
-            // and date receives indicates the stream is established
             if (!completable.isDone()) {
                 completable.complete(Boolean.TRUE);
             }
-            // synchronize in case of overlapping data frames
             synchronized (this) {
                 byte[] receivedBytes = combineBytes(cachedBytes, frame.getData());
                 String receivedString = new String(receivedBytes, StandardCharsets.UTF_8);
@@ -259,18 +257,15 @@ public class Clip2Bridge implements Closeable {
                         cachedBytes = new byte[0];
                     }
                     // append any 'data' field values to the event message
-                    StringBuilder eventMessage = new StringBuilder();
+                    String eventMessage = "";
                     for (String receivedLine : receivedLines) {
                         if (receivedLine.startsWith("data:")) {
-                            String dataFieldValue = receivedLine.substring(5).trim();
-                            if (!eventMessage.isEmpty()) {
-                                eventMessage.append("\n");
-                            }
-                            eventMessage.append(dataFieldValue);
+                            String fieldValue = receivedLine.substring(5).trim();
+                            eventMessage = eventMessage.isEmpty() ? fieldValue : "\n" + fieldValue;
                         }
                     }
                     if (!eventMessage.isEmpty()) {
-                        onEventData(eventMessage.toString());
+                        onEventData(eventMessage);
                     }
                 } else {
                     cachedBytes = receivedBytes;
@@ -702,7 +697,11 @@ public class Clip2Bridge implements Closeable {
         if (onlineState != State.ACTIVE) {
             return;
         }
-        logger.trace("onEventData() << {}", data);
+        if (logger.isTraceEnabled()) {
+            logger.trace("onEventData() data:{}", data);
+        } else {
+            logger.debug("onEventData() data length:{}", data.length());
+        }
         JsonElement jsonElement;
         try {
             jsonElement = JsonParser.parseString(data);
