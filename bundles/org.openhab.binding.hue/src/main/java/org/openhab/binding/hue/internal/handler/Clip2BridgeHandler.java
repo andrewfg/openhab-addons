@@ -346,7 +346,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * Return that subset of scenes in the scene cache which relate to the given room or zone ResourceReference
      */
     public List<Resource> getScenes(ResourceReference resourceReference) {
-        logger.debug("getScenes()");
         return sceneCache.stream().filter(scene -> resourceReference.equals(scene.getGroup()))
                 .collect(Collectors.toList());
     }
@@ -461,7 +460,6 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      * @param resource the given resource.
      */
     private void onResource(Resource resource) {
-        logger.debug("onResource() {}", resource);
         getThing().getThings().forEach(thing -> {
             ThingHandler handler = thing.getHandler();
             if (handler instanceof Clip2ThingHandler) {
