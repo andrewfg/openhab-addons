@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.hue.internal.ColorUtil;
+import org.openhab.binding.hue.internal.ColorUtil.Gamut;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.config.Clip2ThingConfig;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
@@ -183,6 +185,27 @@ public class Clip2ThingHandler extends BaseThingHandler {
     }
 
     /**
+     * Look up the cached color Gamut. Check the commandResourceIds to see if we have a LIGHT resource entry, and if so
+     * get its respective resource from the contributorsCache, and if that exists, return its respective Gamut. Or
+     * otherwise return the default Gamut.
+     *
+     * @return a Gamut.
+     */
+    private Gamut getCachedGamut() {
+        String lightResourceId = commandResourceIds.get(ResourceType.LIGHT);
+        if (Objects.nonNull(lightResourceId)) {
+            Resource cachedLight = contributorsCache.get(lightResourceId);
+            if (Objects.nonNull(cachedLight)) {
+                Gamut gamut = cachedLight.getGamut();
+                if (Objects.nonNull(gamut)) {
+                    return gamut;
+                }
+            }
+        }
+        return ColorUtil.DEFAULT_GAMUT;
+    }
+
+    /**
      * Look up the cached MirekSchema. Check the commandResourceIds to see if we have a LIGHT resource entry, and if so
      * get its respective resource from the contributorsCache, and if that exists, return its respective MirekSchema. Or
      * otherwise return the default MirekSchema.
@@ -253,7 +276,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 break;
 
             case HueBindingConstants.CHANNEL_COLOR:
-                putResource = new Resource(lightResourceType).setColor(command);
+                putResource = new Resource(lightResourceType).setColor(command, getCachedGamut());
                 break;
 
             case HueBindingConstants.CHANNEL_BRIGHTNESS:

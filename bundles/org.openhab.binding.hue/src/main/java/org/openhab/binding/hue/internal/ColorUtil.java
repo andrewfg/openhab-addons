@@ -420,6 +420,18 @@ public class ColorUtil {
             this.b = b;
         }
 
+        public double[] r() {
+            return r;
+        }
+
+        public double[] g() {
+            return g;
+        }
+
+        public double[] b() {
+            return b;
+        }
+
         /**
          * return point in color gamut closest to a given point
          *

@@ -40,9 +40,9 @@ public class Gamut2 {
     }
 
     public Gamut2 setGamut(Gamut gamut) {
-        red = new PairXy().setXY(gamut.r);
-        green = new PairXy().setXY(gamut.g);
-        blue = new PairXy().setXY(gamut.b);
+        red = new PairXy().setXY(gamut.r());
+        green = new PairXy().setXY(gamut.g());
+        blue = new PairXy().setXY(gamut.b());
         return this;
     }
 }

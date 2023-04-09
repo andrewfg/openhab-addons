@@ -325,6 +325,11 @@ public class Resource {
         return Objects.nonNull(enabled) ? OnOffType.from(enabled.booleanValue()) : UnDefType.NULL;
     }
 
+    public @Nullable Gamut getGamut() {
+        ColorXy color = this.color;
+        return Objects.nonNull(color) ? color.getGamut() : null;
+    }
+
     public @Nullable ResourceReference getGroup() {
         return group;
     }
@@ -527,15 +532,16 @@ public class Resource {
      * Set the color from an HSBType. Put its Hue & Saturation parts in the 'ColorXy' JSON element, and put its
      * Brightness part in the 'Dimming' JSON element.
      *
-     * @param command an HSBType with the new color value
+     * @param command an HSBType with the new color value.
+     * @param gamut the color Gamut for the conversion.
      * @return this resource instance.
      */
-    public Resource setColor(Command command) {
+    public Resource setColor(Command command, Gamut gamut) {
         if (command instanceof HSBType) {
             HSBType hsb = (HSBType) command;
             ColorXy col = color;
             Dimming dim = dimming;
-            color = (Objects.nonNull(col) ? col : new ColorXy()).setXY(ColorUtil.hsbToXY(hsb));
+            color = (Objects.nonNull(col) ? col : new ColorXy()).setXY(ColorUtil.hsbToXY(hsb, gamut));
             dimming = (Objects.nonNull(dim) ? dim : new Dimming()).setBrightness(hsb.getBrightness().intValue());
         }
         return this;
