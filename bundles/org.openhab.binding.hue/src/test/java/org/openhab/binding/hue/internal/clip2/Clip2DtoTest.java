@@ -228,7 +228,7 @@ class Clip2DtoTest {
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getSwitch());
                 assertEquals(new PercentType(93), item.getBrightnessState());
-                assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState(new MirekSchema()));
+                assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState());
                 State state = item.getColorState();
                 assertTrue(state instanceof HSBType);
                 // double[] xy = ColorUtil.hsbToXY((HSBType) state);
@@ -252,24 +252,27 @@ class Clip2DtoTest {
                 assertEquals(454, mirekSchema.getMirekMaximum());
 
                 // test color temperature percent value on light's own scale
-                assertEquals(new PercentType(96), item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(new PercentType(96), item.getColorTemperaturePercentState());
                 assertEquals(QuantityType.valueOf("2257 K"), item.getColorTemperatureKelvinState());
 
                 // test color temperature percent value on the default (full) scale
-                assertEquals(new PercentType(84), item.getColorTemperaturePercentState(new MirekSchema()));
+                MirekSchema temp = item.getMirekSchema();
+                item.setMirekSchema(MirekSchema.DEFAULT_SCHEMA);
+                assertEquals(new PercentType(84), item.getColorTemperaturePercentState());
                 assertEquals(QuantityType.valueOf("2257 K"), item.getColorTemperatureKelvinState());
+                item.setMirekSchema(temp);
 
                 // change colour temperature
                 item.setColorTemperaturePercent(PercentType.ZERO, mirekSchema);
-                assertEquals(PercentType.ZERO, item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(PercentType.ZERO, item.getColorTemperaturePercentState());
                 assertEquals(QuantityType.valueOf("6536 K"), item.getColorTemperatureKelvinState());
 
                 item.setColorTemperaturePercent(PercentType.HUNDRED, mirekSchema);
-                assertEquals(PercentType.HUNDRED, item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(PercentType.HUNDRED, item.getColorTemperaturePercentState());
                 assertEquals(QuantityType.valueOf("2203 K"), item.getColorTemperatureKelvinState());
 
                 item.setColorTemperatureKelvin(QuantityType.valueOf("4000 K"));
-                assertEquals(new PercentType(32), item.getColorTemperaturePercentState(mirekSchema));
+                assertEquals(new PercentType(32), item.getColorTemperaturePercentState());
                 assertEquals(QuantityType.valueOf("4000 K"), item.getColorTemperatureKelvinState());
 
                 assertEquals(UnDefType.NULL, item.getColorState());
