@@ -298,10 +298,10 @@ public class Resource {
      * @return a PercentType with the colour temperature percentage.
      */
     public State getColorTemperaturePercentState() {
-        ColorTemperature2 colorTemp = colorTemperature;
-        if (Objects.nonNull(colorTemp)) {
+        ColorTemperature2 colorTemperature = this.colorTemperature;
+        if (Objects.nonNull(colorTemperature)) {
             try {
-                Integer percent = colorTemp.getPercent();
+                Integer percent = colorTemperature.getPercent();
                 if (Objects.nonNull(percent)) {
                     return new PercentType(percent);
                 }
