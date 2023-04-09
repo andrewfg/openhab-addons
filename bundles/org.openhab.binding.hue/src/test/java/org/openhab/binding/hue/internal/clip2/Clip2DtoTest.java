@@ -23,6 +23,7 @@ import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.hue.internal.ColorUtil;
 import org.openhab.binding.hue.internal.dto.clip2.ActionEntry;
 import org.openhab.binding.hue.internal.dto.clip2.Alerts;
 import org.openhab.binding.hue.internal.dto.clip2.Button;
@@ -334,7 +335,7 @@ class Clip2DtoTest {
         // create resource one
         Resource one = new Resource(ResourceType.LIGHT).setId("AARDVARK");
         assertNotNull(one);
-        one.setColor(HSBType.RED);
+        one.setColor(HSBType.RED, ColorUtil.DEFAULT_GAMUT);
         assertTrue(one.getColorState() instanceof HSBType);
         assertHSBEqual(HSBType.RED, (HSBType) one.getColorState(), 1);
         assertEquals(PercentType.HUNDRED, one.getBrightnessState());
@@ -447,7 +448,7 @@ class Clip2DtoTest {
         HSBType magenta = new HSBType("300,100,100");
 
         for (HSBType color : Set.of(HSBType.WHITE, HSBType.RED, HSBType.GREEN, HSBType.BLUE, cyan, yellow, magenta)) {
-            resource.setColor(color);
+            resource.setColor(color, ColorUtil.DEFAULT_GAMUT);
             State state = resource.getColorState();
             assertTrue(state instanceof HSBType);
             assertHSBEqual(color, (HSBType) state, 1);
