@@ -13,6 +13,7 @@
 package org.openhab.binding.hue.internal.handler;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,13 +23,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.config.Clip2ThingConfig;
-import org.openhab.binding.hue.internal.dto.clip2.ColorTemperature2;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.MirekSchema;
 import org.openhab.binding.hue.internal.dto.clip2.ProductData;
@@ -112,9 +113,9 @@ public class Clip2ThingHandler extends BaseThingHandler {
     private final List<ChannelUID> legacyLinkedChannelUIDs = new ArrayList<>();
 
     /**
-     * A map of scene IDs and respective scene names of scenes supported by this thing.
+     * A temporary transfer buffer of scene resources supported by this thing.
      */
-    private final Map<String, String> supportedScenes = new ConcurrentHashMap<>();
+    private final List<Resource> scenesBuffer = Collections.synchronizedList(new ArrayList<>());
 
     private final ThingRegistry thingRegistry;
     private final ItemChannelLinkRegistry itemChannelLinkRegistry;
@@ -158,7 +159,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             task.cancel(true);
         }
         updateContributorsTask = null;
-        supportedScenes.clear();
+        scenesBuffer.clear();
         supportedChannelIds.clear();
         commandResourceIds.clear();
         contributorsCache.clear();
@@ -179,6 +180,27 @@ public class Clip2ThingHandler extends BaseThingHandler {
             }
         }
         throw new AssetNotLoadedException("Bridge handler missing");
+    }
+
+    /**
+     * Look up the cached MirekSchema. Check the commandResourceIds to see if we have a LIGHT resource entry, and if so
+     * get its respective resource from the contributorsCache, and if that exists, return its respective MirekSchema. Or
+     * otherwise return the default MirekSchema.
+     *
+     * @return a MirekSchema.
+     */
+    private MirekSchema getCachedMirekSchema() {
+        String lightResourceId = commandResourceIds.get(ResourceType.LIGHT);
+        if (Objects.nonNull(lightResourceId)) {
+            Resource cachedLight = contributorsCache.get(lightResourceId);
+            if (Objects.nonNull(cachedLight)) {
+                MirekSchema mirekSchema = cachedLight.getMirekSchema();
+                if (Objects.nonNull(mirekSchema)) {
+                    return mirekSchema;
+                }
+            }
+        }
+        return MirekSchema.DEFAULT_SCHEMA;
     }
 
     /**
@@ -223,7 +245,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
         switch (channelUID.getId()) {
             case HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE:
                 putResource = new Resource(lightResourceType).setColorTemperaturePercent(command,
-                        mirekSchemaFrom(lightResourceType));
+                        getCachedMirekSchema());
                 break;
 
             case HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE_ABS:
@@ -269,7 +291,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             return;
         }
 
-        putResourceId = putResourceId != null ? putResourceId : commandResourceIds.get(putResource.getType());
+        putResourceId = Objects.nonNull(putResourceId) ? putResourceId : commandResourceIds.get(putResource.getType());
         if (putResourceId == null) {
             logger.warn("handleCommand() channelUID:{}, command:{}, putResourceType:{} => missing resource ID",
                     channelUID, command, putResource.getType());
@@ -307,44 +329,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Check the if the given resource has a MirekSchema, and if not check the contributors cache to see if it contains
-     * a resource that matches the passed resource's id. In either case return that respective schema. And if not,
-     * return a default schema comprising the default static mirek MIN and MAX constant values.
-     *
-     * @param resource the reference resource.
-     * @return the MirekSchema.
-     */
-    private MirekSchema mirekSchemaFrom(Resource resource) {
-        MirekSchema schema = resource.getMirekSchema();
-        if (Objects.isNull(schema)) {
-            Resource cacheResource = contributorsCache.get(resource.getId());
-            if (Objects.nonNull(cacheResource)) {
-                ColorTemperature2 colorTemperature = cacheResource.getColorTemperature();
-                if (Objects.nonNull(colorTemperature)) {
-                    schema = colorTemperature.getMirekSchema();
-                }
-            }
-        }
-        return Objects.nonNull(schema) ? schema : new MirekSchema();
-    }
-
-    /**
-     * Check the commandResourceIds to see if we have a command resource id for the given resource type, and if so
-     * return its respective MirekSchema, and if not return a default schema comprising the default static mirek MIN and
-     * MAX constant values.
-     *
-     * @param resourceType the reference resource type.
-     * @return the MirekSchema.
-     */
-    private MirekSchema mirekSchemaFrom(ResourceType resourceType) {
-        String resourceId = commandResourceIds.get(resourceType);
-        if (Objects.nonNull(resourceId)) {
-            return mirekSchemaFrom(new Resource(resourceType).setId(resourceId));
-        }
-        return new MirekSchema();
-    }
-
-    /**
      * Update the channel state depending on a new resource sent from the bridge.
      *
      * @param resource a Resource object containing the new state.
@@ -372,9 +356,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 resource.copyMissingFieldsFrom(cacheResource);
                 updateChannels(resource);
                 contributorsCache.put(cacheId, resource);
-            } else if (supportedScenes.containsKey(cacheId)) {
-                resourceConsumed = true;
-                updateChannels(resource);
             }
             if (resourceConsumed) {
                 logger.debug("onResource() {} >> {} ", resource, thisResource);
@@ -467,8 +448,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 break;
 
             case LIGHT:
-                updateState(HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE,
-                        resource.getColorTemperaturePercentState(mirekSchemaFrom(resource)), fullUpdate);
+                updateState(HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE, resource.getColorTemperaturePercentState(),
+                        fullUpdate);
                 updateState(HueBindingConstants.CHANNEL_2_COLOR_TEMPERATURE_ABS,
                         resource.getColorTemperatureKelvinState(), fullUpdate);
                 updateState(HueBindingConstants.CHANNEL_COLOR, resource.getColorState(), fullUpdate);
@@ -507,7 +488,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 break;
 
             case SCENE:
-                updateSceneChannelState(resource);
+                updateSceneChannel(resource);
                 break;
 
             default:
@@ -578,7 +559,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
             try {
                 updateLookups();
                 updateContributors();
-                updateSceneChannel();
                 updateChannelList();
                 updateChannelItemLinksFromLegacy();
                 updateDependenciesDone = true;
@@ -602,13 +582,16 @@ public class Clip2ThingHandler extends BaseThingHandler {
     private void updateLookups() {
         if (!disposing) {
             logger.debug("updateLookups() called");
-            List<ResourceReference> references = thisResource.getServiceReferences();
             contributorsCache.clear();
-            contributorsCache.putAll(references.stream()
+            List<ResourceReference> services = thisResource.getServiceReferences();
+            contributorsCache.putAll(services.stream()
                     .collect(Collectors.toMap(ResourceReference::getId, r -> new Resource(r.getType()))));
+            contributorsCache
+                    .putAll(scenesBuffer.stream().collect(Collectors.toMap(Resource::getId, Function.identity())));
             commandResourceIds.clear();
-            commandResourceIds.putAll(references.stream() // use a 'mergeFunction' to prevent duplicates
+            commandResourceIds.putAll(services.stream() // use a 'mergeFunction' to prevent duplicates
                     .collect(Collectors.toMap(ResourceReference::getType, ResourceReference::getId, (r1, r2) -> r1)));
+            scenesBuffer.clear();
         }
     }
 
@@ -681,42 +664,40 @@ public class Clip2ThingHandler extends BaseThingHandler {
     }
 
     /**
-     * Check if the bridge contains scenes for this thing, and if so, include a scene channel in the supported channel
-     * list and populate its respective state options list.
+     * Set the new state for the scene channel based on the given scene resource. If the scene is active (i.e. to be
+     * properly correct it is NOT inactive) the state is set to a StringType containing the name of that scene.
+     * Otherwise the state is set to UnDefType.NULL
      *
-     * @throws AssetNotLoadedException if one of the assets is not loaded.
-     * @throws ApiException if a communication error occurred.
+     * @param scene the given scene Resource.
      */
-    private void updateSceneChannel() throws AssetNotLoadedException, ApiException {
-        Map<String, String> scenes = getBridgeHandler().getScenes(getResourceReference()).stream()
-                .collect(Collectors.toMap(Resource::getId, Resource::getName));
-        logger.debug("updateSceneChannel() scenes.size():{}", scenes.size());
-        if (!scenes.isEmpty()) {
-            supportedChannelIds.add(HueBindingConstants.CHANNEL_SCENE);
-            stateDescriptionProvider.setStateOptions(new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_SCENE),
-                    scenes.entrySet().stream().map(e -> new StateOption(e.getKey(), e.getValue()))
-                            .collect(Collectors.toList()));
+    private void updateSceneChannel(Resource scene) {
+        State state = null;
+        if (Boolean.TRUE.equals(scene.getSceneActive())) {
+            String name = scene.getName();
+            state = Objects.nonNull(name) ? new StringType(name) : null;
         }
-        supportedScenes.clear();
-        supportedScenes.putAll(scenes);
+        updateState(HueBindingConstants.CHANNEL_SCENE, Objects.nonNull(state) ? state : UnDefType.NULL, true);
     }
 
     /**
-     * Set the new state for the scene channel based on the given scene resource. If the given scene resource ID is in
-     * the supported scenes map, and if the scene is active (i.e. to be correct NOT inactive) the state is a StringType
-     * containing the name of that scene. Otherwise it is UnDefType.NULL
+     * Process the incoming list of scene resources to find those scenes which apply to this thing. And and if there
+     * are, include a scene channel in the supported channel list, populate its respective state options list, and store
+     * the scenes in our temporary scene list.
      *
-     * @param sceneResource the given scene Resource.
+     * @param scenes the full list of scene resources.
      */
-    private void updateSceneChannelState(Resource sceneResource) {
-        String sceneName = supportedScenes.get(sceneResource.getId());
-        State state = null;
-        if (Objects.nonNull(sceneName)) {
-            if (Boolean.TRUE.equals(sceneResource.getSceneActive())) {
-                state = new StringType(sceneName);
-            }
+    public void updateScenes(List<Resource> scenes) {
+        ResourceReference reference = getResourceReference();
+        scenesBuffer.clear();
+        scenesBuffer.addAll(
+                scenes.stream().filter(scene -> reference.equals(scene.getGroup())).collect(Collectors.toList()));
+        if (!scenesBuffer.isEmpty()) {
+            supportedChannelIds.add(HueBindingConstants.CHANNEL_SCENE);
+            stateDescriptionProvider.setStateOptions(new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_SCENE),
+                    scenesBuffer.stream().map(scene -> new StateOption(scene.getId(), scene.getName()))
+                            .collect(Collectors.toList()));
         }
-        updateState(HueBindingConstants.CHANNEL_SCENE, state != null ? state : UnDefType.NULL, true);
+        logger.debug("updateScenes() scenesTemp.size():{}", scenesBuffer.size());
     }
 
     /**
