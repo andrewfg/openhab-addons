@@ -58,7 +58,7 @@ import org.osgi.service.component.annotations.Reference;
 public class HueCommandExtension extends AbstractConsoleCommandExtension implements ConsoleCommandCompleter {
 
     private static final String FMT_BRIDGE = "Bridge %s \"Philips Hue Bridge\" [ipAddress=\"%s\", applicationKey=\"%s\"] {";
-    private static final String FMT_THING = "    Thing %s %s \"%s\" [resourceId=\"%s\"] // %s";
+    private static final String FMT_THING = "    Thing %s %s \"%s\" [resourceId=\"%s\"] // %s idV1:%s";
     private static final String FMT_COMMENT = "    // %s things";
     private static final String FMT_APPKEY = "  - Application key: %s";
     private static final String FMT_SCENE = "  %s '%s'";
@@ -179,6 +179,7 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                                             continue;
                                         }
                                         String id = resource.getId();
+                                        String idv1 = resource.getIdV1();
                                         String label = resource.getName();
                                         String comment = resource.getProductName();
                                         String type = resourceType.name().toLowerCase();
@@ -187,11 +188,11 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                                         if (resource.getType() == ResourceType.BRIDGE_HOME) {
                                             label = clip2BridgeHandler
                                                     .getLocalizedText(HueBindingConstants.ALL_LIGHTS_KEY);
-                                            type = "Zone";
-                                            comment = type;
+                                            comment = "Zone";
+                                            type = comment.toLowerCase();
                                         }
 
-                                        lines.put(label, String.format(FMT_THING, type, id, label, id, comment));
+                                        lines.put(label, String.format(FMT_THING, type, id, label, id, comment, idv1));
                                     }
                                     lines.entrySet().forEach(entry -> console.println(entry.getValue()));
                                 }
