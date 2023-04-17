@@ -45,8 +45,8 @@ public class Alerts {
         return Objects.nonNull(action) ? ActionType.of(action) : null;
     }
 
-    public void setActionType(ActionType action) {
-        actionValues = null;
+    public Alerts setActionType(ActionType action) {
         this.action = action.name().toLowerCase();
+        return this;
     }
 }

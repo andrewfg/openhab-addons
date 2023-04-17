@@ -21,6 +21,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.ColorUtil;
 import org.openhab.binding.hue.internal.ColorUtil.Gamut;
+import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
+import org.openhab.binding.hue.internal.dto.clip2.enums.EffectType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.RecallAction;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ZigbeeStatus;
@@ -171,6 +173,14 @@ public class Resource {
         if (Objects.isNull(this.metadata) && Objects.nonNull(other.metadata)) {
             this.metadata = other.metadata;
         }
+        // alerts
+        if (Objects.isNull(this.alert) && Objects.nonNull(other.alert)) {
+            this.alert = other.alert;
+        }
+        // effects
+        if (Objects.isNull(this.effects) && Objects.nonNull(other.effects)) {
+            this.effects = other.effects;
+        }
         return this;
     }
 
@@ -178,8 +188,19 @@ public class Resource {
         return actions;
     }
 
-    public @Nullable Alerts getAlert() {
+    public @Nullable Alerts getAlerts() {
         return alert;
+    }
+
+    public State getAlertState() {
+        Alerts alerts = this.alert;
+        if (Objects.nonNull(alerts)) {
+            ActionType alertType = alerts.getActionType();
+            if (Objects.nonNull(alertType)) {
+                return new StringType(alertType.name());
+            }
+        }
+        return UnDefType.NULL;
     }
 
     public String getArchetype() {
@@ -200,6 +221,11 @@ public class Resource {
         return Objects.nonNull(powerState) ? powerState.getBatteryLowState() : UnDefType.NULL;
     }
 
+    public @Nullable String getBridgeId() {
+        String bridgeId = this.bridgeId;
+        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null : bridgeId;
+    }
+
     public State getBrightnessState() {
         Dimming dimming = this.dimming;
         try {
@@ -212,11 +238,6 @@ public class Resource {
 
     public @Nullable Button getButton() {
         return button;
-    }
-
-    public @Nullable String getBridgeId() {
-        String bridgeId = this.bridgeId;
-        return Objects.isNull(bridgeId) || bridgeId.isBlank() ? null : bridgeId;
     }
 
     /**
@@ -314,6 +335,17 @@ public class Resource {
 
     public @Nullable Effects getEffects() {
         return effects;
+    }
+
+    public State getEffectState() {
+        Effects effects = this.effects;
+        if (Objects.nonNull(effects)) {
+            EffectType effectType = effects.getEffectType();
+            if (Objects.nonNull(effectType)) {
+                return new StringType(effectType.name());
+            }
+        }
+        return UnDefType.NULL;
     }
 
     public @Nullable Boolean getEnabled() {
@@ -507,6 +539,19 @@ public class Resource {
         return this;
     }
 
+    public Resource setAlert(Command command, @Nullable Resource other) {
+        if ((command instanceof StringType) && Objects.nonNull(other)) {
+            Alerts otherAlert = other.alert;
+            if (Objects.nonNull(otherAlert)) {
+                ActionType actionType = ActionType.of(((StringType) command).toString());
+                if (otherAlert.getActionValues().contains(actionType)) {
+                    this.alert = new Alerts().setActionType(actionType);
+                }
+            }
+        }
+        return this;
+    }
+
     /**
      * Set the brightness percent.
      *
@@ -594,6 +639,19 @@ public class Resource {
             colorTemperature = Objects.nonNull(colorTemperature) ? colorTemperature : new ColorTemperature2();
             colorTemperature.setPercent(((PercentType) command).doubleValue(), schema);
             this.colorTemperature = colorTemperature;
+        }
+        return this;
+    }
+
+    public Resource setEffect(Command command, @Nullable Resource other) {
+        if ((command instanceof StringType) && Objects.nonNull(other)) {
+            Effects otherEffects = other.effects;
+            if (Objects.nonNull(otherEffects)) {
+                EffectType effectType = EffectType.of(((StringType) command).toString());
+                if (otherEffects.getEffectValues().contains(effectType)) {
+                    this.effects = new Effects().setEffectType(effectType);
+                }
+            }
         }
         return this;
     }
