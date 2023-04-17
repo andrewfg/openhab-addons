@@ -58,9 +58,9 @@ public class Effects {
         return Objects.nonNull(effect) ? EffectType.of(effect) : null;
     }
 
-    public void setEffectType(EffectType effect) {
-        effectValues = null;
+    public Effects setEffectType(EffectType effect) {
         this.effect = effect.name().toLowerCase();
+        return this;
     }
 
     public @Nullable EffectType getStatusEffectType() {

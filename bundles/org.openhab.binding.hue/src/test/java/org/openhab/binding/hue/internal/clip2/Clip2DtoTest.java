@@ -187,7 +187,7 @@ class Clip2DtoTest {
                     itemsFound++;
                     assertEquals(OnOffType.OFF, item.getSwitch());
                     assertEquals(PercentType.ZERO, item.getBrightnessState());
-                    alert = item.getAlert();
+                    alert = item.getAlerts();
                     assertNotNull(alert);
                     for (ActionType actionValue : alert.getActionValues()) {
                         assertEquals(ActionType.BREATHE, actionValue);
@@ -197,7 +197,7 @@ class Clip2DtoTest {
                     itemsFound++;
                     assertEquals(OnOffType.ON, item.getSwitch());
                     assertEquals(PercentType.HUNDRED, item.getBrightnessState());
-                    alert = item.getAlert();
+                    alert = item.getAlerts();
                     assertNotNull(alert);
                     for (ActionType actionValue : alert.getActionValues()) {
                         assertEquals(ActionType.BREATHE, actionValue);
@@ -239,7 +239,7 @@ class Clip2DtoTest {
                 assertEquals(0.6367, xy[0], 0.01); // note: rounding errors !!
                 assertEquals(0.3503, xy[1], 0.01); // note: rounding errors !!
                 assertEquals(item.getBrightnessState(), ((HSBType) state).getBrightness());
-                Alerts alert = item.getAlert();
+                Alerts alert = item.getAlerts();
                 assertNotNull(alert);
                 for (ActionType actionValue : alert.getActionValues()) {
                     assertEquals(ActionType.BREATHE, actionValue);
@@ -298,7 +298,7 @@ class Clip2DtoTest {
                 assertEquals(QuantityType.valueOf("4000 K"), item.getColorTemperatureKelvinState());
 
                 assertEquals(UnDefType.NULL, item.getColorState());
-                Alerts alert = item.getAlert();
+                Alerts alert = item.getAlerts();
                 assertNotNull(alert);
                 for (ActionType actionValue : alert.getActionValues()) {
                     assertEquals(ActionType.BREATHE, actionValue);
