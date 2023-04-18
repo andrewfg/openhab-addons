@@ -181,6 +181,13 @@ public class Resource {
         if (Objects.isNull(this.effects) && Objects.nonNull(other.effects)) {
             this.effects = other.effects;
         }
+        // effects values
+        Effects oE = other.effects;
+        List<String> oESV = Objects.nonNull(oE) ? oE.getStatusValues() : null;
+        if (Objects.nonNull(oESV)) {
+            Effects tE = this.effects;
+            this.effects = (Objects.nonNull(tE) ? tE : new Effects()).setStatusValues(oESV);
+        }
         return this;
     }
 
@@ -195,9 +202,12 @@ public class Resource {
     public State getAlertState() {
         Alerts alerts = this.alert;
         if (Objects.nonNull(alerts)) {
-            ActionType alertType = alerts.getActionType();
-            if (Objects.nonNull(alertType)) {
-                return new StringType(alertType.name());
+            if (!alerts.getActionValues().isEmpty()) {
+                ActionType alertType = alerts.getAction();
+                if (Objects.nonNull(alertType)) {
+                    return new StringType(alertType.name());
+                }
+                return new StringType(ActionType.NO_ACTION.name());
             }
         }
         return UnDefType.NULL;
@@ -339,13 +349,7 @@ public class Resource {
 
     public State getEffectState() {
         Effects effects = this.effects;
-        if (Objects.nonNull(effects)) {
-            EffectType effectType = effects.getEffectType();
-            if (Objects.nonNull(effectType)) {
-                return new StringType(effectType.name());
-            }
-        }
-        return UnDefType.NULL;
+        return Objects.nonNull(effects) ? new StringType(effects.getStatus().name()) : UnDefType.NULL;
     }
 
     public @Nullable Boolean getEnabled() {
@@ -545,7 +549,7 @@ public class Resource {
             if (Objects.nonNull(otherAlert)) {
                 ActionType actionType = ActionType.of(((StringType) command).toString());
                 if (otherAlert.getActionValues().contains(actionType)) {
-                    this.alert = new Alerts().setActionType(actionType);
+                    this.alert = new Alerts().setAction(actionType);
                 }
             }
         }
@@ -648,8 +652,8 @@ public class Resource {
             Effects otherEffects = other.effects;
             if (Objects.nonNull(otherEffects)) {
                 EffectType effectType = EffectType.of(((StringType) command).toString());
-                if (otherEffects.getEffectValues().contains(effectType)) {
-                    this.effects = new Effects().setEffectType(effectType);
+                if (otherEffects.allows(effectType)) {
+                    this.effects = new Effects().setEffect(effectType);
                 }
             }
         }
