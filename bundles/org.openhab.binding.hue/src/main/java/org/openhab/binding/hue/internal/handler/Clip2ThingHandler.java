@@ -36,6 +36,8 @@ import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.ProductData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
+import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
+import org.openhab.binding.hue.internal.dto.clip2.enums.EffectType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ZigbeeStatus;
 import org.openhab.binding.hue.internal.exceptions.ApiException;
@@ -244,6 +246,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
         switch (channelUID.getId()) {
             case HueBindingConstants.CHANNEL_2_ALERT:
                 putResource = new Resource(lightResourceType).setAlert(command, getCachedResource(lightResourceType));
+                scheduler.schedule(() -> updateState(channelUID, new StringType(ActionType.NO_ACTION.name())), 5,
+                        TimeUnit.SECONDS);
                 break;
 
             case HueBindingConstants.CHANNEL_2_EFFECT:
@@ -621,9 +625,9 @@ public class Clip2ThingHandler extends BaseThingHandler {
     public void updateEffectChannel(Resource resource) {
         Effects effects = resource.getEffects();
         if (Objects.nonNull(effects)) {
-            List<StateOption> stateOptions = effects.getEffectValues().stream().map(entry -> {
-                String entryName = entry.toString();
-                return new StateOption(entryName, entryName);
+            List<StateOption> stateOptions = effects.getStatusValues().stream().map(entry -> {
+                String effectTypeName = EffectType.of(entry).name();
+                return new StateOption(effectTypeName, effectTypeName);
             }).collect(Collectors.toList());
             if (!stateOptions.isEmpty()) {
                 stateDescriptionProvider.setStateOptions(
