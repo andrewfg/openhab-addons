@@ -162,7 +162,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
 
     @Override
     public void dispose() {
-        logger.debug("dispose() called");
+        logger.debug("{} dispose() called", thingUID());
         disposing = true;
         ScheduledFuture<?> task = updateContributorsTask;
         if (Objects.nonNull(task)) {
@@ -234,7 +234,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
 
         Channel channel = thing.getChannel(channelUID);
         if (channel == null) {
-            logger.warn("handleCommand() channelUID:{} does not exist", channelUID);
+            logger.warn("{} handleCommand() channelUID:{} does not exist", thingUID(), channelUID);
             return;
         }
 
@@ -301,32 +301,32 @@ public class Clip2ThingHandler extends BaseThingHandler {
         }
 
         if (putResource == null) {
-            logger.warn("handleCommand() unsupported channelUID:{}, command:{}", channelUID, command);
+            logger.warn("{} handleCommand() unsupported channelUID:{}, command:{}", thingUID(), channelUID, command);
             return;
         }
 
         putResourceId = Objects.nonNull(putResourceId) ? putResourceId : commandResourceIds.get(putResource.getType());
         if (putResourceId == null) {
-            logger.warn("handleCommand() channelUID:{}, command:{}, putResourceType:{} => missing resource ID",
-                    channelUID, command, putResource.getType());
+            logger.warn("{} handleCommand() channelUID:{}, command:{}, putResourceType:{} => missing resource ID",
+                    thingUID(), channelUID, command, putResource.getType());
             return;
         }
 
         try {
             getBridgeHandler().putResource(putResource.setId(putResourceId));
         } catch (ApiException | AssetNotLoadedException e) {
-            logger.warn("handleCommand() error {}", e.getMessage(), e);
+            logger.warn("{} handleCommand() error {}", thingUID(), e.getMessage(), e);
         }
     }
 
     @Override
     public void initialize() {
-        logger.debug("initialize() called");
+        logger.debug("{} initialize() called", thingUID());
         Clip2ThingConfig config = getConfigAs(Clip2ThingConfig.class);
 
         String resourceId = config.resourceId;
         if (Objects.isNull(resourceId) || resourceId.isEmpty()) {
-            logger.debug("initialize() configuration resourceId is bad");
+            logger.debug("{} initialize() configuration resourceId is bad", thingUID());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.api2.conf-error-resource-id-bad");
             return;
@@ -373,7 +373,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 contributorsCache.put(cacheId, resource);
             }
             if (resourceConsumed) {
-                logger.debug("onResource() {} >> {} ", resource, thisResource);
+                logger.debug("{} onResource() {} >> {} ", thingUID(), resource, thisResource);
             }
         }
     }
@@ -393,7 +393,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             if (!stateOptions.isEmpty()) {
                 stateDescriptionProvider.setStateOptions(
                         new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_ALERT), stateOptions);
-                logger.debug("updateAlerts() found {} associated alerts", stateOptions.size());
+                logger.debug("{} updateAlerts() found {} associated alerts", thingUID(), stateOptions.size());
             }
         }
     }
@@ -416,7 +416,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
                             itemChannelLinkRegistry.getLinkedItems(legacyLinkedChannelUID).forEach(linkedItem -> {
                                 String item = linkedItem.getName();
                                 if (!itemChannelLinkRegistry.isLinked(item, uid)) {
-                                    logger.info("Created link between Channel:{} and Item:{}", uid, item);
+                                    logger.info("{} Created link between Channel:{} and Item:{}", thingUID(), uid,
+                                            item);
                                     itemChannelLinkRegistry.add(new ItemChannelLink(item, uid));
                                 }
                             });
@@ -435,12 +436,13 @@ public class Clip2ThingHandler extends BaseThingHandler {
      */
     private void updateChannelList() {
         if (!disposing) {
-            logger.debug("updateChannelList() supportedChannelIds.size():{}", supportedChannelIds.size());
+            logger.debug("{} updateChannelList() supportedChannelIds.size():{}", thingUID(),
+                    supportedChannelIds.size());
             if (logger.isWarnEnabled()) {
                 for (String requiredChannelId : supportedChannelIds) {
                     if (thing.getChannel(requiredChannelId) == null) {
-                        logger.warn("updateChannelList() required channel '{}' missing => please recreate thing!",
-                                new ChannelUID(thing.getUID(), requiredChannelId));
+                        logger.warn("{} updateChannelList() required channel '{}' missing => please recreate thing!",
+                                thingUID(), new ChannelUID(thing.getUID(), requiredChannelId));
                     }
                 }
             }
@@ -448,7 +450,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             for (Channel actualChannel : thing.getChannels()) {
                 ChannelUID actualChannelUID = actualChannel.getUID();
                 if (!supportedChannelIds.contains(actualChannelUID.getId())) {
-                    logger.debug("updateChannelList() unused channel '{}' removed", actualChannelUID);
+                    logger.debug("{} updateChannelList() unused channel '{}' removed", thingUID(), actualChannelUID);
                     removeChannels.add(actualChannel);
                 }
             }
@@ -465,7 +467,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @return true if the channel was found and updated.
      */
     private boolean updateChannels(Resource resource) {
-        logger.debug("updateChannels() {}", resource);
+        logger.debug("{} updateChannels() {}", thingUID(), resource);
         boolean fullUpdate = resource.hasFullState();
         switch (resource.getType()) {
             case BUTTON:
@@ -553,7 +555,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
     private void updateConnectivityState(Resource resource) {
         ZigbeeStatus zigbeeStatus = resource.getZigbeeStatus();
         if (Objects.nonNull(zigbeeStatus)) {
-            logger.debug("updateConnectivityState() thingStatus:{}, zigbeeStatus:{}", thing.getStatus(), zigbeeStatus);
+            logger.debug("{} updateConnectivityState() thingStatus:{}, zigbeeStatus:{}", thingUID(), thing.getStatus(),
+                    zigbeeStatus);
             hasConnectivityIssue = zigbeeStatus != ZigbeeStatus.CONNECTED;
             if (hasConnectivityIssue) {
                 if (thing.getStatusInfo().getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
@@ -585,7 +588,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateContributors() throws ApiException, AssetNotLoadedException {
-        logger.debug("updateContributors() called for {} contributors", contributorsCache.size());
+        logger.debug("{} updateContributors() called for {} contributors", thingUID(), contributorsCache.size());
         ResourceReference reference = new ResourceReference();
         for (Entry<String, Resource> entry : contributorsCache.entrySet()) {
             updateResource(reference.setId(entry.getKey()).setType(entry.getValue().getType()));
@@ -598,7 +601,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      */
     private void updateDependencies() {
         if (!disposing && !updateDependenciesDone) {
-            logger.debug("updateDependencies() called");
+            logger.debug("{} updateDependencies() called", thingUID());
             try {
                 updateLookups();
                 updateContributors();
@@ -609,10 +612,10 @@ public class Clip2ThingHandler extends BaseThingHandler {
                     updateStatus(ThingStatus.ONLINE);
                 }
             } catch (ApiException e) {
-                logger.debug("updateDependencies() {}", e.getMessage(), e);
+                logger.debug("{} updateDependencies() {}", thingUID(), e.getMessage(), e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             } catch (AssetNotLoadedException e) {
-                logger.debug("updateDependencies() {}", e.getMessage(), e);
+                logger.debug("{} updateDependencies() {}", thingUID(), e.getMessage(), e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.api2.conf-error-assets-not-loaded");
             }
@@ -634,7 +637,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
             if (!stateOptions.isEmpty()) {
                 stateDescriptionProvider.setStateOptions(
                         new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_EFFECT), stateOptions);
-                logger.debug("updateEffects() found {} effects", stateOptions.size());
+                logger.debug("{} updateEffects() found {} effects", thingUID(), stateOptions.size());
             }
         }
     }
@@ -644,7 +647,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      */
     private void updateLookups() {
         if (!disposing) {
-            logger.debug("updateLookups() called");
+            logger.debug("{} updateLookups() called", thingUID());
             contributorsCache.clear();
             commandResourceIds.clear();
             sceneCommandResourceIds.clear();
@@ -678,7 +681,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @param resource a Resource object containing the property data.
      */
     private void updateProperties(Resource resource) {
-        logger.debug("updateProperties() {}", resource);
+        logger.debug("{} updateProperties() {}", thingUID(), resource);
         Map<String, String> properties = new HashMap<>(thing.getProperties());
 
         // resource data
@@ -734,7 +737,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @throws AssetNotLoadedException if one of the assets is not loaded.
      */
     private void updateResource(ResourceReference reference) throws ApiException, AssetNotLoadedException {
-        logger.debug("updateResource() {}", reference);
+        logger.debug("{} updateResource() {}", thingUID(), reference);
         for (Resource resource : getBridgeHandler().getResources(reference).getResources()) {
             onResource(resource);
         }
@@ -773,6 +776,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
         temporaryAssociatedScenesList.addAll(
                 scenes.stream().filter(scene -> thisReference.equals(scene.getGroup())).collect(Collectors.toList()));
 
+        logger.debug("{} updateScenes() found {} associated scenes", thingUID(), temporaryAssociatedScenesList.size());
+
         if (!temporaryAssociatedScenesList.isEmpty()) {
             supportedChannelIds.add(HueBindingConstants.CHANNEL_SCENE);
             stateDescriptionProvider.setStateOptions(new ChannelUID(thing.getUID(), HueBindingConstants.CHANNEL_SCENE),
@@ -780,7 +785,6 @@ public class Clip2ThingHandler extends BaseThingHandler {
                         String sceneFriendlyName = scene.getName();
                         return new StateOption(sceneFriendlyName, sceneFriendlyName);
                     }).collect(Collectors.toList()));
-            logger.debug("updateScenes() found {} associated scenes", temporaryAssociatedScenesList.size());
         }
         updateScenesDone = true;
     }
@@ -795,7 +799,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @param fullUpdate if true always update the channel, otherwise only update if state is not 'UNDEF'.
      */
     private void updateState(String channelID, State state, boolean fullUpdate) {
-        logger.debug("updateState() channelID:{}, state:{}, fullUpdate:{}", channelID, state, fullUpdate);
+        logger.debug("{} updateState() channelID:{}, state:{}, fullUpdate:{}", thingUID(), channelID, state,
+                fullUpdate);
         boolean isDefined = state != UnDefType.NULL;
         if (fullUpdate || isDefined) {
             updateState(channelID, state);
@@ -811,7 +816,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
      */
     private void updateThingFromLegacy() {
         if (isInitialized()) {
-            logger.warn("updateThingFromLegacy() was called after handler was initialized.");
+            logger.warn("{} updateThingFromLegacy() was called after handler was initialized.", thingUID());
             return;
         }
         Map<String, String> properties = thing.getProperties();
@@ -841,5 +846,9 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 updateThing(editBuilder.withProperties(newProperties).build());
             }
         }
+    }
+
+    private String thingUID() {
+        return getThing().getUID().toString();
     }
 }
