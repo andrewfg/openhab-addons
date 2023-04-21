@@ -168,8 +168,8 @@ public class Clip2ThingHandler extends BaseThingHandler {
      * @param channelId the channel ID to add.
      */
     private void addSupportedChannel(String channelId) {
-        synchronized (supportedChannelIdSet) {
-            if (!disposing && !updateDependenciesDone) {
+        if (!disposing && !updateDependenciesDone) {
+            synchronized (supportedChannelIdSet) {
                 logger.debug("{} -> addSupportedChannel() '{}' added to supported channel set", resourceId, channelId);
                 supportedChannelIdSet.add(channelId);
             }
@@ -816,7 +816,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                     channelID, state, fullUpdate, isDefined);
             updateState(channelID, state);
         }
-        if (fullUpdate && isDefined && this.updateDependenciesDone) {
+        if (fullUpdate && isDefined) {
             addSupportedChannel(channelID);
         }
     }
