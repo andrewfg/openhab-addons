@@ -22,8 +22,6 @@ import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.ColorUtil;
-import org.openhab.binding.hue.internal.ColorUtil.Gamut;
 import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.EffectType;
 import org.openhab.binding.hue.internal.dto.clip2.enums.RecallAction;
@@ -41,6 +39,8 @@ import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
+import org.openhab.core.util.ColorUtil;
+import org.openhab.core.util.ColorUtil.Gamut;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -716,17 +716,23 @@ public class Resource {
         return this;
     }
 
-    public void setMirekSchema(@Nullable MirekSchema schema) {
+    public Resource setMirekSchema(@Nullable MirekSchema schema) {
         ColorTemperature2 colorTemperature = this.colorTemperature;
         if (Objects.nonNull(colorTemperature)) {
             colorTemperature.setMirekSchema(schema);
         }
+        return this;
     }
 
-    public Resource setRecall() {
-        Recall recall = new Recall();
-        recall.setAction(RecallAction.ACTIVE);
-        this.recall = recall;
+    public Resource setRecallAction(RecallAction recallAction) {
+        Recall recall = this.recall;
+        this.recall = ((Objects.nonNull(recall) ? recall : new Recall())).setAction(recallAction);
+        return this;
+    }
+
+    public Resource setRecallDuration(Duration recallDuration) {
+        Recall recall = this.recall;
+        this.recall = ((Objects.nonNull(recall) ? recall : new Recall())).setDuration(recallDuration);
         return this;
     }
 
