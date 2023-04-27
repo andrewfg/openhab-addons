@@ -18,6 +18,9 @@ import org.openhab.binding.hue.internal.handler.Clip2ThingHandler;
 import org.openhab.core.automation.annotation.ActionInput;
 import org.openhab.core.automation.annotation.RuleAction;
 import org.openhab.core.library.types.DecimalType;
+import org.openhab.core.library.types.QuantityType;
+import org.openhab.core.library.unit.MetricPrefix;
+import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.binding.ThingActions;
 import org.openhab.core.thing.binding.ThingActionsScope;
 import org.openhab.core.thing.binding.ThingHandler;
@@ -26,8 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implementation of the {@link ThingActions} interface used for sending 'dynamics' commands to Hue API v2 light
- * devices, scenes, rooms or zones.
+ * Implementation of the {@link ThingActions} interface used for sending 'dynamics' commands to Hue API v2 devices,
+ * rooms or zones.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -67,7 +70,8 @@ public class DynamicsActions implements ThingActions {
             logger.debug("Duration is null, zero or negative.");
             return;
         }
-        handler.handleDynamicsCommand(channelId, command, durationMSec);
+        handler.handleDynamicsCommand(channelId, command,
+                new QuantityType<>(durationMSec.longValue(), MetricPrefix.MILLI(Units.SECOND)));
         logger.debug("Dynamic command '{}' sent to channelId '{}' with duration {}mSec.", command, channelId,
                 durationMSec);
     }
