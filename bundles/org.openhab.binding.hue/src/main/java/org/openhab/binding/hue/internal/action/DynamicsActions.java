@@ -38,18 +38,18 @@ import org.slf4j.LoggerFactory;
 @NonNullByDefault
 public class DynamicsActions implements ThingActions {
 
+    private final Logger logger = LoggerFactory.getLogger(DynamicsActions.class);
+
+    private @Nullable Clip2ThingHandler handler;
+
     public static void dynamicCommand(ThingActions actions, @Nullable String channelId, @Nullable Command command,
             @Nullable DecimalType durationMSec) {
         ((DynamicsActions) actions).dynamicCommand(channelId, command, durationMSec);
     }
 
-    private final Logger logger = LoggerFactory.getLogger(DynamicsActions.class);
-
-    private @Nullable Clip2ThingHandler handler;
-
     @RuleAction(label = "@text/dynamics.action.label", description = "@text/dynamics.action.description")
     public void dynamicCommand(
-            @ActionInput(name = "channelId", label = "@text/dynamics.channel-id.label", description = "@text/dynamics.channel-id.description") @Nullable String channelId,
+            @ActionInput(name = "channelId", label = "@text/dynamics.channel.label", description = "@text/dynamics.channel.description") @Nullable String channelId,
             @ActionInput(name = "command", label = "@text/dynamics.command.label", description = "@text/dynamics.command.description") @Nullable Command command,
             @ActionInput(name = "durationMSec", label = "@text/dynamics.duration.label", description = "@text/dynamics.duration.description") @Nullable DecimalType durationMSec) {
         //

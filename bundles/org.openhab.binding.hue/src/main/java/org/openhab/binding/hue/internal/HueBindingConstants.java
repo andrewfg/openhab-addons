@@ -120,7 +120,9 @@ public class HueBindingConstants {
 
     public static final String NORMALIZE_ID_REGEX = "[^a-zA-Z0-9_]";
 
-    //
+    public static final String DISCOVERY_LABEL_PATTERN = "Philips Hue (%s)";
+
+    // I18N string references
     public static final String TEXT_OFFLINE_COMMUNICATION_ERROR = "@text/offline.communication-error";
     public static final String TEXT_OFFLINE_CONFIGURATION_ERROR_INVALID_SSL_CERIFICATE = "@text/offline.conf-error-invalid-ssl-certificate";
 
@@ -179,5 +181,5 @@ public class HueBindingConstants {
             Map.entry(CHANNEL_BATTERY_LOW, CHANNEL_2_BATTERY_LOW), //
             Map.entry(CHANNEL_LAST_UPDATED, CHANNEL_2_LAST_UPDATED));
 
-    public static final String ALL_LIGHTS_KEY = "discovery.group.all_lights.label";
+    public static final String ALL_LIGHTS_KEY = "discovery.group.all-lights.label";
 }
