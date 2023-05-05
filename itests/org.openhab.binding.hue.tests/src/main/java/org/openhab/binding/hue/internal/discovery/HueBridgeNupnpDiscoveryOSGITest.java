@@ -16,7 +16,7 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.openhab.binding.hue.internal.HueBindingConstants.THING_TYPE_BRIDGE;
+import static org.openhab.binding.hue.internal.HueBindingConstants.*;
 import static org.openhab.core.config.discovery.inbox.InboxPredicates.forThingTypeUID;
 
 import java.io.IOException;
@@ -64,7 +64,7 @@ public class HueBridgeNupnpDiscoveryOSGITest extends JavaOSGiTest {
 
     private void checkDiscoveryResult(DiscoveryResult result, String expIp, String expSn) {
         assertThat(result.getBridgeUID(), nullValue());
-        assertThat(result.getLabel(), is(String.format(HueBridgeNupnpDiscovery.LABEL_PATTERN, expIp)));
+        assertThat(result.getLabel(), is(String.format(DISCOVERY_LABEL_PATTERN, expIp)));
         assertThat(result.getProperties().get("ipAddress"), is(expIp));
         assertThat(result.getProperties().get("serialNumber"), is(expSn));
     }

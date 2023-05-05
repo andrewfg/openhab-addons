@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.hue.internal.console;
 
+import static org.openhab.binding.hue.internal.HueBindingConstants.*;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +25,6 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.HueBindingConstants;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
 import org.openhab.binding.hue.internal.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
@@ -107,13 +108,10 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
             }
             if (thing == null) {
                 console.println("Bad thing id '" + args[0] + "'");
-                printUsage(console);
             } else if (thingHandler == null) {
                 console.println("No handler initialized for the thingUID '" + args[0] + "'");
-                printUsage(console);
             } else if (bridgeHandler == null && groupHandler == null && clip2BridgeHandler == null) {
                 console.println("'" + args[0] + "' is neither a Hue BridgeUID nor a Hue groupThingUID");
-                printUsage(console);
             } else {
                 if (bridgeHandler != null) {
                     switch (args[1]) {
@@ -189,8 +187,7 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
 
                                         // special zone 'all lights'
                                         if (resource.getType() == ResourceType.BRIDGE_HOME) {
-                                            thingLabel = clip2BridgeHandler
-                                                    .getLocalizedText(HueBindingConstants.ALL_LIGHTS_KEY);
+                                            thingLabel = clip2BridgeHandler.getLocalizedText(ALL_LIGHTS_KEY);
                                             comment = "Zone";
                                             thingType = comment.toLowerCase();
                                         }
@@ -213,9 +210,9 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
                             return;
                     }
                 }
-                printUsage(console);
             }
         }
+        printUsage(console);
     }
 
     @Override
@@ -236,18 +233,18 @@ public class HueCommandExtension extends AbstractConsoleCommandExtension impleme
     public boolean complete(String[] args, int cursorArgumentIndex, int cursorPosition, List<String> candidates) {
         if (cursorArgumentIndex <= 0) {
             return new StringsCompleter(thingRegistry.getAll().stream()
-                    .filter(t -> HueBindingConstants.THING_TYPE_BRIDGE.equals(t.getThingTypeUID())
-                            || HueBindingConstants.THING_TYPE_BRIDGE_API2.equals(t.getThingTypeUID())
-                            || HueBindingConstants.THING_TYPE_GROUP.equals(t.getThingTypeUID()))
+                    .filter(t -> THING_TYPE_BRIDGE.equals(t.getThingTypeUID())
+                            || THING_TYPE_BRIDGE_API2.equals(t.getThingTypeUID())
+                            || THING_TYPE_GROUP.equals(t.getThingTypeUID()))
                     .map(t -> t.getUID().getAsString()).collect(Collectors.toList()), true).complete(args,
                             cursorArgumentIndex, cursorPosition, candidates);
         } else if (cursorArgumentIndex == 1) {
             Thing thing = getThing(args[0]);
-            if (thing != null && (HueBindingConstants.THING_TYPE_BRIDGE.equals(thing.getThingTypeUID()))) {
+            if (thing != null && (THING_TYPE_BRIDGE.equals(thing.getThingTypeUID()))) {
                 return SUBCMD_COMPLETER.complete(args, cursorArgumentIndex, cursorPosition, candidates);
-            } else if (thing != null && (HueBindingConstants.THING_TYPE_BRIDGE_API2.equals(thing.getThingTypeUID()))) {
+            } else if (thing != null && (THING_TYPE_BRIDGE_API2.equals(thing.getThingTypeUID()))) {
                 return SUBCMD_COMPLETER_2.complete(args, cursorArgumentIndex, cursorPosition, candidates);
-            } else if (thing != null && HueBindingConstants.THING_TYPE_GROUP.equals(thing.getThingTypeUID())) {
+            } else if (thing != null && THING_TYPE_GROUP.equals(thing.getThingTypeUID())) {
                 return SCENES_COMPLETER.complete(args, cursorArgumentIndex, cursorPosition, candidates);
             }
         }
