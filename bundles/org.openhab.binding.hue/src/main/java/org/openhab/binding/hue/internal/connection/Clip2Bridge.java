@@ -21,7 +21,6 @@ import java.io.Reader;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.core.MediaType;
@@ -402,7 +402,8 @@ public class Clip2Bridge implements Closeable {
 
     public static final int TIMEOUT_SECONDS = 10;
     private static final int CHECK_ALIVE_SECONDS = 300;
-    private static final int REQUEST_INTERVAL_MILLISECS = 100;
+    private static final int SLEEP_DURATION_MILLISECS = 50;
+    private static final int MAX_SESSION_COUNT = 4;
 
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
@@ -444,10 +445,10 @@ public class Clip2Bridge implements Closeable {
     private final String applicationKey;
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
+    private final AtomicInteger activeSessions = new AtomicInteger();
 
     private boolean restarting = false;
     private State onlineState = State.CLOSED;
-    private Instant lastRequestTime = Instant.MIN;
     private Instant sessionExpireTime = Instant.MAX;
     private @Nullable Session http2Session;
     private @Nullable ScheduledFuture<?> checkAliveTask;
@@ -652,7 +653,7 @@ public class Clip2Bridge implements Closeable {
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or closed");
         }
-        throttle();
+        sessionAcquire();
         String url = getUrl(reference);
         HeadersFrame headers = prepareHeaders(url, MediaType.APPLICATION_JSON);
         logger.trace("GET {} HTTP/2", url);
@@ -686,6 +687,9 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("Error sending request", e);
         } catch (InterruptedException | TimeoutException e) {
             throw new ApiException("Error sending request", e);
+
+        } finally {
+            sessionRelease();
         }
     }
 
@@ -797,7 +801,6 @@ public class Clip2Bridge implements Closeable {
      * @throws HttpUnauthorizedException if the application key is not authenticated.
      */
     private void openEventStream() throws ApiException, HttpUnauthorizedException {
-        throttle();
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or in an illegal state");
@@ -924,7 +927,7 @@ public class Clip2Bridge implements Closeable {
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or closed");
         }
-        throttle();
+        sessionAcquire();
         String requestJson = jsonParser.toJson(resource);
         ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
         String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
@@ -956,6 +959,8 @@ public class Clip2Bridge implements Closeable {
             }
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new ApiException("Error sending request", e);
+        } finally {
+            sessionRelease();
         }
     }
 
@@ -1009,6 +1014,29 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
+     * Hue Bridges get confused if they receive too many HTTP requests in a short period of time (e.g. on start up), so
+     * this method throttles the requests so that no more than MAX_SESSION_COUNT calls are concurrently active.
+     * Increments the activeSessions count.
+     */
+    private synchronized void sessionAcquire() {
+        while (activeSessions.get() >= MAX_SESSION_COUNT) {
+            try {
+                Thread.sleep(SLEEP_DURATION_MILLISECS);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        activeSessions.getAndIncrement();
+    }
+
+    /**
+     * Decrements the activeSessions count.
+     */
+    private void sessionRelease() {
+        activeSessions.getAndDecrement();
+    }
+
+    /**
      * Sleep the caller during any period when the connection is marked as restarting.
      * Force time out after 10 seconds.
      */
@@ -1042,21 +1070,5 @@ public class Clip2Bridge implements Closeable {
             close();
             throw e;
         }
-    }
-
-    /**
-     * Hue Bridges get confused if they receive too many HTTP requests in a short period of time (e.g. on start up), so
-     * this method throttles the requests so that the minimum interval is REQUEST_INTERVAL_MILLISECS.
-     */
-    private synchronized void throttle() {
-        try {
-            long delay = Duration.between(Instant.now(), lastRequestTime).toMillis() + REQUEST_INTERVAL_MILLISECS;
-            if (delay > 0) {
-                Thread.sleep(delay);
-            }
-        } catch (InterruptedException | ArithmeticException e) {
-            // fall through
-        }
-        lastRequestTime = Instant.now();
     }
 }
