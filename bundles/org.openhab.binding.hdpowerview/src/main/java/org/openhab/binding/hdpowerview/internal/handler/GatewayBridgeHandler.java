@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.client.ClientBuilder;
 
@@ -37,9 +38,11 @@ import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelGroupUID;
 import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
+import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.type.AutoUpdatePolicy;
 import org.openhab.core.thing.type.ChannelTypeUID;
@@ -84,6 +87,13 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
     }
 
     @Override
+    public void childHandlerInitialized(ThingHandler childHandler, Thing childThing) {
+        if (childHandler instanceof ShadeThingHandler) {
+            refreshShade(((ShadeThingHandler) childHandler).getShadeId());
+        }
+    }
+
+    @Override
     public void dispose() {
         isDisposing = true;
         ScheduledFuture<?> future = this.refreshTask;
@@ -94,11 +104,15 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
 
         GatewayWebTargets webTargets = this.webTargets;
         if (webTargets != null) {
-            try {
-                webTargets.close();
-            } catch (IOException e) {
-            }
+            scheduler.submit(() -> disposeWebTargets(webTargets));
             this.webTargets = null;
+        }
+    }
+
+    private void disposeWebTargets(GatewayWebTargets webTargets) {
+        try {
+            webTargets.close();
+        } catch (IOException e) {
         }
     }
 
@@ -109,15 +123,23 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
      * have been lost.
      */
     private void doRefresh() {
+        logger.debug("doRefresh()");
         try {
-            getWebTargets().gatewayRegister();
-            getWebTargets().sseOpen();
-            refreshProperties();
-            refreshShades();
-            refreshScenes();
+            if (getWebTargets().gatewayRegister()) {
+                updateStatus(ThingStatus.ONLINE);
+                getWebTargets().sseOpen();
+                refreshProperties();
+                refreshShades();
+                refreshScenes();
+            }
         } catch (IllegalStateException | HubProcessingException e) {
-            logger.warn("doRefresh() exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            logger.debug("doRefresh() exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage(), e);
         }
+    }
+
+    public ScheduledExecutorService getScheduler() {
+        return scheduler;
     }
 
     /**
@@ -127,17 +149,9 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
      * @throws IllegalStateException if the bridge is not properly initialized.
      */
     private List<ShadeThingHandler> getShadeThingHandlers() throws IllegalStateException {
-        Bridge bridge = getBridge();
-        if (bridge != null) {
-            List<ShadeThingHandler> result = new ArrayList<>();
-            bridge.getThings().stream().map(thing -> thing.getHandler()).forEach(handler -> {
-                if (handler instanceof ShadeThingHandler) {
-                    result.add((ShadeThingHandler) handler);
-                }
-            });
-            return result;
-        }
-        throw new IllegalStateException("Bridge not initialized.");
+        logger.debug("getShadeThingHandlers()");
+        return getThing().getThings().stream().map(Thing::getHandler).filter(ShadeThingHandler.class::isInstance)
+                .map(ShadeThingHandler.class::cast).collect(Collectors.toList());
     }
 
     /**
@@ -204,10 +218,7 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
             refreshTask.cancel(false);
         }
         this.refreshTask = scheduler.scheduleWithFixedDelay(() -> doRefresh(), 0, config.hardRefresh, TimeUnit.MINUTES);
-
         updateStatus(ThingStatus.UNKNOWN);
-
-        scheduler.submit(() -> doRefresh());
     }
 
     /**
@@ -225,18 +236,22 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
      * @param shade the one that changed.
      */
     public void onShadeEvent(Shade shade) {
+        if (isDisposing) {
+            return;
+        }
         try {
             for (ShadeThingHandler handler : getShadeThingHandlers()) {
-                if (isDisposing || handler.notify(shade)) {
+                if (handler.notify(shade)) {
                     break;
                 }
             }
         } catch (IllegalStateException e) {
-            logger.warn("onShadeEvent() exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
+            logger.warn("onShadeEvent() exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage(), e);
         }
     }
 
     private void refreshProperties() throws HubProcessingException, IllegalStateException {
+        logger.debug("refreshProperties()");
         if (propertiesLoaded || isDisposing) {
             return;
         }
@@ -251,10 +266,11 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
      * @throws IllegalStateException if this handler is in an illegal state.
      */
     private void refreshScenes() throws HubProcessingException, IllegalStateException {
+        logger.debug("refreshScenes()");
         if (scenesLoaded || isDisposing) {
             return;
         }
-        ChannelTypeUID typeUID = new ChannelTypeUID(channelTypeId);
+        ChannelTypeUID typeUID = new ChannelTypeUID(HDPowerViewBindingConstants.BINDING_ID, channelTypeId);
         ChannelGroupUID groupUID = new ChannelGroupUID(thing.getUID(), channelGroupId);
         List<Channel> channels = new ArrayList<>();
         for (Scene scene : getWebTargets().getScenes()) {
@@ -269,23 +285,41 @@ public class GatewayBridgeHandler extends BaseBridgeHandler {
     }
 
     /**
+     * Refresh a single shade.
+     *
+     * @param shadeId the id of the shade to be refreshed.
+     */
+    private void refreshShade(int shadeId) {
+        try {
+            Shade shade = getWebTargets().getShade(shadeId);
+            for (ShadeThingHandler handler : getShadeThingHandlers()) {
+                if (handler.notify(shade)) {
+                    break;
+                }
+            }
+        } catch (HubProcessingException | IllegalStateException e) {
+            logger.warn("refreshShade() exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage(), e);
+        }
+    }
+
+    /**
      * Get the full list of shades data and notify each of the thing handlers.
      *
      * @throws HubProcessingException if the web target connection caused an error.
      * @throws IllegalStateException if this handler is in an illegal state.
      */
     private void refreshShades() throws HubProcessingException, IllegalStateException {
+        logger.debug("refreshShades()");
+        if (isDisposing) {
+            return;
+        }
         List<ShadeThingHandler> handlers = getShadeThingHandlers();
         for (Shade shade : getWebTargets().getShades()) {
             for (ShadeThingHandler handler : handlers) {
-                if (isDisposing || handler.notify(shade)) {
+                if (handler.notify(shade)) {
                     break;
                 }
             }
         }
-    }
-
-    public ScheduledExecutorService getScheduler() {
-        return scheduler;
     }
 }

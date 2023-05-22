@@ -44,7 +44,7 @@ public class ShadeDiscoveryService extends AbstractDiscoveryService {
     private @Nullable ScheduledFuture<?> backgroundFuture;
 
     public ShadeDiscoveryService(GatewayBridgeHandler hub) {
-        super(Collections.singleton(HDPowerViewBindingConstants.THING_TYPE_SHADE3), 600, true);
+        super(Collections.singleton(HDPowerViewBindingConstants.THING_TYPE_SHADE3), 60, true);
         this.hub = hub;
         this.scanner = createScanner();
     }
@@ -75,11 +75,13 @@ public class ShadeDiscoveryService extends AbstractDiscoveryService {
 
     private Runnable createScanner() {
         return () -> {
-            GatewayWebTargets webTargets = hub.getWebTargets();
             try {
+                GatewayWebTargets webTargets = hub.getWebTargets();
                 discoverShades(webTargets);
             } catch (HubProcessingException e) {
                 logger.warn("Unexpected exception:{}, message:{}", e.getClass().getSimpleName(), e.getMessage());
+            } catch (IllegalStateException e) {
+                // ignore
             }
             stopScan();
         };

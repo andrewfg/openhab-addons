@@ -22,6 +22,8 @@ import org.openhab.binding.hdpowerview.internal.dto.Firmware;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
+import org.openhab.core.library.types.QuantityType;
+import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 
@@ -32,12 +34,12 @@ import org.openhab.core.types.UnDefType;
  */
 @NonNullByDefault
 public class Shade {
-    private int id;
+    private @Nullable Integer id;
     private @Nullable Integer type;
     private @Nullable String name;
-    private @Nullable String ptName;
+    private @Nullable @SuppressWarnings("unused") String ptName;
     private @Nullable Integer capabilities;
-    private @Nullable String powerType; // TODO unclear if this is String or Integer
+    private @Nullable Integer powerType;
     private @Nullable Integer batteryStatus;
     private @Nullable Integer signalStrength;
     private @Nullable String bleName;
@@ -49,7 +51,7 @@ public class Shade {
     public State getBatteryLevel() {
         Integer batteryStatus = this.batteryStatus;
         return batteryStatus == null ? UnDefType.UNDEF
-                : new PercentType(Math.max(0, Math.min(100, (100 * batteryStatus) / 3)));
+                : new DecimalType(Math.max(0, Math.min(100, (100 * batteryStatus) / 3)));
     }
 
     public @Nullable String getBleName() {
@@ -72,7 +74,8 @@ public class Shade {
     }
 
     public int getId() {
-        return id;
+        Integer id = this.id;
+        return id != null ? id.intValue() : 0;
     }
 
     public State getLowBattery() {
@@ -81,8 +84,7 @@ public class Shade {
     }
 
     public String getName() {
-        return String.join(" ", new String(Base64.getDecoder().decode(name), StandardCharsets.UTF_8), ptName)
-                .replaceAll("\n", "").replaceAll("\r", "");
+        return new String(Base64.getDecoder().decode(name), StandardCharsets.UTF_8);
     }
 
     public State getPosition(CoordinateSystem posKindCoords) {
@@ -90,8 +92,9 @@ public class Shade {
         return positions == null ? UnDefType.UNDEF : positions.getState(posKindCoords);
     }
 
-    public @Nullable String getPowerType() {
-        return powerType;
+    public PowerType getPowerType() {
+        Integer powerType = this.powerType;
+        return PowerType.values()[powerType != null ? powerType.intValue() : 0];
     }
 
     public @Nullable ShadePosition getShadePositions() {
@@ -100,7 +103,7 @@ public class Shade {
 
     public State getSignalStrength() {
         Integer signalStrength = this.signalStrength;
-        return signalStrength == null ? UnDefType.UNDEF : new DecimalType(signalStrength);
+        return signalStrength != null ? new QuantityType<>(signalStrength, Units.DECIBEL_MILLIWATTS) : UnDefType.UNDEF;
     }
 
     public @Nullable Integer getType() {
@@ -117,8 +120,7 @@ public class Shade {
     }
 
     public boolean isMainsPowered() {
-        // check powerType and return true or false
-        return false;
+        return getPowerType() == PowerType.HARDWIRED;
     }
 
     public Shade setCapabilities(int capabilities) {
@@ -136,7 +138,7 @@ public class Shade {
         return this;
     }
 
-    public Shade setPosition(CoordinateSystem coordinates, int percent) {
+    public Shade setPosition(CoordinateSystem coordinates, PercentType percent) {
         ShadePosition positions = this.positions;
         if (positions == null) {
             positions = new ShadePosition();

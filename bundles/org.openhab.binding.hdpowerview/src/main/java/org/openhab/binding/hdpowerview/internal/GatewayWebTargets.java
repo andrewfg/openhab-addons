@@ -14,8 +14,6 @@ package org.openhab.binding.hdpowerview.internal;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +55,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
-import com.google.gson.reflect.TypeToken;
 
 /**
  * JAX-RS targets for communicating with an HD PowerView Generation 3 Gateway.
@@ -69,12 +66,6 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
 
     private static final String IDS = "ids";
     private static final int SLEEP_SECONDS = 360;
-
-    // @formatter:off
-    public static final Type LIST_SHADES = new TypeToken<ArrayList<Shade>>() {}.getType();
-    public static final Type LIST_SCENES = new TypeToken<ArrayList<Scene>>() {}.getType();
-    // @formatter:on
-
     private static final Set<Integer> HTTP_OK_CODES = Set.of(HttpStatus.OK_200, HttpStatus.NO_CONTENT_204);
 
     private final Logger logger = LoggerFactory.getLogger(GatewayWebTargets.class);
@@ -82,8 +73,9 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
     private final String scenes;
     private final String sceneActivate;
     private final String shadeMotion;
-    private final String shadeStop;
     private final String shadePositions;
+    private final String shadeSingle;
+    private final String shadeStop;
     private final String info;
     private final String register;
     private final String shadeEvents;
@@ -111,27 +103,25 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
      */
     public GatewayWebTargets(GatewayBridgeHandler hubHandler, HttpClient httpClient, ClientBuilder clientBuilder,
             SseEventSourceFactory eventSourceFactory, String ipAddress) {
-        String base = "http://" + ipAddress + "/";
-        String home = base + "home/";
-
-        hostName = ipAddress;
-
-        shades = home + "shades";
-        scenes = home + "scenes";
-        sceneActivate = home + "scenes/%d/activate";
-        shadeMotion = home + "shades/%d/motion";
-        shadeStop = home + "shades/stop";
-        shadePositions = home + "shades/positions";
-        shadeEvents = home + "shades/events";
-        sceneEvents = home + "scenes/events";
-        register = home + "integration/openhab.org";
-
-        info = base + "gateway/info";
-
+        this.hostName = ipAddress;
         this.httpClient = httpClient;
         this.clientBuilder = clientBuilder;
         this.eventSourceFactory = eventSourceFactory;
         this.hubHandler = hubHandler;
+
+        String base = "http://" + ipAddress + "/";
+        String home = base + "home/";
+        shades = home + "shades";
+        scenes = home + "scenes";
+        sceneActivate = home + "scenes/%d/activate";
+        shadeMotion = home + "shades/%d/motion";
+        shadePositions = home + "shades/positions";
+        shadeSingle = home + "shades/%d";
+        shadeStop = home + "shades/stop";
+        shadeEvents = home + "shades/events?sse=true";
+        sceneEvents = home + "scenes/events?sse=true";
+        register = home + "integration/openhab.org";
+        info = base + "gateway/info";
     }
 
     /**
@@ -166,11 +156,12 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
      *
      * @throws HubProcessingException if any error occurs.
      */
-    public void gatewayRegister() throws HubProcessingException {
+    public boolean gatewayRegister() throws HubProcessingException {
         if (!isRegistered) {
             invoke(HttpMethod.PUT, register, null, null);
             isRegistered = true;
         }
+        return isRegistered;
     }
 
     /**
@@ -203,11 +194,9 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
     public List<Scene> getScenes() throws HubProcessingException {
         String json = invoke(HttpMethod.GET, scenes, null, null);
         try {
-            List<Scene> result = jsonParser.fromJson(json, LIST_SCENES);
-            if (result == null) {
-                throw new HubProcessingException("getScenes() missing response");
-            }
-            return result;
+            return List.of(jsonParser.fromJson(json, Scene[].class));
+        } catch (NullPointerException e) {
+            throw new HubProcessingException("getScenes() missing response");
         } catch (JsonParseException e) {
             throw new HubProcessingException("getScenes() JsonParseException");
         }
@@ -221,7 +210,7 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
      * @throws HubProcessingException if any error occurs.
      */
     public Shade getShade(int shadeId) throws HubProcessingException {
-        String json = invoke(HttpMethod.GET, shades + Integer.toString(shadeId), null, null);
+        String json = invoke(HttpMethod.GET, String.format(shadeSingle, shadeId), null, null);
         try {
             Shade result = jsonParser.fromJson(json, Shade.class);
             if (result == null) {
@@ -242,11 +231,9 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
     public List<Shade> getShades() throws HubProcessingException {
         String json = invoke(HttpMethod.GET, shades, null, null);
         try {
-            List<Shade> result = jsonParser.fromJson(json, LIST_SHADES);
-            if (result == null) {
-                throw new HubProcessingException("getShades() missing response");
-            }
-            return result;
+            return List.of(jsonParser.fromJson(json, Shade[].class));
+        } catch (NullPointerException e) {
+            throw new HubProcessingException("getScenes() missing response");
         } catch (JsonParseException e) {
             throw new HubProcessingException("getShades() JsonParseException");
         }
@@ -318,15 +305,24 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
     }
 
     /**
-     * Issue a ccommand to move a shade.
+     * Issue a command to move a shade.
      *
      * @param shadeId the shade to be moved.
-     * @param position the new position.
+     * @param shade DTO with the new position.
      * @throws HubProcessingException if any error occurs.
      */
-    public void moveShade(int shadeId, ShadePosition position) throws HubProcessingException {
-        invoke(HttpMethod.PUT, shadePositions, Query.of(IDS, Integer.valueOf(shadeId).toString()),
-                jsonParser.toJson(position));
+    public void moveShade(int shadeId, Shade shade) throws HubProcessingException {
+        invoke(HttpMethod.PUT, shadePositions, Query.of(IDS, Integer.toString(shadeId)), jsonParser.toJson(shade));
+    }
+
+    /**
+     * Called when the SSE event channel has not received any events for a long time. This could mean that the event
+     * source socket has dropped. So restart the SSE connection.
+     */
+    public void onSseQuiet() {
+        if (!closing) {
+            sseReOpen();
+        }
     }
 
     /**
@@ -409,16 +405,6 @@ public class GatewayWebTargets implements Closeable, HostnameVerifier {
             ShadePosition positions = shadeEvent.getCurrentPositions();
             hubHandler
                     .onShadeEvent(new Shade().setId(shadeEvent.getId()).setShadePosition(positions).setPartialState());
-        }
-    }
-
-    /**
-     * Called when the SSE event channel has not received any events for a long time. This could mean that the event
-     * source socket has dropped. So restart the SSE connection.
-     */
-    public void onSseQuiet() {
-        if (!closing) {
-            sseReOpen();
         }
     }
 

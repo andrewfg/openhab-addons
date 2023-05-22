@@ -9,7 +9,7 @@
 			<bridge-type-ref id="hub"/>
 		</supported-bridge-type-refs>
 		<label>PowerView Shade</label>
-		<description>Hunter Douglas (Luxaflex) PowerView Shade</description>
+		<description>Hunter Douglas (Luxaflex) PowerView Gen 1/2 Shade</description>
 
 		<channels>
 			<channel id="position" typeId="shade-position"/>
@@ -48,7 +48,7 @@
 			<bridge-type-ref id="gateway"/>
 		</supported-bridge-type-refs>
 		<label>PowerView Shade</label>
-		<description>Hunter Douglas (Luxaflex) PowerView Shade</description>
+		<description>Hunter Douglas (Luxaflex) PowerView Gen3 Shade</description>
 
 		<channels>
 			<channel id="position" typeId="shade-position"/>
@@ -57,10 +57,10 @@
 				<description>The secondary vertical position (on top-down/bottom-up shades)</description>
 			</channel>
 			<channel id="vane" typeId="shade-vane"/>
-			<channel id="command" typeId="shade-command"/>
+			<channel id="command" typeId="shade3-command"/>
 			<channel id="lowBattery" typeId="system.low-battery"/>
 			<channel id="batteryLevel" typeId="system.battery-level"/>
-			<channel id="signalStrength" typeId="system.signal-strength"/>
+			<channel id="signalStrength" typeId="ble-signal-strength"/>
 		</channels>
 
 		<properties>
@@ -70,7 +70,7 @@
 
 		<representation-property>id</representation-property>
 
-		<config-description-ref uri="thing-type:hdpowerview:shade"/>
+		<config-description-ref uri="thing-type:hdpowerview:shade3"/>
 	</thing-type>
 
 </thing:thing-descriptions>
