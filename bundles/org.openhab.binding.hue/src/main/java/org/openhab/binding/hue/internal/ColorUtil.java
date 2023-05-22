@@ -485,4 +485,23 @@ public class ColorUtil {
         return percent.toBigDecimal().multiply(BigDecimal.valueOf(255))
                 .divide(BIG_DECIMAL_HUNDRED, 0, RoundingMode.HALF_UP).intValue();
     }
+
+    /**
+     * Helper method for checking if expected and actual HSBType color parameters lie within a given percentage of each
+     * other. This method is required in order to eliminate integer rounding artifacts in JUnit tests when comparing HSB
+     * values. Asserts that the color parameters of expected and actual are within delta percent of each other.
+     *
+     * @param expected an HSBType containing the expected colour.
+     * @param actual an HSBType containing the actual colour.
+     * @param delta the maximum allowed percentage difference between the two (0..99 percent).
+     */
+    public static boolean closeTo(HSBType expected, HSBType actual, double delta) {
+        if (delta <= 0f || delta > 99f) {
+            throw new IllegalArgumentException("'delta' out of bounds");
+        }
+        double[] exp = ColorUtil.hsbToXY(expected);
+        double[] act = ColorUtil.hsbToXY(actual);
+        double max = delta / 100.0f;
+        return (Math.abs(exp[0] - act[0]) < max) && (Math.abs(exp[1] - act[1]) < max);
+    }
 }

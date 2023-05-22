@@ -19,6 +19,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -27,6 +28,7 @@ import org.openhab.binding.hue.internal.ColorUtil;
 import org.openhab.binding.hue.internal.dto.clip2.ActionEntry;
 import org.openhab.binding.hue.internal.dto.clip2.Alerts;
 import org.openhab.binding.hue.internal.dto.clip2.Button;
+import org.openhab.binding.hue.internal.dto.clip2.Dimming;
 import org.openhab.binding.hue.internal.dto.clip2.Event;
 import org.openhab.binding.hue.internal.dto.clip2.LightLevel;
 import org.openhab.binding.hue.internal.dto.clip2.MetaData;
@@ -73,6 +75,7 @@ import com.google.gson.JsonSyntaxException;
 class Clip2DtoTest {
 
     private static final Gson GSON = new Gson();
+    private static final Double MINIMUM_DIMMING_LEVEL = Double.valueOf(12.34f);
 
     /**
      * Load the test JSON payload string from a file
@@ -90,26 +93,6 @@ class Clip2DtoTest {
             fail(e.getMessage());
         }
         return "";
-    }
-
-    /**
-     * Helper method for checking if expected and actual HSBType color parameters lie within a given percentage of each
-     * other. This method is required in order to eliminate integer rounding artifacts in JUnit tests when comparing HSB
-     * values. Asserts that the color parameters of expected and actual are within delta percent of each other.
-     *
-     * @param expected an HSBType containing the expected colour.
-     * @param actual an HSBType containing the actual colour.
-     * @param delta the maximum allowed percentage difference between the two (0..99 percent).
-     */
-    private static void assertHSBEqual(HSBType expected, HSBType actual, float delta) {
-        if (delta <= 0f || delta > 99f) {
-            throw new IllegalArgumentException("'delta' out of bounds");
-        }
-        return;
-        // double[] exp = ColorUtil.hsbToXY(expected);
-        // double[] act = ColorUtil.hsbToXY(actual);
-        // double max = delta / 100.0f;
-        // assertTrue((Math.abs(exp[0] - act[0]) < max) && (Math.abs(exp[1] - act[1]) < max));
     }
 
     @Test
@@ -231,6 +214,10 @@ class Clip2DtoTest {
                 assertEquals(OnOffType.OFF, item.getSwitch());
                 state = item.getBrightnessState();
                 assertTrue(state instanceof PercentType);
+                assertEquals(0, ((PercentType) state).doubleValue(), 0.1);
+                item.setSwitch(OnOffType.ON);
+                state = item.getBrightnessState();
+                assertTrue(state instanceof PercentType);
                 assertEquals(93.0, ((PercentType) state).doubleValue(), 0.1);
                 assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState());
                 state = item.getColorState();
@@ -249,6 +236,10 @@ class Clip2DtoTest {
                 itemFoundCount++;
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getSwitch());
+                state = item.getBrightnessState();
+                assertTrue(state instanceof PercentType);
+                assertEquals(0, ((PercentType) state).doubleValue(), 0.1);
+                item.setSwitch(OnOffType.ON);
                 state = item.getBrightnessState();
                 assertTrue(state instanceof PercentType);
                 assertEquals(56.7, ((PercentType) state).doubleValue(), 0.1);
@@ -356,10 +347,32 @@ class Clip2DtoTest {
         // create resource one
         Resource one = new Resource(ResourceType.LIGHT).setId("AARDVARK");
         assertNotNull(one);
+        // preset the minimum dimming level
+        try {
+            Dimming dimming = new Dimming().setMinimumDimmingLevel(MINIMUM_DIMMING_LEVEL);
+            Field dimming2 = one.getClass().getDeclaredField("dimming");
+            dimming2.setAccessible(true);
+            dimming2.set(one, dimming);
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+            fail();
+        }
         one.setColor(HSBType.RED, null);
+        one.setBrightness(PercentType.HUNDRED, null);
         assertTrue(one.getColorState() instanceof HSBType);
-        assertHSBEqual(HSBType.RED, (HSBType) one.getColorState(), 1);
         assertEquals(PercentType.HUNDRED, one.getBrightnessState());
+        assertTrue(ColorUtil.closeTo(HSBType.RED, (HSBType) one.getColorState(), 1));
+
+        // switching off should change HSB and Brightness
+        one.setSwitch(OnOffType.OFF);
+        assertEquals(0, ((HSBType) one.getColorState()).getBrightness().doubleValue(), 0.01);
+        assertEquals(PercentType.ZERO, one.getBrightnessState());
+        one.setSwitch(OnOffType.ON);
+
+        // setting brightness to zero should change it to the minimum dimming level
+        one.setBrightness(PercentType.ZERO, null);
+        assertEquals(MINIMUM_DIMMING_LEVEL, ((HSBType) one.getColorState()).getBrightness().doubleValue(), 0.01);
+        assertEquals(MINIMUM_DIMMING_LEVEL, ((PercentType) one.getBrightnessState()).doubleValue(), 0.01);
+        one.setSwitch(OnOffType.ON);
 
         // null its Dimming field
         try {
@@ -373,15 +386,15 @@ class Clip2DtoTest {
         // confirm that brightness is no longer valid, and therefore that color has also changed
         assertEquals(UnDefType.NULL, one.getBrightnessState());
         assertTrue(one.getColorState() instanceof HSBType);
-        assertHSBEqual(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)),
-                (HSBType) one.getColorState(), 1);
+        assertTrue(ColorUtil.closeTo(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)),
+                (HSBType) one.getColorState(), 1));
 
         PercentType testBrightness = new PercentType(42);
 
         // create resource two
         Resource two = new Resource(ResourceType.DEVICE).setId("ALLIGATOR");
         assertNotNull(two);
-        two.setBrightness(testBrightness);
+        two.setBrightness(testBrightness, null);
         assertEquals(UnDefType.NULL, two.getColorState());
         assertEquals(testBrightness, two.getBrightnessState());
 
@@ -393,8 +406,8 @@ class Clip2DtoTest {
         assertEquals(ResourceType.LIGHT, one.getType());
         assertEquals(testBrightness, one.getBrightnessState());
         assertTrue(one.getColorState() instanceof HSBType);
-        assertHSBEqual(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness),
-                (HSBType) one.getColorState(), 1);
+        assertTrue(ColorUtil.closeTo(new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness),
+                (HSBType) one.getColorState(), 1));
     }
 
     @Test
@@ -472,7 +485,7 @@ class Clip2DtoTest {
             resource.setColor(color, null);
             State state = resource.getColorState();
             assertTrue(state instanceof HSBType);
-            assertHSBEqual(color, (HSBType) state, 1);
+            assertTrue(ColorUtil.closeTo(color, (HSBType) state, 1));
         }
     }
 
@@ -508,6 +521,9 @@ class Clip2DtoTest {
         assertNotNull(active);
         assertTrue(active.isJsonPrimitive());
         assertEquals("inactive", active.getAsString());
+        Optional<Boolean> isActive = resource.getSceneActive();
+        assertTrue(isActive.isPresent());
+        assertEquals(Boolean.FALSE, isActive.get());
     }
 
     @Test
