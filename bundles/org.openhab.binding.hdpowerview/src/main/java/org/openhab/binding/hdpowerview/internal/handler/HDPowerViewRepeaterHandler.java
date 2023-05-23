@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.hdpowerview.internal.ColorUtil;
 import org.openhab.binding.hdpowerview.internal.HDPowerViewWebTargets;
 import org.openhab.binding.hdpowerview.internal.config.HDPowerViewRepeaterConfiguration;
 import org.openhab.binding.hdpowerview.internal.dto.Color;
@@ -38,7 +39,6 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.UnDefType;
-import org.openhab.core.util.ColorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +100,8 @@ public class HDPowerViewRepeaterHandler extends AbstractHubbedThingHandler {
 
             switch (channelUID.getId()) {
                 case CHANNEL_REPEATER_COLOR:
-                    if (command instanceof HSBType hsbCommand) {
+                    if (command instanceof HSBType) {
+                        HSBType hsbCommand = (HSBType) command;
                         Color currentColor = webTargets.getRepeater(repeaterId).color;
                         if (currentColor != null) {
                             var color = new Color(currentColor.brightness, ColorUtil.hsbTosRgb(hsbCommand));
@@ -119,7 +120,8 @@ public class HDPowerViewRepeaterHandler extends AbstractHubbedThingHandler {
                     }
                     break;
                 case CHANNEL_REPEATER_BRIGHTNESS:
-                    if (command instanceof PercentType brightnessCommand) {
+                    if (command instanceof PercentType) {
+                        PercentType brightnessCommand = (PercentType) command;
                         Color currentColor = webTargets.getRepeater(repeaterId).color;
                         if (currentColor != null) {
                             var color = new Color(brightnessCommand.intValue(), currentColor.red, currentColor.green,
@@ -130,7 +132,8 @@ public class HDPowerViewRepeaterHandler extends AbstractHubbedThingHandler {
                     }
                     break;
                 case CHANNEL_REPEATER_IDENTIFY:
-                    if (command instanceof StringType stringCommand) {
+                    if (command instanceof StringType) {
+                        StringType stringCommand = (StringType) command;
                         if (COMMAND_IDENTIFY.equals(stringCommand.toString())) {
                             repeaterData = webTargets.identifyRepeater(repeaterId);
                             scheduler.submit(() -> updatePropertyAndStates(repeaterData));
