@@ -4,13 +4,14 @@
 
 ## Supported Things
 
-The binding supports `bridge`, `device`, `room`, and `zone` thing types.
-The `bridge` thing type represents the Hue Bridge which is the server for all other things.
-The `device` thing type represents a piece of physical equipment in the home which may contain 
+The binding supports `bridge-api2`, `device`, `room`, and `zone` thing types.
+The `bridge-api2` thing type represents the Hue Bridge which is the server for all other things.
+The `device` thing type represents a piece of physical equipment in the home.
 Such `device` things may contain either a *light*, a *button*, or (one or more) *sensors*.
 Lights can be of any type from a simple on/off light, through dimmable monochrome lights, to full colour dimmable lights.
 Buttons are devices having one or more push buttons.
 Sensors can be (for example) light level sensors, temperature sensors, or motion sensors.
+The `room` and `zone` thing type represents logical groupings of equipment in the home, either within a specific room, or a logical group of equipment.
 
 ## Thing Configuration
 
@@ -24,7 +25,7 @@ The generated application key can be found, after pressing the authentication bu
 The application key can be set using the `applicationKey` configuration value, e.g.:
 
 ```java
-Bridge hue:bridge:1 [ ipAddress="192.168.0.64", applicationKey="qwertzuiopasdfghjklyxcvbnm1234" ]
+Bridge hue:bridge-api2:1 [ ipAddress="192.168.0.64", applicationKey="qwertzuiopasdfghjklyxcvbnm1234" ]
 ```
 
 | Parameter                | Description                                                                                        |
@@ -38,6 +39,7 @@ Bridge hue:bridge:1 [ ipAddress="192.168.0.64", applicationKey="qwertzuiopasdfgh
 
 Apart from the Bridge, there are three other types of thing -- namely `device`, `room`, and `zone`.
 Device things represent physical hardware devices in the system, whereas `room` and `zone` things represent sets of physical lights, either in a room or a zone.
+In addition to regular rooms and zones, there is a 'super' `zone` that allows you to control all of the lights in the system.
 
 All things are identified by a unique Resource Identifier string that the Hue Bridge assigns to them e.g. `d1ae958e-8908-449a-9897-7f10f9b8d4c2`.
 Thus, all it needs for manual configuration is this single value like
@@ -57,33 +59,32 @@ The configuration of all things (as described above) is the same regardless of w
 
 Device things support some of the following channels:
 
-| Channel Type ID     | Item Type          | Description                                                                           |
-|---------------------|--------------------|---------------------------------------------------------------------------------------|
-| switch              | Switch             | This channel supports switching the device on and off.                                |
-| color               | Color              | This channel supports full color control with hue, saturation and brightness values.  |
-| brightness          | Dimmer             | This channel supports adjusting the brightness value.                                 |
-| colorTemperature    | Dimmer             | This channel supports adjusting the color temperature from cold (0%) to warm (100%).  |
-| colorTemperatureAbs | Number:Temperature | This channel supports adjusting the color temperature in Kelvin.                      |
-| buttonLastEvent     | Number             | This channel shows which button was last pressed in the device.                       |
-| rotarySteps         | Number             | This channel shows the number of rotary steps of the last rotary dial movement.       |
-| motion              | Switch             | This channel shows if motion has been detected by the sensor.                         |
-| motionEnabled       | Switch             | This channel supports enabling / disabling the motion sensor.                         |
-| lightLevel          | Number             | This channel shows the current light level measured by the sensor.                    |
-| lightLevelEnabled   | Switch             | This channel supports enabling / disabling the light level sensor.                    |
-| temperature         | Number:Temperature | This channel shows the current temperature measured by the sensor.                    |
-| temperatureEnabled  | Switch             | This channel supports enabling / disabling the temperature sensor.                    |
-| lastUpdated         | DateTime           | This channel the date and time when the thing state was last updated.                 |
-| batteryLevel        | Number             | This channel shows the battery level.                                                 |
-| batteryLow          | Switch             | This channel indicates whether the battery is low or not.                             |
-| zigbeeStatus        | String             | This channel provides information about the status of the Zigbee connection.          |
+| Channel ID          | Item Type          | Description                                                              |
+|---------------------|--------------------|--------------------------------------------------------------------------|
+| switch              | Switch             | Supports switching the device on and off.                                |
+| color               | Color              | Supports full color control with hue, saturation and brightness values.  |
+| brightness          | Dimmer             | Supports adjusting the brightness value.                                 |
+| color-temperature   | Dimmer             | Supports adjusting the color temperature from cold (0%) to warm (100%).  |
+| color-temp-kelvin   | Number:Temperature | Supports adjusting the color temperature in Kelvin.                      |
+| dynamics            | Number:Time        | Sets the duration of dynamic transitions between light states.           |
+| alert               | String             | Allows setting an alert on a light e.g. flashing them.                   |
+| effect              | String             | Allows setting an effect on a light e.g. 'candle' effect.                |
+| button-last-event   | Number             | Shows which button was last pressed in the device.                       |
+| rotary-steps        | Number             | Shows the number of rotary steps of the last rotary dial movement.       |
+| motion              | Switch             | Shows if motion has been detected by the sensor.                         |
+| motion-enabled      | Switch             | Supports enabling / disabling the motion sensor.                         |
+| light-level         | Number:Illuminance | Shows the current light level measured by the sensor.                    |
+| light-level-enabled | Switch             | Supports enabling / disabling the light level sensor.                    |
+| temperature         | Number:Temperature | Shows the current temperature measured by the sensor.                    |
+| temperature-enabled | Switch             | Supports enabling / disabling the temperature sensor.                    |
+| battery-level       | Number             | Shows the battery level.                                                 |
+| battery-low         | Switch             | Indicates whether the battery is low or not.                             |
+| last-updated        | DateTime           | The date and time when the thing state was last updated.                 |
 
 The exact list of channels in a given device is determined at run time when the system is started.
 Each device reports its own live list of capabilities, and the respective list of channels is created accordingly.
 
-The `zigbeeStatus` indicates the connectivity state of the device.
-If the device has connectivity issues, the thing state will change to 'OFFLINE'
-
-The `buttonLastEvent` channel value is a number that is calculated from the following formula:
+The `button-last-event` channel value is a number that is calculated from the following formula:
 
 ```text
 value = (button_id * 1000) + event_id;
@@ -102,51 +103,107 @@ The `event_id` can have the following values:
 
 So (for example) the channel value `1002` ((1 * 1000) + 2) means that the second button in the device had a short release event.
 
-The `rotarySteps` channel value is the number of steps corresponding to the last movement of a rotary dial.
+The `rotary-steps` channel value is the number of steps corresponding to the last movement of a rotary dial.
 A positive number means the dial was rotated clock-wise, whereas a negative number means it was roated counter-clockwise.
 
 ### Channels for Rooms and Zones
 
 Room and Zone things allow you to control the lights in a given zone or room.
-In addition to regular rooms and zones, there is a 'super' zone that allows you to control all of the lights in the system.
-Room and Zone things support the following channels:
+They support the following channels:
 
-| Channel Type ID     | Item Type          | Description                                                                       |
+| Channel ID          | Item Type          | Description                                                                       |
 |---------------------|--------------------|-----------------------------------------------------------------------------------|
-| switch              | Switch             | This channel supports switching the lights on and off.                            |
-| brightness          | Dimmer             | This channel supports adjusting the brightness value.                             |
-| scene               | String             | Setting the string to a valid scene friendly name activates the respective scene. |
+| switch              | Switch             | Supports switching the lights on and off.                                         |
+| brightness          | Dimmer             | Supports adjusting the brightness value.                                          |
+| scene<sup>1)</sup>  | String             | Setting the string to a valid scene friendly name activates the respective scene. |
+| dynamics            | Number:Time        | The duration of dynamic transitions between light or scene states.                |
+| alert<sup>1)</sup>  | String             | This channel allows setting an alert on the lights e.g. flashing them.            |
 
-The scene channel is optional.
-If the respective room or zone has no scenes associated with it, the channel will not be shown.
+<sup>1)</sup> The scene and alert channels are optional.
+If the respective room or zone has no scenes or alerts associated with it, the respective channel will not be shown.
+
+### The `dynamics` Channel
+
+Some channels support dynamic transitions between light states.
+A dynamic transition is where, instead of the light state changing immediately to its new target value, it changes gradually to the new value over a period of time.
+
+If a thing supports dynamic transitions, then it will have a `dynamics` channel.
+This is a numeric channel where you can set the time delay for the transition in milli- seconds.
+When you set a value for the `dynamics` channel (e.g. 2000 milli seconds) and then quickly issue another command (e.g. brightness 100%), the second command will be executed gradually over the period of milli- seconds given by the `dynamics` channel value.
+When the `dynamics` channel value is changed, it triggers a time window of ten seconds during which the value is active.
+If the second command is sent within the active time window it will be executed gradually according to the `dynamics` channel value.
+However if the second command is sent after the active time window has expired then it will be executed immediately.
+
+### Advanced Channels for Devices, Rooms and Zones
+
+In addition to the normal channels described above, some things support additional advanced channels.
+For convenience the normal channels often amalgamate multiple elements of the state of a light, room or zone into one single channel.
+For example a full color light has one single `color` channel that can accept HSBType commands for changing the color, PercentType commands for changing the brightness, and OnOffType commands for switching it on or off.
+By contrast the purpose of the advanced channels is to access specific individual state elements of the respective lights, rooms or zones individually.
+The possible advanced channels are as follows (although not every thing will have them):
+
+| Channel ID     | Item Type | Description                                                                                                   |
+|----------------|-----------|---------------------------------------------------------------------------------------------------------------|
+| color-xy-only  | Color     | Allows access to the `colorXY` parameter of the light(s) only. Has no impact on dimming or on-off parameters. |
+| dimming-only   | Dimmer    | Allows access to the `dimming` parameter of the light(s) only. Has no impact on colorXY or on/off parameters. |
+| on-off-only    | Switch    | Allows access to the `on-off` parameter of the light(s) only. Has no impact on colorXY or dimming parameters. |
+
+These advance channels can be used as "presets".
+For example, you may want to preset the `dimming-only` channel to 20% at night, and to 100% in the day time.
+Then if somebody turns on the light at night time it will turn on to 20% resp. to 100% in the day time.
+You can also use the `color-xy-only` channel to preset (say) a cool color in the morning, and a warm color in the evening.
+NOTE: you can also preset color temperature values in advance via the `color-temperature` and `color-temp-kelvin` channels described above.
 
 ## Console Command for finding ResourceIds
 
 The openHAB console has a command named `openhab:hue` that (among other things) lists the `resourceId` of all device things in the bridge.
 The console command usage is `openhab:hue <brigeUID> things`.
-An exampe of such a console command, and its respective output, is shown below..
+An exampe of such a console command, and its respective output, is shown below.
 
-```text
-openhab> openhab:hue hue:clip2:g24 things
-Bridge hue:clip2:g24 "Philips Hue Bridge" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+```shell
+openhab> openhab:hue hue:bridge-api2:g24 things
+Bridge hue:bridge-api2:g24 "Philips Hue Bridge" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
   Thing device 11111111-2222-3333-4444-555555555555 "Standard Lamp L" [resourceId="11111111-2222-3333-4444-555555555555"] // Hue color lamp
   Thing device 11111111-2222-3333-4444-666666666666 "Kitchen Wallplate Switch" [resourceId="11111111-2222-3333-4444-666666666666"] // Hue wall switch module
-  ..
 }
 ```
 
-The `openhab:hue <brigeUID> things` command produces an output that can be used to directly create a `.things' file, as shown below..
+The `openhab:hue <brigeUID> things` command produces an output that can be used to directly create a `.things` file, as shown below.
 
-```text
-openhab> openhab:hue hue:clip2:g24 things > myThingsFile.things
+```shell
+openhab> openhab:hue hue:bridge-api2:g24 things > myThingsFile.things
 ```
+
+## Rule Actions
+
+This binding includes a rule action, which implements dynamic (i.e. gradual) transitions to a new scene or light(s) state.
+Each thing has a separate action instance, which can be retrieved as follows.
+
+```php
+val hueActions = getActions("hue","hue:device:g24:11111111-2222-3333-4444-555555555555")
+```
+
+Where the first parameter must always be `hue` and the second must be the full thing UID.
+Once the action instance has been retrieved, you can invoke its `dynamicCommand(String channelId, Command command, DecimalType durationMSec)` method as follows.
+
+```php
+hueActions.dynamicCommand("brightness", new PercentType(100), new DecimalType(10000))
+
+hueActions.dynamicCommand("scene", new StringType("SceneName"), new DecimalType(20000))
+```
+
+| Parameter     | Description                                                                                                                                |
+|---------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| channelId     | The channel ID of the channel to send the command to (one of `brightness`, `color`, `color-temperature`, `color-temp-kelvin`, or `scene`). |
+| command       | The target command state to transition to.                                                                                                 |
+| durationMSec  | The dynamic transition duration in mSec.                                                                                                   |
 
 ## Full Example
 
 ### demo.things:
 
 ```java
-Bridge hue:clip2:g24 "Philips Hue Hub" @ "Home" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
+Bridge hue:bridge-api2:g24 "Philips Hue Hub" @ "Home" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
     Thing device 11111111-2222-3333-4444-555555555555 "Living Room Standard Lamp Left" @ "Living Room" [resourceId="11111111-2222-3333-4444-555555555555"]
     Thing device 11111111-2222-3333-4444-666666666666 "Kitchen Wallplate Switch" @ "Kitchen" [resourceId="11111111-2222-3333-4444-666666666666"]
 
@@ -161,8 +218,8 @@ Color Living_Room_Standard_Lamp_Left_Colour "Living Room Standard Lamp Left Colo
 Dimmer Living_Room_Standard_Lamp_Left_Brightness "Living Room Standard Lamp Left Brightness [%.0f %%]" {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:brightness"}
 Switch Living_Room_Standard_Lamp_Left_Switch "Living Room Standard Lamp Left Switch" (g_Lights_On_Count) {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:switch"}
 
-Number Kitchen_Wallplate_Switch_Last_Event "Kitchen Wallplate Switch Last Event" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:buttonLastEvent"}
-Switch Kitchen_Wallplate_Switch_Battery_Low_Alarm "Kitchen Wallplate Switch Battery Low Alarm" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:batteryLow"}
+Number Kitchen_Wallplate_Switch_Last_Event "Kitchen Wallplate Switch Last Event" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:button-last-event"}
+Switch Kitchen_Wallplate_Switch_Battery_Low_Alarm "Kitchen Wallplate Switch Battery Low Alarm" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:battery-low"}
 ```
 
 ### demo.sitemap:
