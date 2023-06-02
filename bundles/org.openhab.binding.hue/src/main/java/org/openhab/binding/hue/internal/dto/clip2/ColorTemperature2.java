@@ -17,6 +17,8 @@ import java.util.Objects;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.hue.internal.exceptions.DTOPresentButEmptyException;
+import org.openhab.core.library.types.QuantityType;
+import org.openhab.core.library.unit.Units;
 
 import com.google.gson.annotations.SerializedName;
 
@@ -27,21 +29,16 @@ import com.google.gson.annotations.SerializedName;
  */
 @NonNullByDefault
 public class ColorTemperature2 {
-    public static double getReciprocal(double value) {
-        return 1000000f / value;
-    }
-
     private @Nullable Long mirek;
-
     private @Nullable @SerializedName("mirek_schema") MirekSchema mirekSchema;
 
     /**
      * @throws DTOPresentButEmptyException to indicate that the DTO is present but empty.
      */
-    public @Nullable Double getKelvin() throws DTOPresentButEmptyException {
+    public @Nullable QuantityType<?> getAbsolute() throws DTOPresentButEmptyException {
         Long mirek = this.mirek;
         if (Objects.nonNull(mirek)) {
-            return getReciprocal(mirek.doubleValue());
+            return QuantityType.valueOf(mirek, Units.MIRED).toInvertibleUnit(Units.KELVIN);
         }
         throw new DTOPresentButEmptyException("'color_temperature' DTO is present but empty");
     }
@@ -73,11 +70,6 @@ public class ColorTemperature2 {
         throw new DTOPresentButEmptyException("'color_temperature' DTO is present but empty");
     }
 
-    public ColorTemperature2 setKelvin(double kelvin) {
-        setMirek(getReciprocal(kelvin));
-        return this;
-    }
-
     public ColorTemperature2 setMirek(double mirek) {
         this.mirek = Math.round(mirek);
         return this;
@@ -98,6 +90,18 @@ public class ColorTemperature2 {
         double max = mirekSchema.getMirekMaximum();
         double offset = (max - min) * percent / 100f;
         setMirek(min + offset);
+        return this;
+    }
+
+    public ColorTemperature2 setTemperature(QuantityType<?> colorTemperature, MirekSchema mirekSchema) {
+        QuantityType<?> kelvin = colorTemperature.toInvertibleUnit(Units.KELVIN);
+        if (Objects.nonNull(kelvin)) {
+            QuantityType<?> mirek = kelvin.toInvertibleUnit(Units.MIRED);
+            if (Objects.nonNull(mirek)) {
+                setMirek(Math.max(mirekSchema.getMirekMinimum(),
+                        Math.min(mirekSchema.getMirekMaximum(), mirek.doubleValue())));
+            }
+        }
         return this;
     }
 }
