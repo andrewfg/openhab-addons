@@ -67,25 +67,25 @@ Device things support some of the following channels:
 | color-temperature-abs | Number:Temperature | Supports control of the color temperature via a QuantityType having a temperature unit e.g. Kelvin. (Advanced)      |
 | switch                | Switch             | Supports switching the device on and off.                                                                           |
 | dynamics              | Number:Time        | Sets the duration of dynamic transitions between light states. (Advanced)                                           |
-| alert                 | String             | Allows setting an alert on a light e.g. flashing them.                                                              |
-| effect                | String             | Allows setting an effect on a light e.g. 'candle' effect.                                                           |
+| alert                 | String             | Allows setting an alert on a light e.g. flashing them. (Advanced)                                                   |
+| effect                | String             | Allows setting an effect on a light e.g. 'candle' effect. (Advanced)                                                |
 | button-last-event     | Number             | Informs which button was last pressed in the device. (Trigger Channel)                                              |
 | rotary-steps          | Number             | Informs about the number of rotary steps of the last rotary dial movement. (Trigger Channel)                        |
 | motion                | Switch             | Shows if motion has been detected by the sensor. (Read Only)                                                        |
-| motion-enabled        | Switch             | Supports enabling / disabling the motion sensor.                                                                    |
+| motion-enabled        | Switch             | Supports enabling / disabling the motion sensor. (Advanced)                                                         |
 | light-level           | Number:Illuminance | Shows the current light level measured by the sensor. (Read Only)                                                   |
-| light-level-enabled   | Switch             | Supports enabling / disabling the light level sensor.                                                               |
+| light-level-enabled   | Switch             | Supports enabling / disabling the light level sensor. (Advanced)                                                    |
 | temperature           | Number:Temperature | Shows the current temperature measured by the sensor. (Read Only)                                                   |
-| temperature-enabled   | Switch             | Supports enabling / disabling the temperature sensor.                                                               |
+| temperature-enabled   | Switch             | Supports enabling / disabling the temperature sensor. (Advanced)                                                    |
 | battery-level         | Number             | Shows the battery level. (Read Only)                                                                                |
 | battery-low           | Switch             | Indicates whether the battery is low or not. (Read Only)                                                            |
-| last-updated          | DateTime           | The date and time when the thing state was last updated. (Read Only)                                                |
+| last-updated          | DateTime           | The date and time when the thing state was last updated. (Read Only) (Advanced)                                     |
 
 The exact list of channels in a given device is determined at run time when the system is started.
 Each device reports its own live list of capabilities, and the respective list of channels is created accordingly.
 
 The `button-last-event` channel is a trigger channel.
-When the button is pressed the channel recieves a number as calculated by the following formula:
+When the button is pressed the channel receives a number as calculated by the following formula:
 
 ```text
 value = (button_id * 1000) + event_id;
@@ -105,7 +105,7 @@ The `event_id` can have the following values:
 So (for example) the channel value `1002` ((1 * 1000) + 2) means that the second button in the device had a short release event.
 
 The `rotary-steps` channel is a trigger channel.
-When the dial is turned, the channel recieves a number corresponding to the number of steps of the last movement of a rotary dial.
+When the dial is turned, the channel receives a number corresponding to the number of steps of the last movement of a rotary dial.
 A positive number means the dial was rotated clock-wise, whereas a negative number means it was rotated counter-clockwise.
 
 ### Channels for Rooms and Zones
