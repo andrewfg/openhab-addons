@@ -578,6 +578,9 @@ public class VeluxBridgeHandler extends ExtendedBaseBridgeHandler implements Vel
                     logger.trace("syncChannelsWithProducts(): channel {} not found.", channelUID);
                     continue;
                 }
+                if (channelUID.getId().equals(VeluxBindingConstants.CHANNEL_ACTUATOR_LIMIT_MINIMUM) || channelUID.getId().equals(VeluxBindingConstants.CHANNEL_ACTUATOR_LIMIT_MAXIMUM)) {
+                    continue;
+                }
                 Thing2VeluxActuator actuator = channel2VeluxActuator.get(channelUID);
                 if (actuator == null || !actuator.isKnown()) {
                     logger.trace("syncChannelsWithProducts(): channel {} not registered on bridge.", channelUID);
