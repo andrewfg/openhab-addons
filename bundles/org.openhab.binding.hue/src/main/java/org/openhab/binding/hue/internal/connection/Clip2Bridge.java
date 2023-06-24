@@ -390,6 +390,8 @@ public class Clip2Bridge implements Closeable {
         ACTIVE; // session open for HTTP calls and actively receiving SSE events
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(Clip2Bridge.class);
+
     private static final String APPLICATION_ID = "org-openhab-binding-hue-clip2";
     private static final String APPLICATION_KEY = "hue-application-key";
 
@@ -427,15 +429,17 @@ public class Clip2Bridge implements Closeable {
         if (Objects.nonNull(config)) {
             String swVersion = config.swversion;
             if (Objects.nonNull(swVersion)) {
-                if (Long.parseLong(swVersion) >= CLIP2_MINIMUM_VERSION) {
-                    return true;
+                try {
+                    if (Long.parseLong(swVersion) >= CLIP2_MINIMUM_VERSION) {
+                        return true;
+                    }
+                } catch (NumberFormatException e) {
+                    logger.debug("isClip2Supported() swVersion '{}' is not a number", swVersion);
                 }
             }
         }
         return false;
     }
-
-    private final Logger logger = LoggerFactory.getLogger(Clip2Bridge.class);
 
     private final HttpClient httpClient;
     private final HTTP2Client http2Client;
