@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -117,6 +117,7 @@ public class GrowattInverterHandler extends BaseThingHandler {
     public void initialize() {
         GrowattInverterConfiguration config = getConfigAs(GrowattInverterConfiguration.class);
         deviceId = config.deviceId;
+        thing.setProperty(GrowattInverterConfiguration.DEVICE_ID, deviceId);
         updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/status.awaiting-data");
         logger.debug("initialize() thing has {} channels", thing.getChannels().size());
     }
