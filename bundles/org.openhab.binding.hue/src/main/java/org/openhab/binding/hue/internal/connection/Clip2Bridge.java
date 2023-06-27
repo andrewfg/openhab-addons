@@ -760,7 +760,7 @@ public class Clip2Bridge implements Closeable {
             if (active) {
                 openActive();
             }
-        } catch (ApiException | HttpUnauthorizedException e) {
+        } catch (ApiException e) {
             logger.warn("scheduledReconnectTask() failed ", e);
             internalRestartScheduled = false;
             close2();
@@ -820,10 +820,9 @@ public class Clip2Bridge implements Closeable {
      * Open the HTTP 2 session and the event stream.
      *
      * @throws ApiException if there was a communication error.
-     * @throws HttpUnauthorizedException if the application key is not authorized.
      * @throws InterruptedException
      */
-    public void open() throws ApiException, HttpUnauthorizedException, InterruptedException {
+    public void open() throws ApiException, InterruptedException {
         logger.debug("open()");
         openPassive();
         openActive();
@@ -834,10 +833,9 @@ public class Clip2Bridge implements Closeable {
      * Make the session active, by opening an HTTP 2 SSE event stream (if necessary).
      *
      * @throws ApiException if an error was encountered.
-     * @throws HttpUnauthorizedException if the application key is not authorized.
      * @throws InterruptedException
      */
-    private void openActive() throws ApiException, HttpUnauthorizedException, InterruptedException {
+    private void openActive() throws ApiException, InterruptedException {
         synchronized (this) {
             openEventStream();
             onlineState = State.ACTIVE;
@@ -861,10 +859,9 @@ public class Clip2Bridge implements Closeable {
      * Implementation to open an HTTP 2 SSE event stream if necessary.
      *
      * @throws ApiException if an error was encountered.
-     * @throws HttpUnauthorizedException if the application key is not authorized.
      * @throws InterruptedException
      */
-    private void openEventStream() throws ApiException, HttpUnauthorizedException, InterruptedException {
+    private void openEventStream() throws ApiException, InterruptedException {
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or in an illegal state");
@@ -898,10 +895,9 @@ public class Clip2Bridge implements Closeable {
      * Private method to open the HTTP 2 session in passive mode.
      *
      * @throws ApiException if there was a communication error.
-     * @throws HttpUnauthorizedException if the application key is not authorized.
      * @throws InterruptedException
      */
-    private void openPassive() throws ApiException, HttpUnauthorizedException, InterruptedException {
+    private void openPassive() throws ApiException, InterruptedException {
         synchronized (this) {
             logger.debug("openPassive()");
             onlineState = State.CLOSED;
