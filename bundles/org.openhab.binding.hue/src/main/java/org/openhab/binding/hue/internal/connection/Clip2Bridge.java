@@ -625,7 +625,7 @@ public class Clip2Bridge implements Closeable {
             internalRestartScheduled = true;
             cancelTask(internalRestartTask, false);
             internalRestartTask = bridgeHandler.getScheduler().schedule(
-                    () -> scheduledReconnectTask(onlineState == State.ACTIVE), RESTART_AFTER_SECONDS, TimeUnit.SECONDS);
+                    () -> internalRestart(onlineState == State.ACTIVE), RESTART_AFTER_SECONDS, TimeUnit.SECONDS);
 
             // force close immediately to be clean when internalRestart() starts
             close2();
@@ -745,6 +745,29 @@ public class Clip2Bridge implements Closeable {
         String url = baseUrl + reference.getType().name().toLowerCase();
         String id = reference.getId();
         return Objects.isNull(id) || id.isEmpty() ? url : url + "/" + id;
+    }
+
+    /**
+     * Restart the session.
+     *
+     * @param active boolean that selects whether to restart in active or passive mode.
+     */
+    private void internalRestart(boolean active) {
+        internalRestartScheduled = false;
+        try {
+            openPassive();
+            if (active) {
+                openActive();
+            }
+        } catch (ApiException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("internalRestart() failed", e);
+            } else {
+                logger.warn("Scheduled reconnection task failed.");
+            }
+            close2();
+        } catch (InterruptedException e) {
+        }
     }
 
     /**
@@ -1053,30 +1076,6 @@ public class Clip2Bridge implements Closeable {
             logger.debug("registerApplicationKey() parsing error json:{}", json, e);
         }
         throw new HttpUnauthorizedException("Application key registration failed");
-    }
-
-    /**
-     * Restart the session.
-     *
-     * @param active boolean that selects whether to restart in active or passive mode.
-     */
-    private void scheduledReconnectTask(boolean active) {
-        internalRestartScheduled = false;
-        try {
-            openPassive();
-            if (active) {
-                openActive();
-            }
-        } catch (ApiException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("scheduledReconnectTask() failed", e);
-            } else {
-                logger.warn("Scheduled reconnection task failed.");
-            }
-            internalRestartScheduled = false;
-            close2();
-        } catch (InterruptedException e) {
-        }
     }
 
     public void setExternalRestartScheduled() {
