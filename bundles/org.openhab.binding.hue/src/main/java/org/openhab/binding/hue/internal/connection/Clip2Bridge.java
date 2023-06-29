@@ -1132,9 +1132,11 @@ public class Clip2Bridge implements Closeable {
      */
     private synchronized void throttle() throws InterruptedException {
         streamMutex.acquire();
-        long delay = Duration.between(Instant.now(), lastRequestTime).toMillis() + REQUEST_INTERVAL_MILLISECS;
-        if (delay > 0) {
-            Thread.sleep(delay);
+        if (lastRequestTime.isAfter(Instant.MIN)) {
+            long delay = Duration.between(Instant.now(), lastRequestTime).toMillis() + REQUEST_INTERVAL_MILLISECS;
+            if (delay > 0) {
+                Thread.sleep(delay);
+            }
         }
         lastRequestTime = Instant.now();
     }
