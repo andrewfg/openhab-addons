@@ -753,18 +753,19 @@ public class Clip2Bridge implements Closeable {
      * @param active boolean that selects whether to restart in active or passive mode.
      */
     private void internalRestart(boolean active) {
-        internalRestartScheduled = false;
         try {
             openPassive();
             if (active) {
                 openActive();
             }
+            internalRestartScheduled = false;
         } catch (ApiException e) {
             if (logger.isDebugEnabled()) {
                 logger.debug("internalRestart() failed", e);
             } else {
                 logger.warn("Scheduled reconnection task failed.");
             }
+            internalRestartScheduled = false;
             close2();
         } catch (InterruptedException e) {
         }
