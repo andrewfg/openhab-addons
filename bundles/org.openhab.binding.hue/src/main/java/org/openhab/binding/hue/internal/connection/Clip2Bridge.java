@@ -285,7 +285,6 @@ public class Clip2Bridge implements Closeable {
                             eventContent.append(receivedLine.substring(5).stripLeading());
                         }
                     }
-                    // note: StringBuilder.isEmpty() only available from Java 15+
                     if (eventContent.length() > 0) {
                         onEventData(eventContent.toString().trim());
                     }
@@ -626,12 +625,16 @@ public class Clip2Bridge implements Closeable {
             internalRestartScheduled = true;
             cancelTask(internalRestartTask, false);
             internalRestartTask = bridgeHandler.getScheduler().schedule(
-                    () -> internalRestart(onlineState == State.ACTIVE), RESTART_AFTER_SECONDS, TimeUnit.SECONDS);
+                    () -> scheduledReconnectTask(onlineState == State.ACTIVE), RESTART_AFTER_SECONDS, TimeUnit.SECONDS);
 
             // force close immediately to be clean when internalRestart() starts
             close2();
         } else {
-            logger.warn("fatalError() {} {} closing", causeId, cause.error, cause);
+            if (logger.isDebugEnabled()) {
+                logger.debug("fatalError() {} {} closing", causeId, cause.error, cause);
+            } else {
+                logger.warn("Fatal error {} {} => closing session.", causeId, cause.error);
+            }
             close2();
         }
     }
@@ -672,11 +675,7 @@ public class Clip2Bridge implements Closeable {
         if (onlineState == State.CLOSED) {
             throw new ApiException("getResources() offline");
         }
-        try {
-            return getResourcesImpl(reference);
-        } catch (HttpUnauthorizedException e) {
-            throw new ApiException("getResources() unauthorized error", e);
-        }
+        return getResourcesImpl(reference);
     }
 
     /**
@@ -689,7 +688,7 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     private Resources getResourcesImpl(ResourceReference reference)
-            throws ApiException, HttpUnauthorizedException, InterruptedException {
+            throws HttpUnauthorizedException, ApiException, InterruptedException {
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
             throw new ApiException("HTTP 2 session is null or closed");
@@ -749,26 +748,6 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
-     * Restart the session.
-     *
-     * @param active boolean that selects whether to restart in active or passive mode.
-     */
-    private void internalRestart(boolean active) {
-        internalRestartScheduled = false;
-        try {
-            openPassive();
-            if (active) {
-                openActive();
-            }
-        } catch (ApiException e) {
-            logger.warn("scheduledReconnectTask() failed ", e);
-            internalRestartScheduled = false;
-            close2();
-        } catch (InterruptedException e) {
-        }
-    }
-
-    /**
      * The event stream calls this method when it has received text data. It parses the text as JSON into a list of
      * Event entries, converts the list of events to a list of resources, and forwards that list to the bridge
      * handler.
@@ -799,7 +778,7 @@ public class Clip2Bridge implements Closeable {
         try {
             events = jsonParser.fromJson(jsonElement, Event.EVENT_LIST_TYPE);
         } catch (JsonParseException e) {
-            logger.debug("onEventData() {}", e.getMessage(), e);
+            logger.debug("onEventData() parsing error json:{}", data, e);
             return;
         }
         if (Objects.isNull(events) || events.isEmpty()) {
@@ -864,7 +843,7 @@ public class Clip2Bridge implements Closeable {
     private void openEventStream() throws ApiException, InterruptedException {
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
-            throw new ApiException("HTTP 2 session is null or in an illegal state");
+            throw new ApiException("HTTP 2 session is null or closed.");
         }
         if (session.getStreams().stream().anyMatch(stream -> Objects.nonNull(stream.getAttribute(EVENT_STREAM_ID)))) {
             return;
@@ -1016,8 +995,8 @@ public class Clip2Bridge implements Closeable {
                     resources.getErrors().forEach(error -> logger.debug("putResource() resources error:{}", error));
                 }
             } catch (JsonParseException e) {
-                logger.warn("putResource() error parsing JSON response:{}", contentJson);
-                throw new ApiException("putResource() parsing error", e);
+                logger.debug("putResource() parsing error json:{}", contentJson, e);
+                throw new ApiException("Parsing error", e);
             }
         } catch (ExecutionException | TimeoutException e) {
             throw new ApiException("putResource() error sending request", e);
@@ -1071,9 +1050,33 @@ public class Clip2Bridge implements Closeable {
                 }
             }
         } catch (JsonParseException e) {
-            // fall through
+            logger.debug("registerApplicationKey() parsing error json:{}", json, e);
         }
         throw new HttpUnauthorizedException("Application key registration failed");
+    }
+
+    /**
+     * Restart the session.
+     *
+     * @param active boolean that selects whether to restart in active or passive mode.
+     */
+    private void scheduledReconnectTask(boolean active) {
+        internalRestartScheduled = false;
+        try {
+            openPassive();
+            if (active) {
+                openActive();
+            }
+        } catch (ApiException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("scheduledReconnectTask() failed", e);
+            } else {
+                logger.warn("Scheduled reconnection task failed.");
+            }
+            internalRestartScheduled = false;
+            close2();
+        } catch (InterruptedException e) {
+        }
     }
 
     public void setExternalRestartScheduled() {
@@ -1114,7 +1117,7 @@ public class Clip2Bridge implements Closeable {
         try {
             openPassive();
             getResourcesImpl(BRIDGE);
-        } catch (HttpUnauthorizedException | ApiException e) {
+        } catch (ApiException e) {
             close2();
             throw e;
         }
@@ -1128,13 +1131,10 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     private synchronized void throttle() throws InterruptedException {
-        try {
-            streamMutex.acquire();
-            long delay = Duration.between(Instant.now(), lastRequestTime).toMillis() + REQUEST_INTERVAL_MILLISECS;
-            if (delay > 0) {
-                Thread.sleep(delay);
-            }
-        } catch (ArithmeticException e) {
+        streamMutex.acquire();
+        long delay = Duration.between(Instant.now(), lastRequestTime).toMillis() + REQUEST_INTERVAL_MILLISECS;
+        if (delay > 0) {
+            Thread.sleep(delay);
         }
         lastRequestTime = Instant.now();
     }

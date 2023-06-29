@@ -202,7 +202,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                                 "@text/offline.api2.conf-error.read-only");
                     } catch (AssetNotLoadedException e) {
-                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "@text/offline.api2.conf-error.assets-not-loaded");
                     } catch (InterruptedException e) {
                         return;
@@ -220,7 +220,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 break;
 
             case HANDLER_INITIALIZING_ERROR:
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.api2.conf-error.assets-not-loaded");
                 break;
 
@@ -248,7 +248,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         }
 
         // this method schedules itself to be called again in a loop..
-        checkConnectionTask = cancelTask(checkConnectionTask, false);
+        cancelTask(checkConnectionTask, false);
         checkConnectionTask = scheduler.schedule(() -> checkConnection(), milliSeconds, TimeUnit.MILLISECONDS);
     }
 
@@ -432,7 +432,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
         if (RefreshType.REFRESH.equals(command)) {
             return;
         }
-        logger.warn("Bridge thing has no channels, only REFRESH command supported.");
+        logger.warn("Bridge thing '{}' has no channels, only REFRESH command supported.", thing.getUID());
     }
 
     @Override
@@ -565,9 +565,9 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     /**
      * Register the application key with the hub. If the current application key is empty it will create a new one.
      *
+     * @throws HttpUnauthorizedException if the communication was OK but the registration failed anyway.
      * @throws ApiException if a communication error occurred.
      * @throws AssetNotLoadedException if one of the assets is not loaded.
-     * @throws HttpUnauthorizedException if the communication was OK but the registration failed anyway.
      * @throws IllegalStateException if the configuration cannot be changed e.g. read only.
      * @throws InterruptedException
      */
@@ -698,7 +698,8 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
      */
     private void updateThingFromLegacy() {
         if (isInitialized()) {
-            logger.warn("updateThingFromLegacy() was called after handler was initialized. Please inform maintainers.");
+            logger.warn("Cannot update bridge thing '{}' from legacy since handler already initialized.",
+                    thing.getUID());
             return;
         }
         Map<String, String> properties = thing.getProperties();
@@ -750,7 +751,11 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
                 });
             }
         } catch (ApiException | AssetNotLoadedException e) {
-            logger.warn("updateThingsNow() unexpected exception as thing is online. Please inform maintainers.", e);
+            if (logger.isDebugEnabled()) {
+                logger.debug("updateThingsNow() unexpected exception", e);
+            } else {
+                logger.warn("Unexpected exception '{}' while updating things.", e.getMessage());
+            }
         } catch (InterruptedException e) {
         }
     }
