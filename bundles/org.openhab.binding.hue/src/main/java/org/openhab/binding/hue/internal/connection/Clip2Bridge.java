@@ -515,13 +515,11 @@ public class Clip2Bridge implements Closeable {
      *
      * @param cancelTask the task to be cancelled (may be null)
      * @param mayInterrupt allows cancel() to interrupt the thread.
-     * @return always returns null.
      */
-    private @Nullable Future<?> cancelTask(@Nullable Future<?> cancelTask, boolean mayInterrupt) {
+    private void cancelTask(@Nullable Future<?> cancelTask, boolean mayInterrupt) {
         if (Objects.nonNull(cancelTask)) {
             cancelTask.cancel(mayInterrupt);
         }
-        return null;
     }
 
     /**
@@ -576,9 +574,11 @@ public class Clip2Bridge implements Closeable {
             }
             if (!internalRestartScheduled) {
                 // don't close the task if a restart is current
-                internalRestartTask = cancelTask(internalRestartTask, false);
+                cancelTask(internalRestartTask, false);
+                internalRestartTask = null;
             }
-            checkAliveTask = cancelTask(checkAliveTask, true);
+            cancelTask(checkAliveTask, true);
+            checkAliveTask = null;
             closeSession();
             try {
                 http2Client.stop();
@@ -1083,7 +1083,8 @@ public class Clip2Bridge implements Closeable {
     public void setExternalRestartScheduled() {
         externalRestartScheduled = true;
         internalRestartScheduled = false;
-        internalRestartTask = cancelTask(internalRestartTask, false);
+        cancelTask(internalRestartTask, false);
+        internalRestartTask = null;
         close2();
     }
 
