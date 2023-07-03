@@ -417,7 +417,6 @@ public class Clip2Bridge implements Closeable {
     private static final int CHECK_ALIVE_SECONDS = 300;
     private static final int REQUEST_INTERVAL_MILLISECS = 50;
     private static final int MAX_CONCURRENT_STREAMS = 3;
-    private static final int RESTART_AFTER_SECONDS = 5;
 
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
@@ -464,15 +463,12 @@ public class Clip2Bridge implements Closeable {
     private final Semaphore streamMutex = new Semaphore(MAX_CONCURRENT_STREAMS, true);
 
     private boolean closing;
-    private boolean internalRestartScheduled;
-    private boolean externalRestartScheduled;
     private State onlineState = State.CLOSED;
     private Optional<Instant> lastRequestTime = Optional.empty();
     private Instant sessionExpireTime = Instant.MAX;
     private @Nullable Session http2Session;
 
     private @Nullable Future<?> checkAliveTask;
-    private @Nullable Future<?> internalRestartTask;
     private Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
     /**
@@ -558,8 +554,6 @@ public class Clip2Bridge implements Closeable {
     @Override
     public void close() {
         closing = true;
-        externalRestartScheduled = false;
-        internalRestartScheduled = false;
         close2();
         try {
             http2Client.stop();
@@ -573,17 +567,11 @@ public class Clip2Bridge implements Closeable {
     private void close2() {
         synchronized (this) {
             LOGGER.debug("close2()");
-            boolean notifyHandler = onlineState == State.ACTIVE && !internalRestartScheduled
-                    && !externalRestartScheduled && !closing;
+            boolean notifyHandler = onlineState == State.ACTIVE && !closing;
             onlineState = State.CLOSED;
             synchronized (fatalErrorTasks) {
                 fatalErrorTasks.values().forEach(task -> cancelTask(task, true));
                 fatalErrorTasks.clear();
-            }
-            if (!internalRestartScheduled) {
-                // don't close the task if a restart is current
-                cancelTask(internalRestartTask, false);
-                internalRestartTask = null;
             }
             cancelTask(checkAliveTask, true);
             checkAliveTask = null;
@@ -615,25 +603,13 @@ public class Clip2Bridge implements Closeable {
      * @param cause the exception that caused the error.
      */
     private synchronized void fatalError(Object listener, Http2Exception cause) {
-        if (externalRestartScheduled || internalRestartScheduled || onlineState == State.CLOSED || closing) {
+        if (onlineState == State.CLOSED || closing) {
             return;
         }
         String causeId = listener.getClass().getSimpleName();
         if (listener instanceof ContentStreamListenerAdapter) {
             // on GET / PUT requests the caller handles errors and closes the stream; the session is still OK
             LOGGER.debug("fatalError() {} {} ignoring", causeId, cause.error);
-        } else if (cause.error == Http2Error.GO_AWAY) {
-            LOGGER.debug("fatalError() {} {} scheduling reconnect", causeId, cause.error);
-
-            internalRestartScheduled = true;
-
-            // force close immediately to be clean when internalRestart() starts
-            close2();
-
-            // schedule task to open again
-            cancelTask(internalRestartTask, false);
-            internalRestartTask = bridgeHandler.getScheduler().schedule(
-                    () -> internalRestart(onlineState == State.ACTIVE), RESTART_AFTER_SECONDS, TimeUnit.SECONDS);
         } else {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("fatalError() {} {} closing", causeId, cause.error, cause);
@@ -676,7 +652,6 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     public Resources getResources(ResourceReference reference) throws ApiException, InterruptedException {
-        sleepDuringRestart();
         if (onlineState == State.CLOSED) {
             throw new ApiException("getResources() offline");
         }
@@ -750,31 +725,6 @@ public class Clip2Bridge implements Closeable {
         String url = baseUrl + reference.getType().name().toLowerCase();
         String id = reference.getId();
         return Objects.isNull(id) || id.isEmpty() ? url : url + "/" + id;
-    }
-
-    /**
-     * Restart the session.
-     *
-     * @param active boolean that selects whether to restart in active or passive mode.
-     */
-    private void internalRestart(boolean active) {
-        LOGGER.debug("internalRestart()");
-        try {
-            openPassive();
-            if (active) {
-                openActive();
-            }
-            internalRestartScheduled = false;
-        } catch (ApiException e) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("internalRestart() failed", e);
-            } else {
-                LOGGER.warn("Scheduled reconnection task failed.");
-            }
-            internalRestartScheduled = false;
-            close2();
-        } catch (InterruptedException e) {
-        }
     }
 
     /**
@@ -985,7 +935,6 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     public void putResource(Resource resource) throws ApiException, InterruptedException {
-        sleepDuringRestart();
         if (onlineState == State.CLOSED) {
             return;
         }
@@ -1078,32 +1027,6 @@ public class Clip2Bridge implements Closeable {
             LOGGER.debug("registerApplicationKey() parsing error json:{}", json, e);
         }
         throw new HttpUnauthorizedException("Application key registration failed");
-    }
-
-    public void setExternalRestartScheduled() {
-        externalRestartScheduled = true;
-        internalRestartScheduled = false;
-        cancelTask(internalRestartTask, false);
-        internalRestartTask = null;
-        close2();
-    }
-
-    /**
-     * Sleep the caller during any period when the connection is restarting.
-     *
-     * @throws ApiException if anything failed.
-     * @throws InterruptedException
-     */
-    private void sleepDuringRestart() throws ApiException, InterruptedException {
-        Future<?> restartTask = this.internalRestartTask;
-        if (Objects.nonNull(restartTask)) {
-            try {
-                restartTask.get(RESTART_AFTER_SECONDS * 2, TimeUnit.SECONDS);
-            } catch (ExecutionException | TimeoutException e) {
-                throw new ApiException("sleepDuringRestart() error", e);
-            }
-        }
-        internalRestartScheduled = false;
     }
 
     /**
