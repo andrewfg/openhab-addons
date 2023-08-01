@@ -247,6 +247,12 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
 
         // this method schedules itself to be called again in a loop..
         cancelTask(checkConnectionTask, false);
+        if (connectRetriesRemaining <= 2) {
+            logger.debug("checkConnection() HAMMER RESTART");
+            dispose();
+            initialize();
+            return;
+        }
         checkConnectionTask = scheduler.schedule(() -> checkConnection(), milliSeconds, TimeUnit.MILLISECONDS);
     }
 
@@ -262,8 +268,7 @@ public class Clip2BridgeHandler extends BaseBridgeHandler {
     @Override
     public void dispose() {
         if (assetsLoaded) {
-            assetsLoaded = false;
-            scheduler.execute(() -> disposeAssets());
+            disposeAssets();
         }
     }
 
