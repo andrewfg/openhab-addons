@@ -37,6 +37,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 import javax.ws.rs.core.MediaType;
@@ -375,7 +376,7 @@ public class Clip2Bridge implements Closeable {
             Objects.requireNonNull(frame);
             LOGGER.debug("onGoAway() frame.getLastStreamId:{}, frame.getError:{}, frame.isGraceful:{}, streamCount:{}",
                     frame.getLastStreamId(), frame.getError(), frame.isGraceful(), streamCount);
-            fatalErrorDelayed(this, new Http2Exception(Http2Error.GO_AWAY));
+            bridgeHandler.getScheduler().submit(() -> openSessionAfterGoAway());
         }
 
         @Override
@@ -396,6 +397,32 @@ public class Clip2Bridge implements Closeable {
             Objects.requireNonNull(frame);
             LOGGER.debug("onReset() frame.getStreamId:{}, frame.getError:{}", frame.getStreamId(), frame.getError());
             fatalErrorDelayed(this, new Http2Exception(Http2Error.RESET));
+        }
+    }
+
+    /**
+     * Wait for a usable session. This method wraps the ReentrantReadWriteLock 'sessionUseCreateLock' so that GET / PUT
+     * methods can access the session on multiple concurrent threads via the 'read' access lock, yet are forced to wait
+     * if the session is being created under its single thread access 'write' lock. See 'openSessionAfterGoAway()'
+     * method.
+     */
+    private class SessionWaiter implements AutoCloseable {
+
+        SessionWaiter() throws InterruptedException {
+            sessionUseCreateLock.readLock().tryLock(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        }
+
+        @Override
+        public void close() {
+            sessionUseCreateLock.readLock().unlock();
+        }
+
+        public Session getSession() throws ApiException {
+            Session session = http2Session;
+            if (Objects.isNull(session) || session.isClosed()) {
+                throw new ApiException("HTTP 2 session is null or closed");
+            }
+            return session;
         }
     }
 
@@ -513,14 +540,16 @@ public class Clip2Bridge implements Closeable {
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
     private final Semaphore streamMutex = new Semaphore(MAX_CONCURRENT_STREAMS, true);
+    private final ReentrantReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock();
 
     private boolean closing;
     private State onlineState = State.CLOSED;
     private Optional<Instant> lastRequestTime = Optional.empty();
     private Instant sessionExpireTime = Instant.MAX;
-    private @Nullable Session http2Session;
 
+    private @Nullable Session http2Session;
     private @Nullable Future<?> checkAliveTask;
+
     private Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
     private int streamCount;
@@ -714,13 +743,10 @@ public class Clip2Bridge implements Closeable {
      */
     private Resources getResourcesImpl(ResourceReference reference)
             throws HttpUnauthorizedException, ApiException, InterruptedException {
-        Session session = http2Session;
-        if (Objects.isNull(session) || session.isClosed()) {
-            throw new ApiException("HTTP 2 session is null or closed");
-        }
-        try (Throttler throttler = new Throttler(1)) {
+        try (Throttler throttler = new Throttler(1); SessionWaiter sessionWaiter = new SessionWaiter()) {
             streamCount++;
             LOGGER.debug("getResourcesImpl() streamCount:{}", streamCount);
+            Session session = sessionWaiter.getSession();
             String url = getUrl(reference);
             LOGGER.trace("GET {} HTTP/2", url);
             HeadersFrame headers = prepareHeaders(url, MediaType.APPLICATION_JSON);
@@ -936,6 +962,31 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
+     * The Hue bridge uses the 'nginx' web server which by default sends an HTTP2 GO_AWAY frame after 1000 GET or PUT
+     * calls. In general this is 'normal' behaviour so we can simply close the session and try to immediately restart a
+     * new one. Note: we use the ReentrantReadWriteLock 'sessionUseCreateLock' on which this method opens a 'write' lock
+     * to have single thread access to the session while it is being created, and other GET / PUT methods can have
+     * concurrent thread ('read') access to the session once it exist again. In other words this single thread method
+     * waits for any concurrently running GET / PUT method calls to complete, and any subsequent (concurrent) GET / PUT
+     * method calls wait until this single thread method has completed.
+     */
+    private synchronized void openSessionAfterGoAway() {
+        try {
+            sessionUseCreateLock.writeLock().tryLock(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            close2();
+            open();
+        } catch (ApiException | InterruptedException e) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.warn("openSessionAfterGoAway() failed", e);
+            } else {
+                LOGGER.warn("openSessionAfterGoAway() failed '{}'", e.getMessage());
+            }
+        } finally {
+            sessionUseCreateLock.writeLock().unlock();
+        }
+    }
+
+    /**
      * Helper class to create a HeadersFrame for a standard HTTP GET request.
      *
      * @param url the server url.
@@ -981,16 +1032,11 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     public void putResource(Resource resource) throws ApiException, InterruptedException {
-        if (onlineState == State.CLOSED) {
-            return;
-        }
-        Session session = http2Session;
-        if (Objects.isNull(session) || session.isClosed()) {
-            throw new ApiException("HTTP 2 session is null or closed");
-        }
-        try (Throttler throttler = new Throttler(MAX_CONCURRENT_STREAMS)) {
+        try (Throttler throttler = new Throttler(MAX_CONCURRENT_STREAMS);
+                SessionWaiter sessionWaiter = new SessionWaiter()) {
             streamCount++;
             LOGGER.debug("putResource() streamCount:{}", streamCount);
+            Session session = sessionWaiter.getSession();
             String requestJson = jsonParser.toJson(resource);
             ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
             String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
