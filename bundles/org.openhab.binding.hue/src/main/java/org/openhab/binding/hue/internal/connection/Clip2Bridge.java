@@ -181,6 +181,7 @@ public class Clip2Bridge implements Closeable {
         public void onData(@Nullable Stream stream, @Nullable DataFrame frame, @Nullable Callback callback) {
             Objects.requireNonNull(frame);
             Objects.requireNonNull(callback);
+            LOGGER.debug("onData() frame.getStreamId:{}", frame.getStreamId());
             synchronized (this) {
                 content.append(frame.getData());
                 if (frame.isEndStream() && !completable.isDone()) {
@@ -268,6 +269,11 @@ public class Clip2Bridge implements Closeable {
                 @SuppressWarnings("null")
                 List<String> receivedLines = reader.lines().collect(Collectors.toList());
 
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("onData() frameStreamId:{}, receivedLines:>>{}<<", frame.getStreamId(),
+                            receivedLines.stream().collect(Collectors.joining(",")));
+                }
+
                 // a blank line marks the end of an SSE message
                 boolean endOfMessage = !receivedLines.isEmpty()
                         && receivedLines.get(receivedLines.size() - 1).isBlank();
@@ -349,16 +355,26 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onClose(@Nullable Session session, @Nullable GoAwayFrame frame) {
+            if (Objects.nonNull(frame)) {
+                LOGGER.debug("onClose() frame.getLastStreamId:{}, frame.getError:{}, frame.isGraceful:{}",
+                        frame.getLastStreamId(), frame.getError(), frame.isGraceful());
+            } else {
+                LOGGER.debug("onClose() frame:null");
+            }
             fatalErrorDelayed(this, new Http2Exception(Http2Error.CLOSED));
         }
 
         @Override
         public void onFailure(@Nullable Session session, @Nullable Throwable failure) {
+            LOGGER.debug("onFailure()", failure);
             fatalErrorDelayed(this, new Http2Exception(Http2Error.FAILURE));
         }
 
         @Override
         public void onGoAway(@Nullable Session session, @Nullable GoAwayFrame frame) {
+            Objects.requireNonNull(frame);
+            LOGGER.debug("onGoAway() frame.getLastStreamId:{}, frame.getError:{}, frame.isGraceful:{}, streamCount:{}",
+                    frame.getLastStreamId(), frame.getError(), frame.isGraceful(), streamCount);
             fatalErrorDelayed(this, new Http2Exception(Http2Error.GO_AWAY));
         }
 
@@ -377,6 +393,8 @@ public class Clip2Bridge implements Closeable {
 
         @Override
         public void onReset(@Nullable Session session, @Nullable ResetFrame frame) {
+            Objects.requireNonNull(frame);
+            LOGGER.debug("onReset() frame.getStreamId:{}, frame.getError:{}", frame.getStreamId(), frame.getError());
             fatalErrorDelayed(this, new Http2Exception(Http2Error.RESET));
         }
     }
@@ -505,6 +523,8 @@ public class Clip2Bridge implements Closeable {
     private @Nullable Future<?> checkAliveTask;
     private Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
+    private int streamCount;
+
     /**
      * Constructor.
      *
@@ -591,6 +611,7 @@ public class Clip2Bridge implements Closeable {
     private void close2() {
         synchronized (this) {
             LOGGER.debug("close2()");
+            streamCount = 0;
             boolean notifyHandler = onlineState == State.ACTIVE && !closing;
             onlineState = State.CLOSED;
             synchronized (fatalErrorTasks) {
@@ -698,6 +719,8 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("HTTP 2 session is null or closed");
         }
         try (Throttler throttler = new Throttler(1)) {
+            streamCount++;
+            LOGGER.debug("getResourcesImpl() streamCount:{}", streamCount);
             String url = getUrl(reference);
             LOGGER.trace("GET {} HTTP/2", url);
             HeadersFrame headers = prepareHeaders(url, MediaType.APPLICATION_JSON);
@@ -966,6 +989,8 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("HTTP 2 session is null or closed");
         }
         try (Throttler throttler = new Throttler(MAX_CONCURRENT_STREAMS)) {
+            streamCount++;
+            LOGGER.debug("putResource() streamCount:{}", streamCount);
             String requestJson = jsonParser.toJson(resource);
             ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
             String url = getUrl(new ResourceReference().setId(resource.getId()).setType(resource.getType()));
