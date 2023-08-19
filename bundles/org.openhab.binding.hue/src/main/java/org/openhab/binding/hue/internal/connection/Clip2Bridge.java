@@ -663,6 +663,9 @@ public class Clip2Bridge implements Closeable {
         LOGGER.debug("closeSession()");
         Session session = http2Session;
         if (Objects.nonNull(session) && !session.isClosed()) {
+            // reset event stream(s)
+            session.getStreams().stream().filter(s -> Objects.nonNull(s.getAttribute(EVENT_STREAM_ID)) && !s.isReset())
+                    .forEach(s -> s.reset(new ResetFrame(s.getId(), 0), null));
             session.close(0, null, Callback.NOOP);
         }
         http2Session = null;
