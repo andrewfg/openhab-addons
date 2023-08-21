@@ -37,6 +37,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
@@ -118,6 +119,7 @@ public class Clip2Bridge implements Closeable {
     private abstract class BaseStreamListenerAdapter<T> extends Stream.Listener.Adapter {
         protected final CompletableFuture<T> completable = new CompletableFuture<T>();
         private String contentType = "UNDEFINED";
+        private int status;
 
         protected T awaitResult() throws ExecutionException, InterruptedException, TimeoutException {
             return completable.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -130,6 +132,15 @@ public class Clip2Bridge implements Closeable {
          */
         protected String getContentType() {
             return contentType;
+        }
+
+        /**
+         * Return the HTTP status code.
+         *
+         * @return status code e.g. 200
+         */
+        protected int getStatus() {
+            return status;
         }
 
         /**
@@ -160,14 +171,14 @@ public class Clip2Bridge implements Closeable {
             MetaData metaData = frame.getMetaData();
             if (metaData.isResponse()) {
                 Response responseMetaData = (Response) metaData;
-                int httpStatus = responseMetaData.getStatus();
-                switch (httpStatus) {
+                contentType = responseMetaData.getFields().get(HttpHeader.CONTENT_TYPE).toLowerCase();
+                status = responseMetaData.getStatus();
+                switch (status) {
                     case HttpStatus.UNAUTHORIZED_401:
                     case HttpStatus.FORBIDDEN_403:
                         handleHttp2Error(Http2Error.UNAUTHORIZED, stream.getSession().hashCode(), stream.getId());
                     default:
                 }
-                contentType = responseMetaData.getFields().get(HttpHeader.CONTENT_TYPE).toLowerCase();
             }
         }
     }
@@ -410,9 +421,9 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
-     * Synchronizer to wait for the HTTP2 session. This method wraps the ReentrantReadWriteLock 'sessionUseCreateLock'
-     * so that GET / PUT methods can access the session on multiple concurrent threads via the 'read' access lock, yet
-     * are forced to wait if the session is being created under its single thread access 'write' lock.
+     * Synchronizer for accessing the HTTP2 session object. This method wraps the 'sessionUseCreateLock' ReadWriteLock
+     * so that GET/PUT methods can access the session on multiple concurrent threads via the 'read' access lock, yet are
+     * forced to wait if the session is being created via its single thread access 'write' lock.
      */
     private class SessionSynchronizer implements AutoCloseable {
         private final boolean exclusive;
@@ -550,7 +561,7 @@ public class Clip2Bridge implements Closeable {
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
     private final Semaphore streamMutex = new Semaphore(MAX_CONCURRENT_STREAMS, true);
-    private final ReentrantReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock();
+    private final ReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock();
     private final Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
     private boolean closing;
@@ -756,7 +767,7 @@ public class Clip2Bridge implements Closeable {
      */
     public Resources getResources(ResourceReference reference) throws ApiException, InterruptedException {
         if (onlineState == State.CLOSED) {
-            throw new ApiException("getResources() offline");
+            throw new ApiException("Connection is closed");
         }
         return getResourcesImpl(reference);
     }
@@ -789,7 +800,11 @@ public class Clip2Bridge implements Closeable {
             // wait for HTTP response contents
             String contentJson = contentStreamListener.awaitResult();
             String contentType = contentStreamListener.getContentType();
-            LOGGER.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, contentJson);
+            int status = contentStreamListener.getStatus();
+            LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
+            if (status != HttpStatus.OK_200) {
+                throw new ApiException(String.format("Unexpected HTTP status '%d'", status));
+            }
             if (!MediaType.APPLICATION_JSON.equals(contentType)) {
                 throw new ApiException("Unexpected Content-Type: " + contentType);
             }
@@ -826,7 +841,7 @@ public class Clip2Bridge implements Closeable {
     private Session getSession() throws ApiException {
         Session session = http2Session;
         if (Objects.isNull(session) || session.isClosed()) {
-            throw new ApiException("HTTP 2 session is null or closed");
+            throw new ApiException("HTTP/2 session is null or closed");
         }
         return session;
     }
@@ -944,7 +959,6 @@ public class Clip2Bridge implements Closeable {
         if (session.getStreams().stream().anyMatch(stream -> Objects.nonNull(stream.getAttribute(EVENT_STREAM_ID)))) {
             return;
         }
-        LOGGER.debug("openEventStream()");
         LOGGER.trace("GET {} HTTP/2", eventUrl);
         Stream stream = null;
         try {
@@ -958,6 +972,7 @@ public class Clip2Bridge implements Closeable {
             stream.setAttribute(EVENT_STREAM_ID, session);
             // wait for "hi" from the bridge
             eventStreamListener.awaitResult();
+            LOGGER.debug("openEventStream() streamId:{}", stream.getId());
         } catch (ExecutionException | TimeoutException e) {
             if (Objects.nonNull(stream) && !stream.isReset()) {
                 stream.reset(new ResetFrame(stream.getId(), ErrorCode.HTTP_CONNECT_ERROR.code), Callback.NOOP);
@@ -993,7 +1008,6 @@ public class Clip2Bridge implements Closeable {
         if (Objects.nonNull(session) && !session.isClosed()) {
             return;
         }
-        LOGGER.debug("openSession()");
         InetSocketAddress address = new InetSocketAddress(hostName, 443);
         try {
             SessionListenerAdapter sessionListener = new SessionListenerAdapter();
@@ -1001,9 +1015,10 @@ public class Clip2Bridge implements Closeable {
             http2Client.connect(http2Client.getBean(SslContextFactory.class), address, sessionListener, sessionPromise);
             // wait for the (SSL) session to be opened
             http2Session = Objects.requireNonNull(sessionPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            LOGGER.debug("openSession() sessionId:{}", http2Session.hashCode());
             checkAliveOk(); // initialise the session timeout window
         } catch (ExecutionException | TimeoutException e) {
-            throw new ApiException("Error opening HTTP 2 session", e);
+            throw new ApiException("Error opening HTTP/2 session", e);
         }
     }
 
@@ -1072,7 +1087,11 @@ public class Clip2Bridge implements Closeable {
             // wait for HTTP response
             String contentJson = contentStreamListener.awaitResult();
             String contentType = contentStreamListener.getContentType();
-            LOGGER.trace("HTTP/2 200 OK (Content-Type: {}) << {}", contentType, contentJson);
+            int status = contentStreamListener.getStatus();
+            LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
+            if (status != HttpStatus.OK_200) {
+                throw new ApiException(String.format("Unexpected HTTP status '%d'", status));
+            }
             if (!MediaType.APPLICATION_JSON.equals(contentType)) {
                 throw new ApiException("Unexpected Content-Type: " + contentType);
             }
@@ -1086,7 +1105,7 @@ public class Clip2Bridge implements Closeable {
                 throw new ApiException("Parsing error", e);
             }
         } catch (ExecutionException | TimeoutException e) {
-            throw new ApiException("putResource() error sending request", e);
+            throw new ApiException("Error sending PUT request", e);
         } finally {
             if (Objects.nonNull(stream) && !stream.isReset()) {
                 stream.reset(new ResetFrame(stream.getId(), ErrorCode.NO_ERROR.code), Callback.NOOP);
@@ -1151,7 +1170,7 @@ public class Clip2Bridge implements Closeable {
         json = contentResponse.getContentAsString().trim();
         LOGGER.trace("HTTP/1.1 {} {} << {}", httpStatus, contentResponse.getReason(), json);
         if (httpStatus != HttpStatus.OK_200) {
-            throw new ApiException("HTTP bad response");
+            throw new ApiException(String.format("HTTP bad response '%d'", httpStatus));
         }
         try {
             List<SuccessResponse> entries = jsonParser.fromJson(json, SuccessResponse.GSON_TYPE);
