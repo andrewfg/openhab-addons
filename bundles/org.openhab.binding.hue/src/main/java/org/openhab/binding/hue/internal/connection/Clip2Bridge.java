@@ -507,17 +507,20 @@ public class Clip2Bridge implements Closeable {
 
     private static final String APPLICATION_ID = "org-openhab-binding-hue-clip2";
     private static final String APPLICATION_KEY = "hue-application-key";
+
     private static final String EVENT_STREAM_ID = "eventStream";
     private static final String FORMAT_URL_CONFIG = "http://%s/api/0/config";
     private static final String FORMAT_URL_RESOURCE = "https://%s/clip/v2/resource/";
     private static final String FORMAT_URL_REGISTER = "http://%s/api";
     private static final String FORMAT_URL_EVENTS = "https://%s/eventstream/clip/v2";
+
     private static final long CLIP2_MINIMUM_VERSION = 1948086000L;
 
     public static final int TIMEOUT_SECONDS = 10;
     private static final int CHECK_ALIVE_SECONDS = 300;
     private static final int REQUEST_INTERVAL_MILLISECS = 50;
     private static final int MAX_CONCURRENT_STREAMS = 3;
+
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
     /**
@@ -564,13 +567,13 @@ public class Clip2Bridge implements Closeable {
     private final ReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock();
     private final Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
-    private boolean closing;
     private boolean muteNotifications;
+    private boolean closing;
     private State onlineState = State.CLOSED;
     private Optional<Instant> lastRequestTime = Optional.empty();
     private Instant sessionExpireTime = Instant.MAX;
-
     private @Nullable Session http2Session;
+
     private @Nullable Future<?> checkAliveTask;
 
     /**
@@ -775,7 +778,7 @@ public class Clip2Bridge implements Closeable {
     /**
      * Internal method to send an HTTP 2 GET request to the Hue Bridge and process its response. Uses a Throttler to
      * prevent too many concurrent calls, and to prevent too frequent calls on the Hue bridge server. Also uses a
-     * SessionSynchronizer to delay accessing the session during the time that it is being recycled.
+     * SessionSynchronizer to delay accessing the session while it is being recycled.
      *
      * @param reference the Reference class to get.
      * @return a Resource object containing either a list of Resources or a list of Errors.
@@ -1014,8 +1017,9 @@ public class Clip2Bridge implements Closeable {
             Completable<@Nullable Session> sessionPromise = new Completable<>();
             http2Client.connect(http2Client.getBean(SslContextFactory.class), address, sessionListener, sessionPromise);
             // wait for the (SSL) session to be opened
-            http2Session = Objects.requireNonNull(sessionPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-            LOGGER.debug("openSession() sessionId:{}", http2Session.hashCode());
+            session = Objects.requireNonNull(sessionPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            LOGGER.debug("openSession() sessionId:{}", session.hashCode());
+            http2Session = session;
             checkAliveOk(); // initialise the session timeout window
         } catch (ExecutionException | TimeoutException e) {
             throw new ApiException("Error opening HTTP/2 session", e);
@@ -1061,7 +1065,7 @@ public class Clip2Bridge implements Closeable {
     /**
      * Use an HTTP/2 PUT command to send a resource to the server. Uses a Throttler to prevent too many concurrent
      * calls, and to prevent too frequent calls on the Hue bridge server. Also uses a SessionSynchronizer to delay
-     * accessing the session during the time that it is being recycled.
+     * accessing the session while it is being recycled.
      *
      * @param resource the resource to put.
      * @throws ApiException if something fails.
@@ -1116,8 +1120,8 @@ public class Clip2Bridge implements Closeable {
     /**
      * Close and re-open the session. Triggered by a GO_AWAY message. Acquires a SessionSynchronizer 'write' lock to
      * ensure single thread access while the new session is being created. Therefore it waits for any already running
-     * GET/PUT method calls, (having a 'read' lock), to complete. And so causes any GET/PUT method calls to wait until
-     * this method releases the 'write' lock again.
+     * GET/PUT method calls, (having a 'read' lock), to complete. And so causes any new GET/PUT method calls to wait
+     * until this method releases the 'write' lock again.
      */
     private synchronized void recycleSession() {
         try (SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(true)) {
