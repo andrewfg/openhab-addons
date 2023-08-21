@@ -972,7 +972,7 @@ public class Clip2Bridge implements Closeable {
             stream.setAttribute(EVENT_STREAM_ID, session);
             // wait for "hi" from the bridge
             eventStreamListener.awaitResult();
-            LOGGER.debug("openEventStream() streamId:{}", stream.getId());
+            LOGGER.debug("openEventStream() sessionId:{} streamId:{}", session.hashCode(), stream.getId());
         } catch (ExecutionException | TimeoutException e) {
             if (Objects.nonNull(stream) && !stream.isReset()) {
                 stream.reset(new ResetFrame(stream.getId(), ErrorCode.HTTP_CONNECT_ERROR.code), Callback.NOOP);
@@ -1008,8 +1008,8 @@ public class Clip2Bridge implements Closeable {
         if (Objects.nonNull(session) && !session.isClosed()) {
             return;
         }
-        InetSocketAddress address = new InetSocketAddress(hostName, 443);
         try {
+            InetSocketAddress address = new InetSocketAddress(hostName, 443);
             SessionListenerAdapter sessionListener = new SessionListenerAdapter();
             Completable<@Nullable Session> sessionPromise = new Completable<>();
             http2Client.connect(http2Client.getBean(SslContextFactory.class), address, sessionListener, sessionPromise);
