@@ -386,13 +386,14 @@ public class Clip2Bridge implements Closeable {
 
         /**
          * The Hue bridge uses the 'nginx' web server which by default sends an HTTP2 GO_AWAY frame after 999 GET/PUT
-         * calls. This is 'normal' behaviour so we simply schedule to close and reopen ('recycle') the session.
+         * calls. This is 'normal' behaviour so we simply create a new thread that will close and reopen ('recycle') the
+         * session.
          */
         @Override
         public void onGoAway(@Nullable Session session, @Nullable GoAwayFrame frame) {
             Objects.requireNonNull(session);
             if (http2Session == session) {
-                recycleSession();
+                new Thread(() -> recycleSession()).start();
             }
         }
 
@@ -521,14 +522,6 @@ public class Clip2Bridge implements Closeable {
     private static final int REQUEST_INTERVAL_MILLISECS = 50;
     private static final int MAX_CONCURRENT_STREAMS = 3;
 
-    /*
-     * The Hue bridge 'nginx' server has a maximum request count of 1000, and it triggers a GO_AWAY when the penultimate
-     * stream before that limit is opened; i.e. the GO_AWAY is triggered when streamId 1999 is opened. So we set a
-     * streamId limit to trigger an internal recycle of the session before this GO_AWAY streamId is reached.
-     */
-    private static final int NGINX_MAX_REQUEST_COUNT = 1000;
-    private static final int STREAM_ID_LIMIT = ((NGINX_MAX_REQUEST_COUNT - 1 - (MAX_CONCURRENT_STREAMS * 2)) * 2) + 1;
-
     private static final ResourceReference BRIDGE = new ResourceReference().setType(ResourceType.BRIDGE);
 
     /**
@@ -571,11 +564,11 @@ public class Clip2Bridge implements Closeable {
     private final String applicationKey;
     private final Clip2BridgeHandler bridgeHandler;
     private final Gson jsonParser = new Gson();
-    private final Semaphore streamMutex = new Semaphore(MAX_CONCURRENT_STREAMS, true);
-    private final ReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock();
+    private final Semaphore streamMutex = new Semaphore(MAX_CONCURRENT_STREAMS, true); // i.e. fair
+    private final ReadWriteLock sessionUseCreateLock = new ReentrantReadWriteLock(true); // i.e. fair
     private final Map<Integer, Future<?>> fatalErrorTasks = new ConcurrentHashMap<>();
 
-    private boolean muteNotifications;
+    private boolean recycling;
     private boolean closing;
     private State onlineState = State.CLOSED;
     private Optional<Instant> lastRequestTime = Optional.empty();
@@ -583,7 +576,6 @@ public class Clip2Bridge implements Closeable {
     private @Nullable Session http2Session;
 
     private @Nullable Future<?> checkAliveTask;
-    private @Nullable Future<?> recycleTask;
 
     /**
      * Constructor.
@@ -654,7 +646,6 @@ public class Clip2Bridge implements Closeable {
     @Override
     public void close() {
         closing = true;
-        cancelTask(recycleTask, true);
         close2();
         try {
             stopHttp2Client();
@@ -668,7 +659,7 @@ public class Clip2Bridge implements Closeable {
     private void close2() {
         synchronized (this) {
             LOGGER.debug("close2()");
-            boolean notifyHandler = onlineState == State.ACTIVE && !closing && !muteNotifications;
+            boolean notifyHandler = onlineState == State.ACTIVE && !closing && !recycling;
             onlineState = State.CLOSED;
             synchronized (fatalErrorTasks) {
                 fatalErrorTasks.values().forEach(task -> cancelTask(task, true));
@@ -712,19 +703,13 @@ public class Clip2Bridge implements Closeable {
     }
 
     /**
-     * Close the given stream and, if its streamId exceeds the limit, schedule to recycle the session.
+     * Close the given stream.
      *
-     * @param stream the stream to be closed.
+     * @param stream to be closed.
      */
     private void closeStream(@Nullable Stream stream) {
-        if (Objects.nonNull(stream)) {
-            int streamId = stream.getId();
-            if (!stream.isReset()) {
-                stream.reset(new ResetFrame(streamId, ErrorCode.NO_ERROR.code), Callback.NOOP);
-            }
-            if (streamId > STREAM_ID_LIMIT) {
-                recycleSession();
-            }
+        if (Objects.nonNull(stream) && !stream.isReset()) {
+            stream.reset(new ResetFrame(stream.getId(), ErrorCode.NO_ERROR.code), Callback.NOOP);
         }
     }
 
@@ -796,7 +781,7 @@ public class Clip2Bridge implements Closeable {
      * @throws InterruptedException
      */
     public Resources getResources(ResourceReference reference) throws ApiException, InterruptedException {
-        if (onlineState == State.CLOSED) {
+        if ((onlineState == State.CLOSED) && !recycling) {
             throw new ApiException("Connection is closed");
         }
         return getResourcesImpl(reference);
@@ -821,8 +806,11 @@ public class Clip2Bridge implements Closeable {
             return new Resources();
         }
         Stream stream = null;
+        long todoRemoveStarted = Instant.now().toEpochMilli(), todoRemoveLocked = 0, todoRemoveOpened = 0,
+                todoRemoveRead = 0, todoRemoveReset = 0;
         try (Throttler throttler = new Throttler(1);
                 SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(false)) {
+            todoRemoveLocked = Instant.now().toEpochMilli();
             Session session = getSession();
             String url = getUrl(reference);
             LOGGER.trace("GET {} HTTP/2", url);
@@ -832,8 +820,10 @@ public class Clip2Bridge implements Closeable {
             session.newStream(headers, streamPromise, contentStreamListener);
             // wait for stream to be opened
             stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            todoRemoveOpened = Instant.now().toEpochMilli();
             // wait for HTTP response contents
             String contentJson = contentStreamListener.awaitResult();
+            todoRemoveRead = Instant.now().toEpochMilli();
             String contentType = contentStreamListener.getContentType();
             int status = contentStreamListener.getStatus();
             LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
@@ -862,6 +852,10 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("Error sending request", e);
         } finally {
             closeStream(stream);
+            todoRemoveReset = Instant.now().toEpochMilli();
+            LOGGER.debug("TODO REMOVE GET: streamId:{}, tStarted:{}, tLocked:{}, tOpened:{}, tRead:{}, tReset:{}",
+                    stream != null ? stream.getId() : -1, todoRemoveStarted, todoRemoveLocked, todoRemoveOpened,
+                    todoRemoveRead, todoRemoveReset);
         }
     }
 
@@ -902,7 +896,7 @@ public class Clip2Bridge implements Closeable {
      * @param data the incoming (presumed to be JSON) text.
      */
     protected void onEventData(String data) {
-        if (onlineState != State.ACTIVE) {
+        if ((onlineState != State.ACTIVE) && !recycling) {
             return;
         }
         if (LOGGER.isTraceEnabled()) {
@@ -1103,8 +1097,11 @@ public class Clip2Bridge implements Closeable {
      */
     public void putResource(Resource resource) throws ApiException, InterruptedException {
         Stream stream = null;
+        long todoRemoveStarted = Instant.now().toEpochMilli(), todoRemoveLocked = 0, todoRemoveOpened = 0,
+                todoRemoveSent = 0, todoRemoveRead = 0, todoRemoveReset = 0;
         try (Throttler throttler = new Throttler(MAX_CONCURRENT_STREAMS);
                 SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(false)) {
+            todoRemoveLocked = Instant.now().toEpochMilli();
             Session session = getSession();
             String requestJson = jsonParser.toJson(resource);
             ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
@@ -1117,9 +1114,12 @@ public class Clip2Bridge implements Closeable {
             session.newStream(headers, streamPromise, contentStreamListener);
             // wait for stream to be opened
             stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            todoRemoveOpened = Instant.now().toEpochMilli();
             stream.data(new DataFrame(stream.getId(), requestBytes, true), Callback.NOOP);
+            todoRemoveSent = Instant.now().toEpochMilli();
             // wait for HTTP response
             String contentJson = contentStreamListener.awaitResult();
+            todoRemoveRead = Instant.now().toEpochMilli();
             String contentType = contentStreamListener.getContentType();
             int status = contentStreamListener.getStatus();
             LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
@@ -1142,39 +1142,44 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("Error sending PUT request", e);
         } finally {
             closeStream(stream);
+            todoRemoveReset = Instant.now().toEpochMilli();
+            LOGGER.debug(
+                    "TODO REMOVE PUT: streamId:{}, tStarted:{}, tLocked:{}, tOpened:{}, tSent:{}, tRead:{}, tReset:{}",
+                    stream != null ? stream.getId() : -1, todoRemoveStarted, todoRemoveLocked, todoRemoveOpened,
+                    todoRemoveSent, todoRemoveRead, todoRemoveReset);
         }
     }
 
     /**
-     * Schedule a task to close and re-open the session. Triggered if the streamId exceeds a given limit, or if the
-     * server sends a GO_AWAY message. The task acquires a SessionSynchronizer 'write' lock to ensure single thread
-     * access while the new session is being created. Therefore it waits for any already running GET/PUT method calls,
-     * which have a 'read' lock, to complete. And so causes any new GET/PUT method calls to wait until this method
-     * releases the 'write' lock again.
+     * Close and re-open the session. Called if the server sends a GO_AWAY message. Acquires a SessionSynchronizer
+     * 'write' lock to ensure single thread access while the new session is being created. Therefore it waits for any
+     * already running GET/PUT method calls, which have a 'read' lock, to complete. And also causes any new GET/PUT
+     * method calls to wait until this method releases the 'write' lock again. Whereby such GET/PUT calls are postponed
+     * to the new session.
      */
     private synchronized void recycleSession() {
-        Future<?> recycleTask = this.recycleTask;
-        if (Objects.isNull(recycleTask) || recycleTask.isDone()) {
-            this.recycleTask = bridgeHandler.getScheduler().submit(() -> {
-                try (SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(true)) {
-                    LOGGER.debug("recycleSession()");
-                    muteNotifications = true;
-                    close2();
-                    stopHttp2Client();
-                    //
-                    startHttp2Client();
-                    open();
-                } catch (ApiException | InterruptedException e) {
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("recycleSession() exception", e);
-                    } else {
-                        LOGGER.warn("recycleSession() {}: {}", e.getClass().getSimpleName(), e.getMessage());
-                    }
-                } finally {
-                    muteNotifications = false;
-                    LOGGER.debug("recycleSession() done");
-                }
-            });
+        long todoRemoveStart = Instant.now().toEpochMilli(), todoRemoveLock = 0, todoRemoveDone = 0;
+        try (SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(true)) {
+            todoRemoveLock = Instant.now().toEpochMilli();
+            LOGGER.debug("recycleSession()");
+            recycling = true;
+            close2();
+            stopHttp2Client();
+            //
+            startHttp2Client();
+            open();
+        } catch (ApiException | InterruptedException e) {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("recycleSession() exception", e);
+            } else {
+                LOGGER.warn("recycleSession() {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            }
+        } finally {
+            recycling = false;
+            LOGGER.debug("recycleSession() done");
+            todoRemoveDone = Instant.now().toEpochMilli();
+            LOGGER.debug("TODO REMOVE REC: tStart:{}, tLock:{}, tDone:{}", todoRemoveStart, todoRemoveLock,
+                    todoRemoveDone);
         }
     }
 
