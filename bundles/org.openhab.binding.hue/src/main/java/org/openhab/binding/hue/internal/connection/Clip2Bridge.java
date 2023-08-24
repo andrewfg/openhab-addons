@@ -1153,11 +1153,15 @@ public class Clip2Bridge implements Closeable {
             todoRemoveLock = Instant.now().toEpochMilli();
             LOGGER.debug("recreateSession()");
             recreatingSession = true;
+            State onlineState = this.onlineState;
             close2();
             stopHttp2Client();
             //
             startHttp2Client();
-            open();
+            openPassive();
+            if (onlineState == State.ACTIVE) {
+                openActive();
+            }
         } catch (ApiException | InterruptedException e) {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("recreateSession() exception", e);
