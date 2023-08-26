@@ -797,17 +797,15 @@ public class Clip2Bridge implements Closeable {
      */
     private Resources getResourcesImpl(ResourceReference reference)
             throws HttpUnauthorizedException, ApiException, InterruptedException {
-        // work around for issue #15468
-        if (reference.getType() == ResourceType.ERROR) {
-            LOGGER.debug("Resource '{}' type unknown (issue #15468) => GET aborted", reference.getId());
+        // work around for issue #15468 and similar
+        ResourceType resourceType = reference.getType();
+        if (resourceType == ResourceType.ERROR) {
+            LOGGER.warn("Resource '{}' type is '{}' => GET aborted", reference.getId(), resourceType);
             return new Resources();
         }
         Stream stream = null;
-        long todoRemoveStarted = Instant.now().toEpochMilli(), todoRemoveLocked = 0, todoRemoveOpened = 0,
-                todoRemoveRead = 0, todoRemoveReset = 0;
         try (Throttler throttler = new Throttler(1);
                 SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(false)) {
-            todoRemoveLocked = Instant.now().toEpochMilli();
             Session session = getSession();
             String url = getUrl(reference);
             LOGGER.trace("GET {} HTTP/2", url);
@@ -817,10 +815,8 @@ public class Clip2Bridge implements Closeable {
             session.newStream(headers, streamPromise, contentStreamListener);
             // wait for stream to be opened
             stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-            todoRemoveOpened = Instant.now().toEpochMilli();
             // wait for HTTP response contents
             String contentJson = contentStreamListener.awaitResult();
-            todoRemoveRead = Instant.now().toEpochMilli();
             String contentType = contentStreamListener.getContentType();
             int status = contentStreamListener.getStatus();
             LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
@@ -849,10 +845,6 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("Error sending request", e);
         } finally {
             closeStream(stream);
-            todoRemoveReset = Instant.now().toEpochMilli();
-            LOGGER.debug("TODO REMOVE GET: streamId:{}, tStarted:{}, tLocked:{}, tOpened:{}, tRead:{}, tReset:{}",
-                    stream != null ? stream.getId() : -1, todoRemoveStarted, todoRemoveLocked, todoRemoveOpened,
-                    todoRemoveRead, todoRemoveReset);
         }
     }
 
@@ -1094,11 +1086,8 @@ public class Clip2Bridge implements Closeable {
      */
     public void putResource(Resource resource) throws ApiException, InterruptedException {
         Stream stream = null;
-        long todoRemoveStarted = Instant.now().toEpochMilli(), todoRemoveLocked = 0, todoRemoveOpened = 0,
-                todoRemoveSent = 0, todoRemoveRead = 0, todoRemoveReset = 0;
         try (Throttler throttler = new Throttler(MAX_CONCURRENT_STREAMS);
                 SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(false)) {
-            todoRemoveLocked = Instant.now().toEpochMilli();
             Session session = getSession();
             String requestJson = jsonParser.toJson(resource);
             ByteBuffer requestBytes = ByteBuffer.wrap(requestJson.getBytes(StandardCharsets.UTF_8));
@@ -1111,12 +1100,9 @@ public class Clip2Bridge implements Closeable {
             session.newStream(headers, streamPromise, contentStreamListener);
             // wait for stream to be opened
             stream = Objects.requireNonNull(streamPromise.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-            todoRemoveOpened = Instant.now().toEpochMilli();
             stream.data(new DataFrame(stream.getId(), requestBytes, true), Callback.NOOP);
-            todoRemoveSent = Instant.now().toEpochMilli();
             // wait for HTTP response
             String contentJson = contentStreamListener.awaitResult();
-            todoRemoveRead = Instant.now().toEpochMilli();
             String contentType = contentStreamListener.getContentType();
             int status = contentStreamListener.getStatus();
             LOGGER.trace("HTTP/2 {} (Content-Type: {}) << {}", status, contentType, contentJson);
@@ -1139,11 +1125,6 @@ public class Clip2Bridge implements Closeable {
             throw new ApiException("Error sending PUT request", e);
         } finally {
             closeStream(stream);
-            todoRemoveReset = Instant.now().toEpochMilli();
-            LOGGER.debug(
-                    "TODO REMOVE PUT: streamId:{}, tStarted:{}, tLocked:{}, tOpened:{}, tSent:{}, tRead:{}, tReset:{}",
-                    stream != null ? stream.getId() : -1, todoRemoveStarted, todoRemoveLocked, todoRemoveOpened,
-                    todoRemoveSent, todoRemoveRead, todoRemoveReset);
         }
     }
 
@@ -1155,9 +1136,7 @@ public class Clip2Bridge implements Closeable {
      * to the new session.
      */
     private synchronized void recreateSession() {
-        long todoRemoveStart = Instant.now().toEpochMilli(), todoRemoveLock = 0, todoRemoveDone = 0;
         try (SessionSynchronizer sessionSynchronizer = new SessionSynchronizer(true)) {
-            todoRemoveLock = Instant.now().toEpochMilli();
             LOGGER.debug("recreateSession()");
             recreatingSession = true;
             State onlineState = this.onlineState;
@@ -1178,9 +1157,6 @@ public class Clip2Bridge implements Closeable {
         } finally {
             recreatingSession = false;
             LOGGER.debug("recreateSession() done");
-            todoRemoveDone = Instant.now().toEpochMilli();
-            LOGGER.debug("TODO REMOVE REC: tStart:{}, tLock:{}, tDone:{}", todoRemoveStart, todoRemoveLock,
-                    todoRemoveDone);
         }
     }
 

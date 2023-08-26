@@ -13,6 +13,7 @@
 package org.openhab.binding.hue.internal.dto.clip2.enums;
 
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -67,12 +68,20 @@ public enum ResourceType {
                 // fall through
             }
         }
-        return ERROR;
+        return ERROR.setErrorName(value);
+    }
+
+    private @Nullable String errorName;
+
+    public ResourceType setErrorName(@Nullable String errorName) {
+        this.errorName = errorName;
+        return this;
     }
 
     @Override
     public String toString() {
         String s = this.name().replace("_", " ");
-        return s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase();
+        s = s.substring(0, 1).toUpperCase() + s.substring(1).toLowerCase();
+        return Objects.isNull(errorName) ? s : s + String.format(" (%s)", errorName);
     }
 }
