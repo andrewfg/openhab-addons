@@ -16,6 +16,7 @@ import javax.measure.quantity.Temperature;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.hue.internal.ColorUtil;
 import org.openhab.binding.hue.internal.dto.ColorTemperature;
 import org.openhab.binding.hue.internal.dto.State;
 import org.openhab.binding.hue.internal.dto.State.AlertMode;
@@ -276,7 +277,7 @@ public class LightStateConverter {
 
     private static HSBType fromXYtoHSBType(State lightState) {
         float[] xy = lightState.getXY();
-        HSBType hsb = HSBType.fromXY(xy[0], xy[1]);
+        HSBType hsb = ColorUtil.xyToHsb(new double[] { xy[0], xy[1] });
 
         int brightnessInPercent = (int) Math.ceil(lightState.getBrightness() / BRIGHTNESS_FACTOR);
         brightnessInPercent = restrictToBounds(brightnessInPercent);

@@ -235,7 +235,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
                     sensorStatusListener.onSensorRemoved();
                 }
 
-                if (discovery != null && sensor != null) {
+                if (discovery != null) {
                     discovery.removeSensorDiscovery(sensor);
                 }
             });
@@ -295,7 +295,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
                     lightStatusListener.onLightRemoved();
                 }
 
-                if (discovery != null && light != null) {
+                if (discovery != null) {
                     discovery.removeLightDiscovery(light);
                 }
             });
@@ -385,7 +385,7 @@ public class HueBridgeHandler extends ConfigStatusBridgeHandler implements HueCl
                     groupStatusListener.onGroupRemoved();
                 }
 
-                if (discovery != null && group != null) {
+                if (discovery != null) {
                     discovery.removeGroupDiscovery(group);
                 }
             });
