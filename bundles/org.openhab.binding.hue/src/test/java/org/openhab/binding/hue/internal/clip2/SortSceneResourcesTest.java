@@ -12,8 +12,6 @@
  */
 package org.openhab.binding.hue.internal.clip2;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,7 +23,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.hue.internal.api.dto.clip2.Resource;
 import org.openhab.binding.hue.internal.api.dto.clip2.enums.ResourceType;
-import org.openhab.binding.hue.internal.api.dto.clip2.helper.Setters;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -40,39 +37,6 @@ class SortSceneResourcesTest {
 
     private static final JsonElement STATIC = JsonParser.parseString("{\"active\":\"static\"}");
     private static final JsonElement INACTIVE = JsonParser.parseString("{\"active\":\"inactive\"}");
-
-    @Test
-    void testSceneSorting() {
-        List<Resource> list = new ArrayList<>();
-        list.add(new Resource(ResourceType.LIGHT).setId("0"));
-        list.add(new Resource(ResourceType.SCENE).setId("1").setStatus(STATIC));
-        list.add(new Resource(ResourceType.LIGHT).setId("2"));
-        list.add(new Resource(ResourceType.SCENE).setId("3").setStatus(INACTIVE));
-        list.add(new Resource(ResourceType.LIGHT).setId("4"));
-        list.forEach(r -> r.markAsSparse());
-
-        assertEquals(5, list.size());
-        assertEquals("0", list.get(0).getId());
-        assertEquals("1", list.get(1).getId());
-        assertEquals("2", list.get(2).getId());
-        assertEquals("3", list.get(3).getId());
-        assertEquals("4", list.get(4).getId());
-
-        assertTrue(list.get(1).getSceneActive().get());
-        assertFalse(list.get(3).getSceneActive().get());
-
-        Setters.sortSceneResources(list);
-
-        assertEquals(5, list.size());
-        assertEquals("0", list.get(0).getId());
-        assertEquals("2", list.get(1).getId());
-        assertEquals("3", list.get(2).getId());
-        assertEquals("4", list.get(3).getId());
-        assertEquals("1", list.get(4).getId());
-
-        assertFalse(list.get(2).getSceneActive().get());
-        assertTrue(list.get(4).getSceneActive().get());
-    }
 
     private static final Map<String, Resource> sceneContributorsCache = new HashMap<>();
 
@@ -201,17 +165,16 @@ class SortSceneResourcesTest {
         System.out.println();
     }
 
-    boolean testJlaurCode = false;// true;
+    boolean testJlaurCode = true;
 
     public void onResources(Collection<Resource> resources) {
-        if (testJlaurCode) {
-            onResourcesJlaur(resources);
-        } else {
-            onResourcesAndreFG(resources);
-        }
+        System.out.println("jlaur code");
+        onResourcesJlaur(resources);
+        System.out.println("andrewfg code");
+        onResourcesAndrewFG(resources);
     }
 
-    public void onResourcesAndreFG(Collection<Resource> resources) {
+    public void onResourcesAndrewFG(Collection<Resource> resources) {
         boolean sceneActivated = resources.stream().anyMatch(r -> sceneContributorsCache.containsKey(r.getId())
                 && (r.getSceneActive().orElse(false) || r.getSmartSceneActive().orElse(false)));
         resources.forEach(r -> {
@@ -222,15 +185,13 @@ class SortSceneResourcesTest {
     }
 
     public void onResourcesJlaur(Collection<Resource> resources) {
-        boolean sceneActivated = resources.stream()
-                .anyMatch(r -> sceneContributorsCache.containsKey(r.getId()) && r.getSceneActive().orElse(false)
-                        || r.getSmartSceneActive().orElse(false));
+        boolean sceneActivated = resources.stream().anyMatch(r -> sceneContributorsCache.containsKey(r.getId())
+                && (r.getSceneActive().orElse(false) || r.getSmartSceneActive().orElse(false)));
         for (Resource resource : resources) {
-            boolean skipUpdate = sceneActivated && sceneContributorsCache.containsKey(resource.getId())
-                    && (resource.getSceneActive().isPresent() || resource.getSmartSceneActive().isPresent());
+            boolean skipUpdate = sceneActivated
+                    && !(resource.getSceneActive().orElse(false) || resource.getSmartSceneActive().orElse(false));
             System.out.println(
                     String.format("Resource %s => %s", resource.toString(), !skipUpdate ? "processed" : "skipped"));
         }
     }
-
 }
