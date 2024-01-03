@@ -12,19 +12,25 @@
  */
 package org.openhab.binding.growatt.internal.cloud;
 
+import java.lang.reflect.Type;
 import java.net.HttpCookie;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -37,15 +43,22 @@ import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.util.Fields;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.openhab.binding.growatt.internal.config.GrowattInverterConfiguration;
+import org.openhab.binding.growatt.internal.dto.GrowattDevice;
+import org.openhab.binding.growatt.internal.dto.GrowattPlant;
+import org.openhab.binding.growatt.internal.dto.GrowattPlantList;
+import org.openhab.binding.growatt.internal.dto.GrowattUser;
 import org.openhab.core.io.net.http.HttpClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 
 /**
  * The {@link GrowattCloud} class allows the binding to access the inverter state and settings via HTTP calls to the
@@ -82,17 +95,70 @@ public class GrowattCloud implements AutoCloseable {
     private static final String PLANT_LIST_API = "PlantListAPI.do";
     private static final String PLANT_INFO_API = "newTwoPlantAPI.do";
     private static final String NEW_TCP_SET_API = "newTcpsetAPI.do";
-    private static final String NEW_MIX_API = "newMixApi.do";
+
+    // command operations
+    private static final String OP_GET_ALL_DEVICE_LIST = "getAllDeviceList";
+
+    // format strings
+    private static final String FMT_TYPE_PARAM = "%s_ac_%s_time_period";
+    private static final String FMT_API_PATH = "new%sApi.do";
+
+    /*
+     * map of device types vs. GET 'op' parameters
+     * note: some values are guesses which have not yet been confirmed by users
+     */
+    private static final Map<String, String> SUPPORTED_TYPES_OP_PARAM_GET = Map.of(
+    // @formatter:off
+            "max", "getMaxSetData",
+            "min", "getMinSetParams",
+            "mix", "getMixSetParams",
+            "spa", "getSpaSetData",
+            "sph", "getSphSetData",
+            "tlx", "getTlxSetData"
+    // @formatter:on
+    );
+
+    /*
+     * map of device types vs. POST (set) 'op' parameters
+     * note: some values are guesses which have not yet been confirmed by users
+     */
+    private static final Map<String, String> SUPPORTED_TYPES_OP_PARAM_SET = Map.of(
+    // @formatter:off
+            "max", "maxSetApi",
+            "min", "minSetApi",
+            "mix", "mixSetApiNew", // NB previously "mixSetApi"
+            "spa", "spaSetApi",
+            "sph", "sphSet",
+            "tlx", "tlxSet"
+    // @formatter:on
+    );
+
+    private static final Set<String> GUESSED_TYPES = Set.of("max", "min", "spa", "sph", "tlx");
+
+    // enum to select charge resp. discharge program
+    private static enum ProgramType {
+        CHARGE,
+        DISCHARGE
+    }
+
+    // @formatter:off
+    private static final Type DEVICE_LIST_TYPE = new TypeToken<List<GrowattDevice>>() {}.getType();
+    // @formatter:on
 
     // HTTP headers (user agent is spoofed to mimic the Growatt Android Shine app)
     private static final String USER_AGENT = "Dalvik/2.1.0 (Linux; U; Android 12; https://www.openhab.org)";
     private static final String FORM_CONTENT = "application/x-www-form-urlencoded";
 
-    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
 
     private final Logger logger = LoggerFactory.getLogger(GrowattCloud.class);
     private final HttpClient httpClient;
     private final GrowattInverterConfiguration configuration;
+    private final Gson gson = new Gson();
+    private final List<String> plantIds = new ArrayList<>();
+    private final Map<String, String> deviceIdTypeMap = new ConcurrentHashMap<>();
+
+    private String userId = "";
 
     /**
      * Constructor.
@@ -111,6 +177,18 @@ public class GrowattCloud implements AutoCloseable {
     @Override
     public void close() throws Exception {
         httpClient.stop();
+    }
+
+    /**
+     * Refresh the login cookies.
+     *
+     * @throws GrowattApiException if any error occurs.
+     */
+    private void refreshCookies() throws GrowattApiException {
+        List<HttpCookie> cookies = httpClient.getCookieStore().getCookies();
+        if (cookies.isEmpty() || cookies.stream().anyMatch(HttpCookie::hasExpired)) {
+            postLoginCredentials();
+        }
     }
 
     /**
@@ -142,9 +220,8 @@ public class GrowattCloud implements AutoCloseable {
 
     /**
      * Login to the server (if necessary) and then execute an HTTP request using the given HTTP method, to the given end
-     * point, and with the given request URL parameters and/or request form fields. If there are no existing cookies for
-     * this server, or if any of the cookies has expired, then first login to the server before making the actual HTTP
-     * request.
+     * point, and with the given request URL parameters and/or request form fields. If the cookies are not valid first
+     * login to the server before making the actual HTTP request.
      *
      * @param method the HTTP method to use.
      * @param endPoint the API end point.
@@ -155,12 +232,7 @@ public class GrowattCloud implements AutoCloseable {
      */
     private Map<String, JsonElement> doHttpRequest(HttpMethod method, String endPoint,
             @Nullable Map<String, String> params, @Nullable Fields fields) throws GrowattApiException {
-        //
-        List<HttpCookie> cookies = httpClient.getCookieStore().getCookies();
-        if (cookies.isEmpty() || cookies.stream().anyMatch(HttpCookie::hasExpired)) {
-            postLoginCredentials();
-        }
-
+        refreshCookies();
         return doHttpRequestInner(method, endPoint, params, fields);
     }
 
@@ -189,9 +261,10 @@ public class GrowattCloud implements AutoCloseable {
             request.content(new FormContentProvider(fields), FORM_CONTENT);
         }
 
-        if (logger.isTraceEnabled()) {
-            logger.trace("{} {} {} params={} fields={}", method, endPoint, request.getVersion(), params, fields);
-        }
+        // if (logger.isTraceEnabled()) {
+        logger.warn("{} {}{} {} {}", method, request.getPath(), params == null ? "" : "?" + request.getQuery(),
+                request.getVersion(), fields == null ? "" : "? " + FormContentProvider.convert(fields));
+        // }
 
         ContentResponse response;
         try {
@@ -203,16 +276,19 @@ public class GrowattCloud implements AutoCloseable {
         int status = response.getStatus();
         String content = response.getContentAsString();
 
-        if (logger.isTraceEnabled()) {
-            logger.trace("HTTP {} {} content:{}", status, HttpStatus.getMessage(status), content);
-        }
+        logger.warn("HTTP {} {} {}", status, HttpStatus.getMessage(status), content);
 
         if (status != HttpStatus.OK_200) {
             throw new GrowattApiException(String.format("HTTP %d %s", status, HttpStatus.getMessage(status)));
         }
 
         if (content == null || content.isBlank()) {
-            throw new GrowattApiException("HTTP response content is " + (content == null ? "null" : "blank"));
+            throw new GrowattApiException("Response is " + (content == null ? "null" : "blank"));
+        }
+
+        if (content.contains("<html>")) {
+            logger.warn("HTTP {} {} {}", status, HttpStatus.getMessage(status), content);
+            throw new GrowattApiException("Response is HTML");
         }
 
         try {
@@ -221,30 +297,66 @@ public class GrowattCloud implements AutoCloseable {
                 return jsonElement.asMap();
             }
             throw new GrowattApiException("JSON invalid response");
-        } catch (JsonParseException | IllegalStateException e) {
-            throw new GrowattApiException("JSON parse error", e);
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            throw new GrowattApiException("JSON syntax exception", e);
         }
     }
 
     /**
-     * Get all of the mix inverter settings.
+     * Get the device type for the given deviceId. If the deviceIdTypeMap is empty then download it freshly.
+     *
+     * @param the deviceId to get.
+     * @return the device type or null.
+     * @throws GrowattApiException if any error occurs.
+     */
+    private @Nullable String getDeviceType(String deviceId) throws GrowattApiException {
+        if (deviceIdTypeMap.isEmpty()) {
+            if (plantIds.isEmpty()) {
+                refreshCookies();
+            }
+            for (String plantId : plantIds) {
+                deviceIdTypeMap.putAll(getPlantInfo(plantId).stream()
+                        .collect(Collectors.toMap(GrowattDevice::getId, GrowattDevice::getType)));
+            }
+            logger.warn("Downloaded deviceTypes:{}", deviceIdTypeMap);
+        }
+        return deviceIdTypeMap.get(deviceId);
+    }
+
+    /**
+     * Get the inverter device settings.
      *
      * @return a Map of JSON elements containing the server response.
      * @throws GrowattApiException if any error occurs.
      */
-    public Map<String, JsonElement> getMixAllSettings() throws GrowattApiException {
+    public Map<String, JsonElement> getDeviceSettings() throws GrowattApiException {
+        String deviceId = configuration.deviceId;
+        if (deviceId.isBlank()) {
+            throw new GrowattApiException("Blank device id");
+        }
+        String deviceType = getDeviceType(deviceId);
+        if (deviceType == null || !SUPPORTED_TYPES_OP_PARAM_GET.containsKey(deviceType)) {
+            throw new GrowattApiException("Unsupported device type:" + deviceType);
+        }
+
         Map<String, String> params = new LinkedHashMap<>(); // keep params in order
-        params.put("op", "getMixSetParams");
+        params.put("op", Objects.requireNonNull(SUPPORTED_TYPES_OP_PARAM_GET.get(deviceType)));
         params.put("serialNum", configuration.deviceId);
         params.put("kind", "0");
 
-        Map<String, JsonElement> result = doHttpRequest(HttpMethod.GET, NEW_MIX_API, params, null);
+        String path = String.format(FMT_API_PATH, deviceType.substring(0, 1).toUpperCase() + deviceType.substring(1));
+        Map<String, JsonElement> result = doHttpRequest(HttpMethod.GET, path, params, null);
 
         JsonElement obj = result.get("obj");
         if (obj instanceof JsonObject object) {
-            JsonElement mixBean = object.get("mixBean");
-            if (mixBean instanceof JsonObject mixBeanObject) {
-                return mixBeanObject.asMap();
+            Map<String, JsonElement> map = object.asMap();
+            Optional<String> key = map.keySet().stream().filter(k -> k.toLowerCase().endsWith("bean")).findFirst();
+            if (key.isPresent()) {
+                JsonElement beanJson = map.get(key.get());
+                if (beanJson instanceof JsonObject bean) {
+                    informMaintainer(deviceType);
+                    return bean.asMap();
+                }
             }
         }
         throw new GrowattApiException("Invalid JSON response");
@@ -252,53 +364,54 @@ public class GrowattCloud implements AutoCloseable {
 
     /**
      * Get the plant information.
-     * <p>
-     * This method is not currently used, but is included as a Java template for future implementations if needed.
-     * See https://github.com/indykoning/PyPi_GrowattServer/blob/master/growattServer/__init__.py
      *
-     * @return a Map of JSON elements containing the server response.
+     * @return a list of {@link GrowattDevice} containing the server response.
      * @throws GrowattApiException if any error occurs.
      */
-    public Map<String, JsonElement> getPlantInfo() throws GrowattApiException {
-        if (configuration.plantId == null) {
-            throw new GrowattApiException("Plant Id missing");
-        }
-
+    public List<GrowattDevice> getPlantInfo(String plantId) throws GrowattApiException {
         Map<String, String> params = new LinkedHashMap<>(); // keep params in order
-        params.put("op", "getAllDeviceList");
-        params.put("plantId", Objects.requireNonNull(configuration.plantId));
+        params.put("op", OP_GET_ALL_DEVICE_LIST);
+        params.put("plantId", plantId);
         params.put("pageNum", "1");
         params.put("pageSize", "1");
 
-        return doHttpRequest(HttpMethod.GET, PLANT_INFO_API, params, null);
+        Map<String, JsonElement> result = doHttpRequest(HttpMethod.GET, PLANT_INFO_API, params, null);
+
+        JsonElement deviceList = result.get("deviceList");
+        if (deviceList instanceof JsonArray deviceArray) {
+            try {
+                List<GrowattDevice> devices = gson.fromJson(deviceArray, DEVICE_LIST_TYPE);
+                if (devices != null) {
+                    return devices;
+                }
+            } catch (JsonSyntaxException e) {
+                // fall through
+            }
+        }
+        throw new GrowattApiException("Invalid JSON response");
     }
 
     /**
      * Get the plant list.
-     * <p>
-     * This method is not currently used, but is included as a Java template for future implementations if needed.
-     * See https://github.com/indykoning/PyPi_GrowattServer/blob/master/growattServer/__init__.py
      *
-     * @return a Map of JSON elements containing the server response.
+     * @return a {@link GrowattPlantList} containing the server response.
      * @throws GrowattApiException if any error occurs.
      */
-    public Map<String, JsonElement> getPlantList() throws GrowattApiException {
-        if (configuration.userId == null) {
-            throw new GrowattApiException("User Id missing");
-        }
-
+    public GrowattPlantList getPlantList(String userId) throws GrowattApiException {
         Map<String, String> params = new LinkedHashMap<>(); // keep params in order
-        params.put("userId", Objects.requireNonNull(configuration.userId));
+        params.put("userId", userId);
 
         Map<String, JsonElement> result = doHttpRequest(HttpMethod.GET, PLANT_LIST_API, params, null);
 
         JsonElement back = result.get("back");
         if (back instanceof JsonObject backObject) {
-            JsonElement success = backObject.get("success");
-            if (success instanceof JsonPrimitive successPrimitive) {
-                if (successPrimitive.getAsBoolean()) {
-                    return backObject.asMap();
+            try {
+                GrowattPlantList plantList = gson.fromJson(backObject, GrowattPlantList.class);
+                if (plantList != null && plantList.getSuccess()) {
+                    return plantList;
                 }
+            } catch (JsonSyntaxException e) {
+                // fall through
             }
         }
         throw new GrowattApiException("Invalid JSON response");
@@ -307,94 +420,63 @@ public class GrowattCloud implements AutoCloseable {
     /**
      * Attempt to login to the remote server by posting the given user credentials.
      *
-     * @return a Map of JSON elements containing the server response.
      * @throws GrowattApiException if any error occurs.
      */
-    private Map<String, JsonElement> postLoginCredentials() throws GrowattApiException {
-        if (configuration.userName == null) {
+    private void postLoginCredentials() throws GrowattApiException {
+        if (configuration.userName.isBlank()) {
             throw new GrowattApiException("User name missing");
         }
-        if (configuration.password == null) {
+        if (configuration.password.isBlank()) {
             throw new GrowattApiException("Password missing");
         }
 
         Fields fields = new Fields();
-        fields.put("userName", Objects.requireNonNull(configuration.userName));
-        fields.put("password", createHash(Objects.requireNonNull(configuration.password)));
+        fields.put("userName", configuration.userName);
+        fields.put("password", createHash(configuration.password));
 
         Map<String, JsonElement> result = doHttpRequestInner(HttpMethod.POST, LOGIN_API, null, fields);
 
         JsonElement back = result.get("back");
         if (back instanceof JsonObject backObject) {
-            JsonElement success = backObject.get("success");
-            if (success instanceof JsonPrimitive successPrimitive) {
-                if (successPrimitive.getAsBoolean()) {
-                    return backObject.asMap();
+            try {
+                GrowattPlantList plantList = gson.fromJson(backObject, GrowattPlantList.class);
+                if (plantList != null && plantList.getSuccess()) {
+                    GrowattUser user = plantList.getUserId();
+                    userId = user != null ? user.getId() : userId;
+                    plantIds.clear();
+                    plantIds.addAll(plantList.getPlants().stream().map(GrowattPlant::getId).toList());
+                    logger.warn("Logged in userId:{}, plantIds:{}", userId, plantIds);
+                    return;
                 }
+            } catch (JsonSyntaxException e) {
+                // fall through
             }
         }
         throw new GrowattApiException("Login failed");
     }
 
     /**
-     * Post a command to setup the mix inverter battery charging program.
+     * Post a command to setup the inverter battery charging program.
      *
-     * @param chargingPower the rate of charging 0%..100%
+     * @param powerLevel the rate of charging 0%..100%
      * @param targetSOC the SOC at which to stop charging 0%..100%
-     * @param allowAcCharging allow the battery to be charged from AC power
+     * @param allowAcCharging allow charging from AC power (only applies to hybrid/mix inverters)
      * @param startTime the start time of the charging program
      * @param stopTime the stop time of the charging program
      * @param programEnable charge program shall be enabled
      * @return a Map of JSON elements containing the server response
      * @throws GrowattApiException if any error occurs
      */
-    public Map<String, JsonElement> setupChargingProgram(int chargingPower, int targetSOC, boolean allowAcCharging,
+    public Map<String, JsonElement> setupChargingProgram(int powerLevel, int targetSOC, boolean allowAcCharging,
             LocalTime startTime, LocalTime stopTime, boolean programEnable) throws GrowattApiException {
-        if (chargingPower < 1 || chargingPower > 100) {
-            throw new GrowattApiException("Charge power out of range (1%..100%)");
-        }
-        if (targetSOC < 1 || targetSOC > 100) {
-            throw new GrowattApiException("Target SOC out of range (1%..100%)");
-        }
-
-        Fields fields = new Fields();
-        fields.put("op", "mixSetApiNew");
-        fields.put("serialNum", configuration.deviceId);
-        fields.put("type", "mix_ac_charge_time_period");
-        fields.put("param1", String.format("%d", chargingPower));
-        fields.put("param2", String.format("%d", targetSOC));
-        fields.put("param3", allowAcCharging ? "1" : "0");
-        fields.put("param4", String.format("%02d", startTime.getHour()));
-        fields.put("param5", String.format("%02d", startTime.getMinute()));
-        fields.put("param6", String.format("%02d", stopTime.getHour()));
-        fields.put("param7", String.format("%02d", stopTime.getMinute()));
-        fields.put("param8", programEnable ? "1" : "0");
-        fields.put("param9", "00");
-        fields.put("param10", "00");
-        fields.put("param11", "00");
-        fields.put("param12", "00");
-        fields.put("param13", "0");
-        fields.put("param14", "00");
-        fields.put("param15", "00");
-        fields.put("param16", "00");
-        fields.put("param17", "00");
-        fields.put("param18", "0");
-
-        Map<String, JsonElement> result = doHttpRequest(HttpMethod.POST, NEW_TCP_SET_API, null, fields);
-
-        JsonElement success = result.get("success");
-        if (success instanceof JsonPrimitive sucessPrimitive) {
-            if (sucessPrimitive.getAsBoolean()) {
-                return result;
-            }
-        }
-        throw new GrowattApiException("Command failed");
+        return setupBatteryProgram(ProgramType.CHARGE, powerLevel, targetSOC, startTime, stopTime, programEnable,
+                allowAcCharging);
     }
 
     /**
-     * Post a command to setup the mix inverter battery discharge program.
+     * Post a command to setup the inverter battery discharging program.
      *
-     * @param dischargingPower the rate of discharging 1%..100%
+     * @param powerLevel the rate of discharging 1%..100%
      * @param targetSOC the SOC at which to stop charging 1%..100%
      * @param startTime the start time of the discharging program
      * @param stopTime the stop time of the discharging program
@@ -402,46 +484,10 @@ public class GrowattCloud implements AutoCloseable {
      * @return a Map of JSON elements containing the server response
      * @throws GrowattApiException if any error occurs
      */
-    public Map<String, JsonElement> setupDischargingProgram(int dischargingPower, int targetSOC, LocalTime startTime,
+    public Map<String, JsonElement> setupDischargingProgram(int powerLevel, int targetSOC, LocalTime startTime,
             LocalTime stopTime, boolean programEnable) throws GrowattApiException {
-        if (dischargingPower < 1 || dischargingPower > 100) {
-            throw new GrowattApiException("Discharge power out of range (1%..100%)");
-        }
-        if (targetSOC < 1 || targetSOC > 100) {
-            throw new GrowattApiException("Target SOC out of range (1%..100%)");
-        }
-
-        Fields fields = new Fields();
-        fields.put("op", "mixSetApiNew");
-        fields.put("serialNum", configuration.deviceId);
-        fields.put("type", "mix_ac_discharge_time_period");
-        fields.put("param1", String.format("%d", dischargingPower));
-        fields.put("param2", String.format("%d", targetSOC));
-        fields.put("param3", String.format("%02d", startTime.getHour()));
-        fields.put("param4", String.format("%02d", startTime.getMinute()));
-        fields.put("param5", String.format("%02d", stopTime.getHour()));
-        fields.put("param6", String.format("%02d", stopTime.getMinute()));
-        fields.put("param7", programEnable ? "1" : "0");
-        fields.put("param8", "00");
-        fields.put("param9", "00");
-        fields.put("param10", "00");
-        fields.put("param11", "00");
-        fields.put("param12", "0");
-        fields.put("param13", "00");
-        fields.put("param14", "00");
-        fields.put("param15", "00");
-        fields.put("param16", "00");
-        fields.put("param17", "0");
-
-        Map<String, JsonElement> result = doHttpRequest(HttpMethod.POST, NEW_TCP_SET_API, null, fields);
-
-        JsonElement success = result.get("success");
-        if (success instanceof JsonPrimitive sucessPrimitive) {
-            if (sucessPrimitive.getAsBoolean()) {
-                return result;
-            }
-        }
-        throw new GrowattApiException("Command failed");
+        return setupBatteryProgram(ProgramType.DISCHARGE, powerLevel, targetSOC, startTime, stopTime, programEnable,
+                null);
     }
 
     /**
@@ -532,6 +578,103 @@ public class GrowattCloud implements AutoCloseable {
             return LocalTime.of(Integer.valueOf(splitParts[0]), Integer.valueOf(splitParts[1]));
         } catch (NumberFormatException | DateTimeException e) {
             throw new DateTimeException("LocalTime bad value", e);
+        }
+    }
+
+    /**
+     * Post a command to setup the inverter battery charging / discharging program.
+     *
+     * @param programType selects whether the program is for charge or discharge
+     * @param powerLevel the rate of charging / discharging 1%..100%
+     * @param targetSOC the SOC at which to stop the program 1%..100%
+     * @param startTime the start time of the program
+     * @param stopTime the stop time of the program
+     * @param programEnable the program shall be enabled
+     * @param allowAcCharging allow charging from AC power (only applies to hybrid/mix inverters)
+     * @return a Map of JSON elements containing the server response
+     * @throws GrowattApiException if any error occurs
+     */
+    private Map<String, JsonElement> setupBatteryProgram(ProgramType programType, int powerLevel, int targetSOC,
+            LocalTime startTime, LocalTime stopTime, boolean programEnable, @Nullable Boolean allowAcCharging)
+            throws GrowattApiException {
+        String deviceId = configuration.deviceId;
+        if (deviceId.isBlank()) {
+            throw new GrowattApiException("Blank device id");
+        }
+        String deviceType = getDeviceType(deviceId);
+        if (deviceType == null || !SUPPORTED_TYPES_OP_PARAM_SET.containsKey(deviceType)) {
+            throw new GrowattApiException("Unsupported device type:" + deviceType);
+        }
+        if (powerLevel < 1 || powerLevel > 100) {
+            throw new GrowattApiException("Power level out of range (1%..100%)");
+        }
+        if (targetSOC < 1 || targetSOC > 100) {
+            throw new GrowattApiException("Target SOC out of range (1%..100%)");
+        }
+
+        Fields fields = new Fields();
+
+        fields.put("op", Objects.requireNonNull(SUPPORTED_TYPES_OP_PARAM_SET.get(deviceType)));
+        fields.put("serialNum", configuration.deviceId);
+        fields.put("type", String.format(FMT_TYPE_PARAM, deviceType, programType.name().toLowerCase()));
+
+        int paramIndex = 1;
+
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%d", powerLevel));
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%d", targetSOC));
+        if ("mix".equals(deviceType) && ProgramType.CHARGE == programType) {
+            paramIndex = addFieldParam(fields, paramIndex, allowAcCharging ? "1" : "0");
+        }
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%02d", startTime.getHour()));
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%02d", startTime.getMinute()));
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%02d", stopTime.getHour()));
+        paramIndex = addFieldParam(fields, paramIndex, String.format("%02d", stopTime.getMinute()));
+        paramIndex = addFieldParam(fields, paramIndex, programEnable ? "1" : "0");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "0");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "00");
+        paramIndex = addFieldParam(fields, paramIndex, "0");
+
+        Map<String, JsonElement> result = doHttpRequest(HttpMethod.POST, NEW_TCP_SET_API, null, fields);
+
+        JsonElement success = result.get("success");
+        if (success instanceof JsonPrimitive sucessPrimitive) {
+            if (sucessPrimitive.getAsBoolean()) {
+                informMaintainer(deviceType);
+                return result;
+            }
+        }
+        throw new GrowattApiException("Command failed");
+    }
+
+    /**
+     * Add a new entry in the given {@link Fields} map in the form "paramN" = paramValue where N is the parameter index.
+     *
+     * @param fields the map to be added to.
+     * @param parameterIndex the parameter index.
+     * @param parameterValue the parameter value.
+     *
+     * @return the next parameter index.
+     */
+    private int addFieldParam(Fields fields, int parameterIndex, String parameterValue) {
+        fields.put(String.format("param%d", parameterIndex), parameterValue);
+        return parameterIndex + 1;
+    }
+
+    /**
+     * Inform maintainers about a newly checked (i.e. supported) device type.
+     *
+     * @param deviceType
+     */
+    private void informMaintainer(String deviceType) {
+        if (GUESSED_TYPES.contains(deviceType)) {
+            logger.warn("Please inform maintainer that deviceType:'{}' is now tested", deviceType);
         }
     }
 }
