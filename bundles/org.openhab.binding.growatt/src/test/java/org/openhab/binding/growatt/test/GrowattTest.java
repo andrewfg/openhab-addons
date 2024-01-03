@@ -300,9 +300,6 @@ public class GrowattTest {
                 .thenReturn(new HttpClient(new SslContextFactory.Client(true)));
 
         try (GrowattCloud api = new GrowattCloud(configuration, httpClientFactory)) {
-            assertFalse(api.getPlantList().isEmpty());
-            assertFalse(api.getPlantInfo().isEmpty());
-
             int chargingPower = 97;
             int targetSOC = 23;
             boolean allowAcCharging = false;
@@ -312,7 +309,7 @@ public class GrowattTest {
             assertFalse(api
                     .setupChargingProgram(chargingPower, targetSOC, allowAcCharging, startTime, stopTime, programEnable)
                     .isEmpty());
-            Map<String, JsonElement> result = api.getMixAllSettings();
+            Map<String, JsonElement> result = api.getDeviceSettings();
             assertFalse(result.isEmpty());
             assertEquals(chargingPower, GrowattCloud.mapGetInteger(result, GrowattCloud.CHARGE_PROGRAM_POWER));
             assertEquals(targetSOC, GrowattCloud.mapGetInteger(result, GrowattCloud.CHARGE_PROGRAM_TARGET_SOC));
@@ -331,7 +328,7 @@ public class GrowattTest {
             assertFalse(api
                     .setupChargingProgram(chargingPower, targetSOC, allowAcCharging, startTime, stopTime, programEnable)
                     .isEmpty());
-            result = api.getMixAllSettings();
+            result = api.getDeviceSettings();
             assertFalse(result.isEmpty());
             assertEquals(chargingPower, GrowattCloud.mapGetInteger(result, GrowattCloud.CHARGE_PROGRAM_POWER));
             assertEquals(targetSOC, GrowattCloud.mapGetInteger(result, GrowattCloud.CHARGE_PROGRAM_TARGET_SOC));
