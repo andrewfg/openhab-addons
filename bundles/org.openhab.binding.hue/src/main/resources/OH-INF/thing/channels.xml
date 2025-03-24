@@ -292,7 +292,7 @@
 		<label>Normal/Tamper</label>
 		<category>Siren</category>
 		<tags>
-		<tag>Status_Tampered</tag>
+		<tag>Tampered</tag>
 		<tag></tag>
 		</tags>
 	</channel-type>
