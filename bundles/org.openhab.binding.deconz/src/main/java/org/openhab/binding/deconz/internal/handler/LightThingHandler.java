@@ -498,7 +498,7 @@ public class LightThingHandler extends DeconzBaseThingHandler {
         String colorMode = newState.colormode;
         if ((colorMode == null || "ct".equals(colorMode)) && ct != null && ct >= ctMin && ct <= ctMax) {
             int kelvin = miredToKelvin(ct);
-            logger.trace("updateColorTemperatureChannel() channelUID:{}, kelvin:UNDEF", channelUID, kelvin);
+            logger.trace("updateColorTemperatureChannel() channelUID:{}, kelvin:{}", channelUID, kelvin);
             updateState(channelUID, QuantityType.valueOf(kelvin, Units.KELVIN));
 
             // cross-update the color channel (if any)
