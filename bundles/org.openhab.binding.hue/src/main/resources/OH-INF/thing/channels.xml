@@ -288,7 +288,7 @@
 		<category>ColorLight</category>
 		<tags>
 			<tag>Control</tag>
-			<tag>Light</tag>
+			<tag>Color</tag>
 		</tags>
 		<autoUpdatePolicy>veto</autoUpdatePolicy>
 	</channel-type>
@@ -333,8 +333,8 @@
 		<label>Normal/Tamper</label>
 		<category>Siren</category>
 		<tags>
+			<tag>Alarm</tag>
 			<tag>Tampered</tag>
-            <tag>OnOff</tag>
 		</tags>
 	</channel-type>
 

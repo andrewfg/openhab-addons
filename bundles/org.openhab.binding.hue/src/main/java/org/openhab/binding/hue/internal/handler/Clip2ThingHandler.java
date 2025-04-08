@@ -71,6 +71,8 @@ import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.unit.MetricPrefix;
 import org.openhab.core.library.unit.Units;
+import org.openhab.core.semantics.SemanticTag;
+import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -1069,6 +1071,7 @@ public class Clip2ThingHandler extends BaseThingHandler {
                 updateServiceContributors();
                 updateChannelList();
                 updateChannelItemLinksFromLegacy();
+                updateEquipmentTags();
                 if (!hasConnectivityIssue) {
                     updateStatus(ThingStatus.ONLINE);
                 }
@@ -1409,6 +1412,42 @@ public class Clip2ThingHandler extends BaseThingHandler {
 
                 updateThing(editBuilder.withProperties(newProperties).build());
             }
+        }
+    }
+
+    /**
+     * Update the semantic equipment tags
+     */
+    private void updateEquipmentTags() {
+        if (!disposing) {
+            SemanticTag equipmentTag = Equipment.LIGHT_SOURCE; // default
+            int sensorCount = 0;
+
+            if (thing.getChannel(CHANNEL_2_BUTTON_LAST_EVENT) != null) {
+                equipmentTag = Equipment.BUTTON;
+            }
+            if (thing.getChannel(CHANNEL_2_ROTARY_STEPS) != null) {
+                equipmentTag = Equipment.DIAL;
+            }
+            if (thing.getChannel(CHANNEL_2_SECURITY_CONTACT) != null) {
+                equipmentTag = Equipment.ALARM_DEVICE;
+            }
+            if (thing.getChannel(CHANNEL_2_MOTION) != null) {
+                sensorCount++;
+                equipmentTag = Equipment.MOTION_DETECTOR;
+            }
+            if (thing.getChannel(CHANNEL_2_LIGHT_LEVEL) != null) {
+                sensorCount++;
+                equipmentTag = Equipment.ILLUMINANCE_SENSOR;
+            }
+            if (thing.getChannel(CHANNEL_2_TEMPERATURE) != null) {
+                sensorCount++;
+                equipmentTag = Equipment.TEMPERATURE_SENSOR;
+            }
+            if (sensorCount > 1) {
+                equipmentTag = Equipment.SENSOR;
+            }
+            thing.setSemanticEquipmentTag(equipmentTag.getName());
         }
     }
 }
