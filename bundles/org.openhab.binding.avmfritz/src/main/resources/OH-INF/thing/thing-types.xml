@@ -438,7 +438,7 @@
 
 		<label>HAN-FUN Dimmable Light</label>
 		<description>HAN-FUN dimmable light (e.g. SmartHome LED-Lampe E27 (warmweiß)).</description>
-        <semantic-equipment-tag>LightSource</semantic-equipment-tag>
+		<semantic-equipment-tag>LightSource</semantic-equipment-tag>
 
 		<channels>
 			<channel id="brightness" typeId="system.brightness"/>

@@ -48,7 +48,7 @@
 		</supported-bridge-type-refs>
 		<label>Air Conditioner Mode</label>
 		<description>Air Conditioner Mode</description>
-        <semantic-equipment-tag>AirConditioner</semantic-equipment-tag>
+		<semantic-equipment-tag>AirConditioner</semantic-equipment-tag>
 		<channels>
 			<channel id="airConditionerMode" typeId="airConditionerMode-channel">
 				<label>Air Conditioner Mode</label>
@@ -197,7 +197,7 @@
 		</supported-bridge-type-refs>
 		<label>Color</label>
 		<description>Color</description>
-        <semantic-equipment-tag>LightSource</semantic-equipment-tag>
+		<semantic-equipment-tag>LightSource</semantic-equipment-tag>
 		<channels>
 			<channel id="colorValue" typeId="colorValue-channel">
 				<label>Color Value</label>
