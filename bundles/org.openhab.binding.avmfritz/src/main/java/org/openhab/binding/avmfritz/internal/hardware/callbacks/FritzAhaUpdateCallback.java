@@ -25,6 +25,7 @@ import javax.xml.stream.XMLStreamReader;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.avmfritz.internal.dto.DeviceListModel;
 import org.openhab.binding.avmfritz.internal.handler.AVMFritzBaseBridgeHandler;
+import org.openhab.binding.avmfritz.internal.handler.AVMFritzBaseThingHandler;
 import org.openhab.binding.avmfritz.internal.hardware.FritzAhaWebInterface;
 import org.openhab.binding.avmfritz.internal.util.JAXBUtils;
 import org.openhab.core.thing.ThingStatus;
@@ -69,6 +70,22 @@ public class FritzAhaUpdateCallback extends FritzAhaReauthCallback {
                 XMLStreamReader xsr = JAXBUtils.XMLINPUTFACTORY.createXMLStreamReader(new StringReader(response));
                 Unmarshaller unmarshaller = JAXBUtils.JAXBCONTEXT_DEVICES.createUnmarshaller();
                 DeviceListModel model = unmarshaller.unmarshal(xsr, DeviceListModel.class).getValue();
+
+                // TODO START OF CODE TO BE REMOVED
+                logger.info("XXX START OF CODE TO BE REMOVED");
+                model.getDevicelist().stream().forEach(d -> logger.info("XXX device data: {}", d));
+                handler.getThing().getThings().forEach(t -> {
+                    String s = "Thing [uid:" + t.getUID() + ", label:" + t.getLabel() + ", class:"
+                            + t.getClass().getName();
+                    if (t.getHandler() instanceof AVMFritzBaseThingHandler th) {
+                        s = s + ", identifier:" + th.getIdentifier();
+                    }
+                    s = s + "]";
+                    logger.info("XXX thing data: {}", s);
+                });
+                logger.info("XXX END OF CODE TO BE REMOVED");
+                // TODO END OF CODE TO BE REMOVED
+
                 if (model != null) {
                     handler.onDeviceListAdded(model.getDevicelist());
                 } else {
