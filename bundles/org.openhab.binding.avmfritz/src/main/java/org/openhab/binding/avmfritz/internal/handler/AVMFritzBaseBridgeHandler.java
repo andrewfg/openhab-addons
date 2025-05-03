@@ -263,41 +263,25 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
     /**
      * Called from {@link FritzAhaUpdateCallback} to provide new devices.
      *
-     * @param deviceList list of devices
+     * @param deviceInfos list of device informations
      */
-    public void onDeviceListAdded(List<AVMFritzBaseModel> deviceList) {
-        final Map<String, AVMFritzBaseModel> deviceIdentifierMap = deviceList.stream()
-                .collect(Collectors.toMap(it -> it.getIdentifier(), Function.identity()));
-        logger.info("XXX onDeviceListAdded: {}", deviceIdentifierMap.keySet());
-        getThing().getThings().forEach(childThing -> {
-            final AVMFritzBaseThingHandler childHandler = (AVMFritzBaseThingHandler) childThing.getHandler();
-            if (childHandler != null) {
-                final AVMFritzBaseModel device = deviceIdentifierMap.get(childHandler.getIdentifier());
-                if (device != null) {
-                    deviceList.remove(device);
-                    listeners.forEach(listener -> {
-                        logger.info("XXX call {}:onDeviceUpdated for uid:{}, identifier:{}",
-                                listener.getClass().getName(), childThing.getUID(), device.getIdentifier());
-                        listener.onDeviceUpdated(childThing.getUID(), device);
-                    });
+    public void onDeviceListAdded(List<AVMFritzBaseModel> deviceInfos) {
+        Map<String, AVMFritzBaseModel> deviceInfosMap = deviceInfos.stream()
+                .collect(Collectors.toMap(AVMFritzBaseModel::getIdentifier, Function.identity()));
+        for (Thing thing : getThing().getThings()) {
+            if (thing.getHandler() instanceof AVMFritzBaseThingHandler avmHandler) {
+                if (deviceInfosMap.get(avmHandler.getIdentifier()) instanceof AVMFritzBaseModel deviceInfo) {
+                    deviceInfo.consumed = true;
+                    listeners.forEach(listener -> listener.onDeviceUpdated(thing.getUID(), deviceInfo));
                 } else {
-                    listeners.forEach(listener -> {
-                        logger.info("XXX call {}:onDeviceGone for uid:{}", listener.getClass().getName(),
-                                childThing.getUID());
-                        listener.onDeviceGone(childThing.getUID());
-                    });
+                    listeners.forEach(listener -> listener.onDeviceGone(thing.getUID()));
                 }
             } else {
-                logger.debug("Handler missing for thing '{}'", childThing.getUID());
+                logger.debug("Handler missing for thing '{}'", thing.getUID());
             }
-        });
-        deviceList.forEach(device -> {
-            listeners.forEach(listener -> {
-                logger.info("XXX call {}:onDeviceAdded for identifier:{}", listener.getClass().getName(),
-                        device.getIdentifier());
-                listener.onDeviceAdded(device);
-            });
-        });
+        }
+        deviceInfosMap.values().stream().filter(deviceInfo -> !deviceInfo.consumed)
+                .forEach(deviceInfo -> listeners.forEach(listener -> listener.onDeviceAdded(deviceInfo)));
     }
 
     /**
