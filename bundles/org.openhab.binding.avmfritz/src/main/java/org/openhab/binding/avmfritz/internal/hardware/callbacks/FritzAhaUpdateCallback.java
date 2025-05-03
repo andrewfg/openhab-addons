@@ -75,10 +75,9 @@ public class FritzAhaUpdateCallback extends FritzAhaReauthCallback {
                 logger.info("XXX START OF CODE TO BE REMOVED");
                 model.getDevicelist().stream().forEach(d -> logger.info("XXX device data: {}", d));
                 handler.getThing().getThings().forEach(t -> {
-                    String s = "Thing [uid:" + t.getUID() + ", label:" + t.getLabel() + ", class:"
-                            + t.getClass().getName();
+                    String s = "Thing [uid:" + t.getUID() + ", label:" + t.getLabel();
                     if (t.getHandler() instanceof AVMFritzBaseThingHandler th) {
-                        s = s + ", identifier:" + th.getIdentifier();
+                        s = s + ", class:" + th.getClass().getName() + ", identifier:" + th.getIdentifier();
                     }
                     s = s + "]";
                     logger.info("XXX thing data: {}", s);

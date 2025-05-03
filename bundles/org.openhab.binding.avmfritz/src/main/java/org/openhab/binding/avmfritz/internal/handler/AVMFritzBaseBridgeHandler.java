@@ -268,22 +268,35 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
     public void onDeviceListAdded(List<AVMFritzBaseModel> deviceList) {
         final Map<String, AVMFritzBaseModel> deviceIdentifierMap = deviceList.stream()
                 .collect(Collectors.toMap(it -> it.getIdentifier(), Function.identity()));
+        logger.info("XXX onDeviceListAdded: {}", deviceIdentifierMap.keySet());
         getThing().getThings().forEach(childThing -> {
             final AVMFritzBaseThingHandler childHandler = (AVMFritzBaseThingHandler) childThing.getHandler();
             if (childHandler != null) {
                 final AVMFritzBaseModel device = deviceIdentifierMap.get(childHandler.getIdentifier());
                 if (device != null) {
                     deviceList.remove(device);
-                    listeners.forEach(listener -> listener.onDeviceUpdated(childThing.getUID(), device));
+                    listeners.forEach(listener -> {
+                        logger.info("XXX call {}:onDeviceUpdated for uid:{}, identifier:{}",
+                                listener.getClass().getName(), childThing.getUID(), device.getIdentifier());
+                        listener.onDeviceUpdated(childThing.getUID(), device);
+                    });
                 } else {
-                    listeners.forEach(listener -> listener.onDeviceGone(childThing.getUID()));
+                    listeners.forEach(listener -> {
+                        logger.info("XXX call {}:onDeviceGone for uid:{}", listener.getClass().getName(),
+                                childThing.getUID());
+                        listener.onDeviceGone(childThing.getUID());
+                    });
                 }
             } else {
                 logger.debug("Handler missing for thing '{}'", childThing.getUID());
             }
         });
         deviceList.forEach(device -> {
-            listeners.forEach(listener -> listener.onDeviceAdded(device));
+            listeners.forEach(listener -> {
+                logger.info("XXX call {}:onDeviceAdded for identifier:{}", listener.getClass().getName(),
+                        device.getIdentifier());
+                listener.onDeviceAdded(device);
+            });
         });
     }
 
