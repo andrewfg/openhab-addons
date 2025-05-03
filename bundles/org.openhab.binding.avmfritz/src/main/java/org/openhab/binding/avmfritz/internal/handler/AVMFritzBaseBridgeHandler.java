@@ -266,6 +266,8 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
      * @param deviceInfos list of device informations
      */
     public void onDeviceListAdded(List<AVMFritzBaseModel> deviceInfos) {
+        logger.info("xxx onDeviceListAdded() listeners:{}, things:{}, infos:{}", listeners.size(),
+                getThing().getThings().size(), deviceInfos.size());
         Map<String, AVMFritzBaseModel> deviceInfosMap = deviceInfos.stream()
                 .collect(Collectors.toMap(AVMFritzBaseModel::getIdentifier, Function.identity()));
         for (Thing thing : getThing().getThings()) {
