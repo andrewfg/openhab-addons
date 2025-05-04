@@ -272,14 +272,14 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
         listeners.stream().filter(listener -> listener instanceof AVMFritzBaseThingHandler)
                 .map(listener -> (AVMFritzBaseThingHandler) listener).forEach(handler -> {
                     if (devicesMap.get(handler.getIdentifier()) instanceof AVMFritzBaseModel device) {
-                        device.hasOwner = true;
+                        device.isLinked = true;
                         scheduler.submit(() -> handler.onDeviceUpdated(handler.getThing().getUID(), device));
                     } else {
                         scheduler.submit(() -> handler.onDeviceGone(handler.getThing().getUID()));
                     }
                 });
 
-        devicesMap.values().stream().filter(device -> !device.hasOwner)
+        devicesMap.values().stream().filter(device -> !device.isLinked)
                 .forEach(device -> listeners.stream().filter(listener -> listener instanceof AVMFritzDiscoveryService)
                         .map(listener -> (AVMFritzDiscoveryService) listener)
                         .forEach(service -> scheduler.submit(() -> service.onDeviceAdded(device))));

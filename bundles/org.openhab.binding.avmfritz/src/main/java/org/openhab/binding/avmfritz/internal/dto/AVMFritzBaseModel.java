@@ -262,5 +262,5 @@ public abstract class AVMFritzBaseModel implements BatteryModel {
                 .append(",").append(getPowermeter()).append(",").append(getHkr()).append(",").toString();
     }
 
-    public transient boolean hasOwner;
+    public transient boolean isLinked;
 }
