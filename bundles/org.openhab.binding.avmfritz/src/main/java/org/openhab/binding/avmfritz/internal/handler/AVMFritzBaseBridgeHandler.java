@@ -269,8 +269,8 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
         Map<String, AVMFritzBaseModel> devicesMap = devices.stream()
                 .collect(Collectors.toMap(AVMFritzBaseModel::getIdentifier, Function.identity()));
 
-        listeners.stream().filter(listener -> listener instanceof AVMFritzBaseThingHandler).map(listener -> (AVMFritzBaseThingHandler) listener)
-                .forEach(handler -> {
+        listeners.stream().filter(listener -> listener instanceof AVMFritzBaseThingHandler)
+                .map(listener -> (AVMFritzBaseThingHandler) listener).forEach(handler -> {
                     if (devicesMap.get(handler.getIdentifier()) instanceof AVMFritzBaseModel device) {
                         device.hasOwner = true;
                         scheduler.submit(() -> handler.onDeviceUpdated(handler.getThing().getUID(), device));
