@@ -988,6 +988,10 @@ public class AVMFritzDeviceListModelTest {
         Thing thing1 = mock(Thing.class);
         Thing thing2 = mock(Thing.class);
 
+        when(thing0.getUID()).thenReturn(new ThingUID("fritz:thing:thing0"));
+        when(thing1.getUID()).thenReturn(new ThingUID("fritz:thing:thing1"));
+        when(thing2.getUID()).thenReturn(new ThingUID("fritz:thing:thing2"));
+
         when(thing0.getHandler()).thenReturn(thingHandler0);
         when(thing1.getHandler()).thenReturn(thingHandler1);
         when(thing2.getHandler()).thenReturn(thingHandler2);
@@ -1014,6 +1018,8 @@ public class AVMFritzDeviceListModelTest {
 
         AVMFritzDiscoveryService discoveryService = mock(AVMFritzDiscoveryService.class);
         bridgeHandler.registerStatusListener(discoveryService);
+
+        // doCallRealMethod().when(thingHandler0).onDeviceUpdated(any(), any());
 
         bridgeHandler.onDeviceListAdded(devices.getDevicelist());
 
