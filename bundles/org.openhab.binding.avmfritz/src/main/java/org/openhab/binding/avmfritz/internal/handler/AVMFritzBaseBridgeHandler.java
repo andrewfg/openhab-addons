@@ -263,27 +263,26 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
     /**
      * Called from {@link FritzAhaUpdateCallback} to provide new devices.
      *
-     * @param deviceInfos list of device informations
+     * @param devices list of device informations
      */
-    public void onDeviceListAdded(List<AVMFritzBaseModel> deviceInfos) {
-        logger.info("xxx onDeviceListAdded() listeners:{}, things:{}, infos:{}", listeners.size(),
-                getThing().getThings().size(), deviceInfos.size());
-        Map<String, AVMFritzBaseModel> deviceInfosMap = deviceInfos.stream()
+    public void onDeviceListAdded(List<AVMFritzBaseModel> devices) {
+        Map<String, AVMFritzBaseModel> devicesMap = devices.stream()
                 .collect(Collectors.toMap(AVMFritzBaseModel::getIdentifier, Function.identity()));
-        for (Thing thing : getThing().getThings()) {
-            if (thing.getHandler() instanceof AVMFritzBaseThingHandler avmHandler) {
-                if (deviceInfosMap.get(avmHandler.getIdentifier()) instanceof AVMFritzBaseModel deviceInfo) {
-                    deviceInfo.consumed = true;
-                    listeners.forEach(listener -> listener.onDeviceUpdated(thing.getUID(), deviceInfo));
-                } else {
-                    listeners.forEach(listener -> listener.onDeviceGone(thing.getUID()));
-                }
-            } else {
-                logger.debug("Handler missing for thing '{}'", thing.getUID());
-            }
-        }
-        deviceInfosMap.values().stream().filter(deviceInfo -> !deviceInfo.consumed)
-                .forEach(deviceInfo -> listeners.forEach(listener -> listener.onDeviceAdded(deviceInfo)));
+
+        listeners.stream().filter(listener -> listener instanceof AVMFritzBaseThingHandler).map(listener -> (AVMFritzBaseThingHandler) listener)
+                .forEach(handler -> {
+                    if (devicesMap.get(handler.getIdentifier()) instanceof AVMFritzBaseModel device) {
+                        device.hasOwner = true;
+                        scheduler.submit(() -> handler.onDeviceUpdated(handler.getThing().getUID(), device));
+                    } else {
+                        scheduler.submit(() -> handler.onDeviceGone(handler.getThing().getUID()));
+                    }
+                });
+
+        devicesMap.values().stream().filter(device -> !device.hasOwner)
+                .forEach(device -> listeners.stream().filter(listener -> listener instanceof AVMFritzDiscoveryService)
+                        .map(listener -> (AVMFritzDiscoveryService) listener)
+                        .forEach(service -> scheduler.submit(() -> service.onDeviceAdded(device))));
     }
 
     /**

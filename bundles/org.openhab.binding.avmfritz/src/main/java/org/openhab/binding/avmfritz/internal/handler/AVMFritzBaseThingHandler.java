@@ -126,7 +126,7 @@ public abstract class AVMFritzBaseThingHandler extends BaseThingHandler implemen
 
     @Override
     public void onDeviceUpdated(ThingUID thingUID, AVMFritzBaseModel device) {
-        logger.info("XXX onDeviceUpdated() called id:{}/{}, data:{}", thing.getUID(), thingUID, device);
+        logger.info("XXX onDeviceUpdated() called uid:{}/{}, data:{}", thing.getUID(), thingUID, device);
         if (thing.getUID().equals(thingUID)) {
             logger.debug("Update thing '{}' with device model: {}", thingUID, device);
             if (device.getPresent() == 1) {
