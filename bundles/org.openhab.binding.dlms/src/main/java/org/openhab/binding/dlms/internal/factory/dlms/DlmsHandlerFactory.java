@@ -10,14 +10,15 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.dlms.internal.handler;
+package org.openhab.binding.dlms.internal.factory.dlms;
 
-import static org.openhab.binding.dlms.internal.DlmsBindingConstants.*;
+import static org.openhab.binding.dlms.internal.DlmsBindingConstants.THING_TYPE_METER;
 
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.dlms.internal.handler.dlms.DlmsHandler;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.BaseThingHandlerFactory;
@@ -27,7 +28,7 @@ import org.osgi.service.component.annotations.Component;
 
 /**
  * The {@link DlmsHandlerFactory} is responsible for creating things and thing
- * handlers.
+ * handlers for IEC 62056-21 optical reader heads for DLMS/COSEM meters.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */

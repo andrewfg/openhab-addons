@@ -17,8 +17,8 @@ import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.type.ChannelTypeUID;
 
 /**
- * The {@link DlmsBindingConstants} class defines common constants, which are
- * used across the whole binding.
+ * The {@link DlmsBindingConstants} class defines common constants for
+ * the Things for IEC 62056-21 optical reader heads for DLMS/COSEM meters.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -27,7 +27,7 @@ public class DlmsBindingConstants {
 
     private static final String BINDING_ID = "dlms";
 
-    public static final ThingTypeUID THING_TYPE_METER = new ThingTypeUID(BINDING_ID, "meter");
+    public static final ThingTypeUID THING_TYPE_METER = new ThingTypeUID(BINDING_ID, "dlms-meter");
 
     public static final ChannelTypeUID GENERIC_CHANNEL_UID = new ChannelTypeUID(BINDING_ID, "generic");
 }

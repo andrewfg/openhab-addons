@@ -15,7 +15,8 @@ package org.openhab.binding.dlms.internal;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * The {@link DlmsConfiguration} class contains fields mapping thing configuration parameters.
+ * The {@link DlmsConfiguration} class contains fields mapping configuration parameters
+ * for the IEC 62056-21 optical reader head for DLMS/COSEM meters.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */

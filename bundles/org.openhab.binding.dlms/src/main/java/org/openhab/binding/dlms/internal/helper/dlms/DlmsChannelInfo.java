@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.dlms.internal.helper;
+package org.openhab.binding.dlms.internal.helper.dlms;
 
 import java.util.List;
 
@@ -21,17 +21,17 @@ import org.openmuc.jdlms.datatypes.DataObject;
 import org.openmuc.jdlms.datatypes.DataObject.Type;
 
 /**
- * A class to hold information about a DLMS meter channel.
+ * A class to hold information about a DLMS/COSEM meter channel.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class MeterChannelInfo {
+public class DlmsChannelInfo {
 
     public final int classId;
     public final ObisCode obisCode;
 
-    public MeterChannelInfo(DataObject item) throws IllegalArgumentException, ClassCastException {
+    public DlmsChannelInfo(DataObject item) throws IllegalArgumentException, ClassCastException {
         if (item.getType() != Type.STRUCTURE) {
             throw new IllegalArgumentException("Invalid meter information: " + item);
         }
@@ -51,6 +51,6 @@ public class MeterChannelInfo {
 
     @Override
     public String toString() {
-        return "MeterChannelInfo [channelId=" + getChannelId() + ", classId=" + classId + "]";
+        return "DlmsChannelInfo [channelId=" + getChannelId() + ", classId=" + classId + "]";
     }
 }

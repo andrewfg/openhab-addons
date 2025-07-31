@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.dlms.internal.handler;
+package org.openhab.binding.dlms.internal.handler.dlms;
 
 import static org.openhab.core.thing.DefaultSystemChannelTypeProvider.*;
 
@@ -27,8 +27,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.dlms.internal.DlmsBindingConstants;
 import org.openhab.binding.dlms.internal.DlmsConfiguration;
-import org.openhab.binding.dlms.internal.helper.MeterChannelInfo;
-import org.openhab.binding.dlms.internal.helper.MeterQuantity;
+import org.openhab.binding.dlms.internal.helper.dlms.DlmsChannelInfo;
+import org.openhab.binding.dlms.internal.helper.dlms.DlmsQuantity;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.Channel;
@@ -54,7 +54,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link DlmsHandler} reads values from a DLMS/COSEM Smart Meter via an IEC 62056-21 optical read head.
+ * The {@link DlmsHandler} reads values from a DLMS/COSEM Smart Meter via
+ * an IEC 62056-21 optical read head.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -63,7 +64,7 @@ public class DlmsHandler extends BaseThingHandler {
 
     private final Logger logger = LoggerFactory.getLogger(DlmsHandler.class);
 
-    private final Set<MeterChannelInfo> meterInfos = new HashSet<>();
+    private final Set<DlmsChannelInfo> dlmsChannelInfos = new HashSet<>();
 
     private @NonNullByDefault({}) DlmsConfiguration config;
     private @Nullable DlmsConnection connection;
@@ -111,10 +112,10 @@ public class DlmsHandler extends BaseThingHandler {
             return;
         }
         scheduler.execute(() -> {
-            Set<MeterChannelInfo> infos = getMeterInfos();
+            Set<DlmsChannelInfo> infos = getMeterInfos();
             if (!infos.isEmpty()) {
-                this.meterInfos.clear();
-                this.meterInfos.addAll(infos);
+                this.dlmsChannelInfos.clear();
+                this.dlmsChannelInfos.addAll(infos);
                 createChannels();
                 updateStatus(ThingStatus.ONLINE);
                 refreshTask = scheduler.scheduleWithFixedDelay(() -> updateChannels(), 5, config.refresh,
@@ -132,13 +133,13 @@ public class DlmsHandler extends BaseThingHandler {
         DlmsConnection connection = this.connection;
         if (connection != null) {
             List<Channel> channels = new ArrayList<>();
-            meterInfos.forEach(info -> {
+            dlmsChannelInfos.forEach(info -> {
                 try {
                     GetResult result = connection.get(info.getAttributeAddress());
                     if (result.getResultCode() == AccessResultCode.SUCCESS) {
                         String data = result.getResultData().getValue();
                         try {
-                            Unit<?> unit = MeterQuantity.of(data).getUnit();
+                            Unit<?> unit = new DlmsQuantity<>(data).getUnit();
                             ChannelTypeUID channelTypeUID;
                             if (unit.isCompatible(Units.AMPERE)) {
                                 channelTypeUID = SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_CURRENT;
@@ -178,8 +179,8 @@ public class DlmsHandler extends BaseThingHandler {
     /**
      * Populate the list of meter channel informations.
      */
-    private Set<MeterChannelInfo> getMeterInfos() {
-        Set<MeterChannelInfo> infos = new HashSet<>();
+    private Set<DlmsChannelInfo> getMeterInfos() {
+        Set<DlmsChannelInfo> infos = new HashSet<>();
         DlmsConnection connection = this.connection;
         if (connection != null) {
             try {
@@ -193,7 +194,7 @@ public class DlmsHandler extends BaseThingHandler {
                         List<DataObject> datas = root.getValue();
                         datas.forEach(data -> {
                             try {
-                                MeterChannelInfo info = new MeterChannelInfo(data);
+                                DlmsChannelInfo info = new DlmsChannelInfo(data);
                                 infos.add(info);
                                 logger.debug("Meter channel: {} added", info);
                             } catch (ClassCastException | IllegalArgumentException e) {
@@ -219,13 +220,13 @@ public class DlmsHandler extends BaseThingHandler {
     private void updateChannels() {
         DlmsConnection connection = this.connection;
         if (connection != null) {
-            meterInfos.forEach(info -> {
+            dlmsChannelInfos.forEach(info -> {
                 try {
                     GetResult result = connection.get(info.getAttributeAddress());
                     if (result.getResultCode() == AccessResultCode.SUCCESS) {
                         try {
                             String data = result.getResultData().getValue();
-                            QuantityType<?> state = MeterQuantity.of(data);
+                            QuantityType<?> state = new DlmsQuantity<>(data);
                             updateState(info.getChannelId(), state);
                             logger.trace("Meter channel: {}, data: {}, state: {}", info, data, state);
                         } catch (ClassCastException | IllegalArgumentException e) {
