@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,11 +71,10 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 
 /**
- * Handles I/O with HomeKit server devices -- either simple accessories or bridge accessories that
- * contain child accessories. If the handler is for a HomeKit bridge or a stand alone HomeKit accessory
- * device it performs the pairing and secure session setup. If the handler is for a HomeKit accessory
- * that is part of a bridge, it uses the pairing and session from the bridge handler.
- * Subclasses should override the handleCommand method to handle commands for specific channels.
+ * Handles I/O with HomeKit server devices -- either simply accessories, bridge accessories or bridged
+ * accessories. If the handler is for a HomeKit bridge or a HomeKit accessory it performs the pairing
+ * and secure session setup. If the handler is for a HomeKit bridged accessory, it depends upon the
+ * pairing and session of the bridge accessory handler.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -103,6 +103,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     private @NonNullByDefault({}) Long accessoryId;
 
     protected static final Gson GSON = new Gson();
+    protected static final String THING_STATUS_FMT = "@text/%s [\"%s\"]";
 
     /**
      * Maps of evented and polled Characteristics.
@@ -116,7 +117,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     protected final TranslationProvider i18nProvider;
     protected final Bundle bundle;
 
-    protected boolean isChildAccessory = false;
+    protected boolean isBridgedAccessory = false;
     protected final Throttler throttler = new Throttler();
 
     /**
@@ -143,11 +144,12 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
                 if (next == null) {
                     notBeforeInstant = next = Instant.now().plus(MIN_INTERVAL);
                 }
-                long delay = Duration.between(Instant.now(), next).toMillis();
-                if (delay > 0) {
-                    delay = Math.min(delay, MIN_INTERVAL.toMillis());
-                    logger.trace("{} throttling call for {} ms to respect minimum interval", thing.getUID(), delay);
-                    Thread.sleep(delay);
+                Duration delay = Duration.between(Instant.now(), next);
+                if (delay.isPositive()) {
+                    Duration sleepDuration = delay.compareTo(MIN_INTERVAL) < 0 ? delay : MIN_INTERVAL;
+                    logger.trace("{} throttling call for {} to respect minimum interval", thing.getUID(),
+                            sleepDuration);
+                    Thread.sleep(sleepDuration);
                 }
                 return task.call();
             } finally {
@@ -171,8 +173,10 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     @Override
     public void dispose() {
+        eventedCharacteristics.clear();
+        accessories.clear();
         cancelRefreshTasks();
-        if (!isChildAccessory) {
+        if (!isBridgedAccessory) {
             try {
                 enableEventsOrThrow(false);
             } catch (Exception e) {
@@ -207,7 +211,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
                         .collect(Collectors.toMap(a -> a.aid, Function.identity())));
             }
             logger.debug("{} fetched {} accessories", thing.getUID(), accessories.size());
-            scheduler.submit(this::processDependentThings);
+            scheduler.submit(this::processBridgedThings);
         } catch (Exception e) {
             if (isCommunicationException(e)) {
                 // communication exception; log at debug and try to reconnect
@@ -223,13 +227,13 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     }
 
     /**
-     * Waits for all dependent accessory things to be initialized, then processes them by calling the
-     * overloaded abstract 'onRootAccessoriesLoaded' methods, and finally calls the 'onRootThingOnline'
-     * methods (and its eventual overloaded implementations).
+     * Waits for all bridged accessory things to be initialized, then processes them by calling the
+     * overloaded abstract 'onConnectedThingAccessoriesLoaded' methods, and finally calls the
+     * 'onThingOnline' methods (and its eventual overloaded implementations).
      */
-    private void processDependentThings() {
+    private void processBridgedThings() {
         Instant timeout = Instant.now().plus(HANDLER_INITIALIZATION_TIMEOUT);
-        while (!dependentThingsInitialized() && Instant.now().isBefore(timeout)) {
+        while (!bridgedThingsInitialized() && Instant.now().isBefore(timeout)) {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -237,18 +241,18 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
                 return;
             }
         }
-        onRootThingAccessoriesLoaded();
-        onRootThingOnline();
+        onConnectedThingAccessoriesLoaded();
+        onThingOnline();
     }
 
     /**
-     * Returns the accessory ID. For bridges and root accessories this is always 1. Whereas for child
-     * accessories it comes from the thing's configuration parameter value.
+     * Returns the accessory ID. For bridges and accessories this is always 1. Whereas for
+     * bridged accessories it comes from the thing's configuration parameter value.
      *
      * @return the accessory ID, or null if it cannot be determined
      */
     protected @Nullable Long getAccessoryId() {
-        if (isChildAccessory) {
+        if (isBridgedAccessory) {
             if (getConfig().get(CONFIG_ACCESSORY_ID) instanceof BigDecimal accessoryId) {
                 try {
                     return accessoryId.longValue();
@@ -264,7 +268,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     @Override
     public void handleRemoval() {
         cancelRefreshTasks();
-        if (isChildAccessory) {
+        if (isBridgedAccessory) {
             updateStatus(ThingStatus.REMOVED);
         } else {
             scheduler.submit(() -> {
@@ -277,10 +281,8 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     @Override
     public void initialize() {
-        eventedCharacteristics.clear();
-        accessories.clear();
-        isChildAccessory = getBridge() instanceof Bridge;
-        if (!isChildAccessory) {
+        isBridgedAccessory = getBridge() instanceof Bridge;
+        if (!isBridgedAccessory) {
             scheduleConnectionAttempt();
         }
         updateStatus(ThingStatus.UNKNOWN);
@@ -305,8 +307,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         Ed25519PublicKeyParameters accessoryKey = keyStore.getAccessoryKey(macAddress);
         if (accessoryKey == null) {
             logger.debug("{} no stored pairing credentials", thing.getUID());
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.not-paired", "Not paired", null));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.not-paired");
             return false;
         }
 
@@ -333,8 +334,8 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
                 | ExecutionException | IllegalStateException e) {
             logger.debug("{} restored pairing was not verified", thing.getUID(), e);
             // pairing restore failed => exit and perhaps try again later
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, i18nProvider.getText(bundle,
-                    "error.pairing-verification-failed", "Pairing / Verification failed", null));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return false;
         }
     }
@@ -396,12 +397,12 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     /**
      * Gets the IP transport.
      *
-     * @throws IllegalAccessException if this is a child accessory or if the transport is not initialized.
+     * @throws IllegalAccessException if this is a bridged accessory or if the transport is not initialized.
      * @return the IpTransport
      */
     protected IpTransport getIpTransport() throws IllegalAccessException, IllegalStateException {
-        if (isChildAccessory) {
-            throw new IllegalAccessException("Child accessories must delegate to bridge IP transport");
+        if (isBridgedAccessory) {
+            throw new IllegalAccessException("Bridged accessories must delegate to bridge IP transport");
         }
         IpTransport ipTransport = this.ipTransport;
         if (ipTransport == null) {
@@ -421,34 +422,31 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     @Override
     public Collection<Class<? extends ThingHandlerService>> getServices() {
-        // only non child accessories require pairing support
-        return thing.getBridgeUID() != null ? Set.of() : Set.of(HomekitPairingActions.class);
+        // only bridges and accessories require pairing support
+        return isBridgedAccessory ? Set.of() : Set.of(HomekitPairingActions.class);
     }
 
     private @Nullable String checkedIpAddress() {
         Object obj = getConfig().get(CONFIG_IP_ADDRESS);
         if (obj == null || !(obj instanceof String ipAddress) || !IPV4_PATTERN.matcher(ipAddress).matches()) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.invalid-ip-address", "Invalid IP address", null));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-ip-address");
             return null;
         }
         return ipAddress;
     }
 
     private @Nullable String checkedMacAddress() {
-        if (!(getConfig().get(Thing.PROPERTY_MAC_ADDRESS) instanceof String macAddress) || macAddress.isBlank()) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.missing-mac-address", "Missing MAC address", null));
+        if (!(getConfig().get(CONFIG_MAC_ADDRESS) instanceof String macAddress) || macAddress.isBlank()) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.missing-mac-address");
             return null;
         }
         return macAddress;
     }
 
     private @Nullable String checkedHostName() {
-        Object obj = getConfig().get(CONFIG_HOST_NAME);
+        Object obj = getConfig().get(CONFIG_HTTP_HOST_HEADER);
         if (obj == null || !(obj instanceof String hostName)) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.invalid-host-name", "Invalid fully qualified host name", null));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-host-name");
             return null;
         }
         if (!HOST_PATTERN.matcher(hostName).matches()) {
@@ -461,7 +459,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         accessoryId = getAccessoryId();
         if (accessoryId == null) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.invalid-accessory-id", "Invalid accessory ID", null));
+                    "@text/error.invalid-accessory-id");
             return null;
         }
         return accessoryId;
@@ -473,9 +471,8 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             this.ipTransport = ipTransport;
             return ipTransport;
         } catch (IOException e) {
-            logger.warn("{} error '{}' creating transport", thing.getUID(), e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    i18nProvider.getText(bundle, "error.failed-to-connect", "Failed to connect", null));
+                    THING_STATUS_FMT.formatted("error.failed-to-connect", e.getMessage()));
         }
         return null;
     }
@@ -489,9 +486,9 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
      * @return OK or ERROR with reason
      */
     public String pair(String code, boolean withExternalAuthentication) {
-        if (isChildAccessory) {
-            logger.warn("{} forbidden to pair a child accessory", thing.getUID());
-            return ACTION_RESULT_ERROR_FORMAT.formatted("child accessory");
+        if (isBridgedAccessory) {
+            logger.warn("{} forbidden to pair a bridged accessory", thing.getUID());
+            return ACTION_RESULT_ERROR_FORMAT.formatted("bridged accessory");
         }
 
         if (!PAIRING_CODE_PATTERN.matcher(code).matches()) {
@@ -533,10 +530,9 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             return ACTION_RESULT_OK; // pairing succeeded
         } catch (Exception e) {
             // catch all; log all exceptions
-            logger.warn("{} pairing / verification failed '{}'", thing.getUID(), e.getMessage());
-            logger.debug("Stack trace", e);
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, i18nProvider.getText(bundle,
-                    "error.pairing-verification-failed", "Pairing / Verification failed", null));
+            logger.debug("{} pairing / verification failed '{}'", thing.getUID(), e.getMessage(), e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return ACTION_RESULT_ERROR_FORMAT.formatted("pairing error");
         }
     }
@@ -547,12 +543,12 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
      * @return OK or ERROR with reason
      */
     private String unpairInner() {
-        if (isChildAccessory) {
-            logger.warn("{} forbidden to unpair a child accessory", thing.getUID());
-            return ACTION_RESULT_ERROR_FORMAT.formatted("child accessory");
+        if (isBridgedAccessory) {
+            logger.warn("{} forbidden to unpair a bridged accessory", thing.getUID());
+            return ACTION_RESULT_ERROR_FORMAT.formatted("bridged accessory");
         }
 
-        if (!(getConfig().get(Thing.PROPERTY_MAC_ADDRESS) instanceof String macAddress) || macAddress.isBlank()) {
+        if (!(getConfig().get(CONFIG_MAC_ADDRESS) instanceof String macAddress) || macAddress.isBlank()) {
             logger.warn("{} cannot unpair accessory due to missing mac address configuration", thing.getUID());
             return ACTION_RESULT_ERROR_FORMAT.formatted("config error");
         }
@@ -581,8 +577,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     public String unpair() {
         String result = unpairInner();
         if (result.startsWith(ACTION_RESULT_OK)) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    i18nProvider.getText(bundle, "error.not-paired", "Not paired", null));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.not-paired");
         }
         return result;
     }
@@ -619,26 +614,26 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             return;
         }
         // search for the accessory information service and collect its properties
+        Map<String, String> thingProperties = new HashMap<>(thing.getProperties());
         for (Service service : accessory.services) {
             if (ServiceType.ACCESSORY_INFORMATION == service.getServiceType()) {
                 for (Characteristic characteristic : service.characteristics) {
                     ChannelDefinition channelDef = characteristic.buildAndRegisterChannelDefinition(thing.getUID(),
                             typeProvider, i18nProvider, bundle);
-                    if (channelDef != null && FAKE_PROPERTY_CHANNEL_TYPE_UID.equals(channelDef.getChannelTypeUID())) {
-                        String name = channelDef.getId();
-                        if (channelDef.getLabel() instanceof String value) {
-                            thing.setProperty(name, value);
-                        }
+                    if (channelDef != null && CHANNEL_TYPE_STATIC.equals(channelDef.getChannelTypeUID())) {
+                        // only static ChannelDefinitions contribute to the properties
+                        thingProperties.putAll(channelDef.getProperties());
                     }
                 }
                 break; // only one accessory information service per accessory
             }
         }
+        thing.setProperties(thingProperties);
     }
 
     /**
      * Wrapper to enable or disable eventing for members of the eventedCharacteristics list of the
-     * accessory or its children, with exception handling.
+     * accessory or its bridged accessories, with exception handling.
      *
      * @param enable true to enable events, false to disable
      */
@@ -663,20 +658,20 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     /**
      * Inner method to enable or disable eventing for members of the eventedCharacteristics list of the
-     * accessory or its children. All exceptions are thrown upwards to the caller.
+     * accessory or its bridged accessories. All exceptions are thrown upwards to the caller.
      *
      * @param enable true to enable events, false to disable
      * @throws Exception the compiler requires us to handle any error; but it will actually be one of the following:
-     *             IllegalStateException if this is a child accessory or if the read/write service is not initialized,
-     *             IllegalAccessException if this is a child accessory,
+     *             IllegalStateException if this is a bridged accessory or if the read/write service is not initialized,
+     *             IllegalAccessException if this is a bridged accessory,
      *             IOException if there is a communication error,
      *             InterruptedException if the operation is interrupted,
      *             TimeoutException if the operation times out,
      *             ExecutionException if there is an execution error
      */
     private void enableEventsOrThrow(boolean enable) throws Exception {
-        if (isChildAccessory) {
-            logger.warn("{} forbidden to enable/disable events on child accessory", thing.getUID());
+        if (isBridgedAccessory) {
+            logger.warn("{} forbidden to enable/disable events on bridged accessories", thing.getUID());
             return;
         }
         Service service = new Service();
@@ -698,7 +693,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     }
 
     /**
-     * Polls all characteristics in the polledCharacteristics list of the accessory or its children.
+     * Polls all characteristics in the polledCharacteristics list of the accessory or its bridged accessories.
      * Called periodically by the refresh task and on-demand when RefreshType.REFRESH is called.
      */
     private synchronized void refresh() {
@@ -718,32 +713,31 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             if (isCommunicationException(e)) {
                 // communication exception; log at debug and try to reconnect
                 logger.debug("{} communication error '{}' polling accessories, reconnecting..", thing.getUID(),
-                        e.getMessage());
+                        e.getMessage(), e);
                 scheduleConnectionAttempt();
             } else {
                 // other exception; log at warn and don't try to reconnect
-                logger.warn("{} unexpected error '{}' polling accessories", thing.getUID(), e.getMessage());
+                logger.warn("{} unexpected error '{}' polling accessories", thing.getUID(), e.getMessage(), e);
             }
-            logger.debug("Stack trace", e);
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    i18nProvider.getText(bundle, "error.polling-error", "Polling error", null));
+                    THING_STATUS_FMT.formatted("error.polling-error", e.getMessage()));
         }
     }
 
     /**
-     * Checks if all dependent accessory things have the reached status UNKNOWN, OFFLINE, or ONLINE.
+     * Checks if all bridged accessory things have the reached status UNKNOWN, OFFLINE, or ONLINE.
      * Subclasses MUST override this to perform the check.
      */
-    protected abstract boolean dependentThingsInitialized();
+    protected abstract boolean bridgedThingsInitialized();
 
     /**
-     * Called when the root thing has finished loading the accessories.
+     * Called when the connected thing has finished loading the accessories.
      * Subclasses MUST override this to perform any extra processing required.
      */
-    protected abstract void onRootThingAccessoriesLoaded();
+    protected abstract void onConnectedThingAccessoriesLoaded();
 
     /**
-     * Gets the evented characteristics list for this accessory or its children.
+     * Gets the evented characteristics list for this accessory or its bridged accessories.
      * Subclasses MUST override this to perform any extra processing required.
      *
      * @return map of channel UID to characteristic
@@ -751,7 +745,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     protected abstract Map<String, Characteristic> getEventedCharacteristics();
 
     /**
-     * Gets the polled characteristics list for this accessory or its children.
+     * Gets the polled characteristics list for this accessory or its bridged accessories.
      * Subclasses MUST override this to perform any extra processing required.
      *
      * @return map of channel UID to characteristic
@@ -762,24 +756,24 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     public abstract void onEvent(String json);
 
     /**
-     * Called when the root thing is fully online. Updates the thing status to ONLINE. And if the thing
-     * is not a child, enables eventing,and starts the refresh task.
+     * Called when the thing is fully online. Updates the thing status to ONLINE. And if the
+     * thing is not a bridged accessory, enables eventing,and starts the refresh task.
      * Subclasses MAY override this to perform any extra processing required.
      */
-    protected void onRootThingOnline() {
+    protected void onThingOnline() {
         updateStatus(ThingStatus.ONLINE);
-        if (!isChildAccessory) {
+        if (!isBridgedAccessory) {
             enableEvents(true);
-            startRootThingRefreshTask();
+            startConnectedThingRefreshTask();
         }
     }
 
     /**
-     * Called when the root thing handler has been initialized, the pairing verified, the accessories
-     * loaded, and the channels and properties created. Sets up a scheduled task to periodically
-     * refresh the state of the accessory.
+     * Called when the connected thing handler has been initialized, the pairing verified, the accessories
+     * loaded, and the channels and properties created. Sets up a scheduled task to periodically refresh
+     * the state of the accessory.
      */
-    private void startRootThingRefreshTask() {
+    private void startConnectedThingRefreshTask() {
         if (getConfig().get(CONFIG_REFRESH_INTERVAL) instanceof Object refreshInterval) {
             try {
                 int refreshIntervalSeconds = Integer.parseInt(refreshInterval.toString());
@@ -815,7 +809,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     /**
      * Requests a manual refresh by scheduling a refresh task after a short debounce delay. Defers to the
-     * bridge handler if this is a child accessory. And if a manual refresh task is already scheduled or
+     * bridge handler if this is a bridged accessory. And if a manual refresh task is already scheduled or
      * running, it does nothing more.
      */
     protected void requestManualRefresh() {
@@ -830,16 +824,16 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     }
 
     /**
-     * Reads characteristic(s) from the accessory. Defers to the bridge handler if this is a child accessory.
+     * Reads characteristic(s) from the accessory. Defers to the bridge handler if this is a bridged accessory.
      *
      * @param query a comma delimited HTTP query string e.g. "1.10,1.11" for aid 1 and iid 10 and 11
      * @return JSON response as String
      * @throws Exception compiler requires us to handle any exception; but actually will be one of the following:
-     *             ExecutionException,
-     *             TimeoutException,
-     *             InterruptedException,
-     *             IOException,
-     *             IllegalStateException
+     * @throws ExecutionException if there is an execution error
+     * @throws TimeoutException if the operation times out
+     * @throws InterruptedException if the operation is interrupted
+     * @throws IOException if there is a communication error
+     * @throws IllegalStateException if the read/write service is not initialized
      */
     protected String readCharacteristics(String query) throws Exception {
         CharacteristicReadWriteClient rwService = getBridge() instanceof Bridge bridge
@@ -852,16 +846,16 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     }
 
     /**
-     * Writes characteristic(s) to the accessory. Defers to the bridge handler if this is a child accessory.
+     * Writes characteristic(s) to the accessory. Defers to the bridge handler if this is a bridged accessory.
      *
      * @param json the JSON to write
      * @return the JSON response
      * @throws Exception compiler requires us to handle any exception; but actually will be one of the following:
-     *             ExecutionException,
-     *             TimeoutException,
-     *             InterruptedException,
-     *             IOException,
-     *             IllegalStateException
+     * @throws ExecutionException if there is an execution error
+     * @throws TimeoutException if the operation times out
+     * @throws InterruptedException
+     * @throws IOException if there is a communication error
+     * @throws IllegalStateException if the read/write service is not initialized
      */
     protected String writeCharacteristics(String json) throws Exception {
         CharacteristicReadWriteClient rwService = getBridge() instanceof Bridge bridge

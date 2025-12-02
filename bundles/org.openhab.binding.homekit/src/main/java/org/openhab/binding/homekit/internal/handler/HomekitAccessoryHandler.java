@@ -14,6 +14,7 @@ package org.openhab.binding.homekit.internal.handler;
 
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 import javax.measure.Unit;
 import javax.measure.format.MeasurementParseException;
@@ -85,9 +87,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
 /**
- * Handles a single HomeKit accessory.
- * It provides a polling mechanism to regularly update the state of the accessory.
- * It also handles commands sent to the accessory's channels.
+ * Handler for a HomeKit accessory or bridged accessory.
+ * It creates channels based on the accessory's services and characteristics.
+ * It handles state updates from the remote device to update channel states.
+ * It handles commands sent to the accessory's channels.
+ * It also manages a light model for accessories with color capabilities,
+ * allowing combined control of hue, saturation, brightness, and color temperature.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -320,7 +325,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             return;
         }
         Accessory accessory = accessories.get(accessoryId);
-        if (accessory == null && !isChildAccessory && !accessories.isEmpty()) {
+        if (accessory == null && !isBridgedAccessory && !accessories.isEmpty()) {
             // fallback to the first accessory if the specific one is not found (should not normally happen)
             accessory = accessories.values().iterator().next();
         }
@@ -356,15 +361,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                                     chanDef.getChannelTypeUID(), chanDef.getAutoUpdatePolicy(),
                                     chanDef.getProperties());
 
-                            if (FAKE_PROPERTY_CHANNEL_TYPE_UID.equals(chanDef.getChannelTypeUID())) {
-                                // this is a property, not a channel
-                                String name = chanDef.getId();
-                                if (chanDef.getLabel() instanceof String value) {
-                                    properties.put(name, value);
-                                    logger.trace("{}    Property '{}:{}'", thing.getUID(), name, value);
-                                }
+                            if (CHANNEL_TYPE_STATIC.equals(chanDef.getChannelTypeUID())) {
+                                // static ChannelDefinition: add as a Property (rather than a Channel)
+                                Map<String, String> channelProperties = chanDef.getProperties();
+                                properties.putAll(channelProperties);
+                                logger.trace("{}    Property {}", thing.getUID(), channelProperties);
                             } else {
-                                // this is a real channel
+                                // variable ChannelDefinition: add as a Channel (rather than a Property)
                                 ChannelType channelType = channelTypeRegistry
                                         .getChannelType(chanDef.getChannelTypeUID());
                                 if (channelType == null) {
@@ -489,26 +492,25 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             if (isCommunicationException(e)) {
                 // communication exception; log at debug and try to reconnect
                 logger.debug("{} communication error '{}' sending command '{}' to '{}', reconnecting..", thing.getUID(),
-                        e.getMessage(), command, channelUID);
+                        e.getMessage(), command, channelUID, e);
                 scheduleConnectionAttempt();
             } else {
                 // other exception; log at warn and don't try to reconnect
                 logger.warn("{} unexpected error '{}' sending command '{}' to '{}'", thing.getUID(), e.getMessage(),
-                        command, channelUID);
+                        command, channelUID, e);
             }
-            logger.debug("Stack trace", e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    THING_STATUS_FMT.formatted("error.error-sending-command", e.getMessage()));
         }
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                i18nProvider.getText(bundle, "error.error-sending-command", "Error sending command", null));
     }
 
     @Override
     public void initialize() {
         super.initialize();
-        if (isChildAccessory) {
+        if (isBridgedAccessory) {
             if (getBridge() instanceof Bridge bridge && bridge.getStatus() == ThingStatus.ONLINE) {
                 scheduler.submit(() -> {
-                    onRootThingAccessoriesLoaded();
+                    onConnectedThingAccessoriesLoaded();
                     updateStatus(ThingStatus.ONLINE);
                 });
             } else {
@@ -625,11 +627,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * @param hsbCommand the HSBType command containing hue, saturation, and brightness
      * @param writer the CharacteristicReadWriteClient to send the command
      * @throws Exception compiler requires us to handle any exception; but actually will be one of the following:
-     *             ExecutionException,
-     *             TimeoutException,
-     *             InterruptedException,
-     *             IOException,
-     *             IllegalStateException
+     * @throws ExecutionException if there is an execution error
+     * @throws TimeoutException if the operation times out
+     * @throws InterruptedException if the operation is interrupted
+     * @throws IOException if there is a communication error
+     * @throws IllegalStateException if the accessory ID or characteristic IID are not initialized
      */
     private void lightModelHandleCommand(Command command) throws Exception {
         LightModel lightModel = this.lightModel;
@@ -782,11 +784,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * @param channel the channel to read
      * @return the current state of the channel, or null if not found
      * @throws Exception compiler requires us to handle any exception; but actually will be one of the following:
-     *             ExecutionException,
-     *             TimeoutException,
-     *             InterruptedException,
-     *             IOException,
-     *             IllegalStateException
+     * @throws ExecutionException if there is an execution error
+     * @throws TimeoutException if the operation times out
+     * @throws InterruptedException if the operation is interrupted
+     * @throws IOException if there is a communication error
+     * @throws IllegalStateException if the read/write service is not initialized
      */
     private synchronized @Nullable State readChannel(Channel channel) throws Exception {
         Long aid = getAccessoryId();
@@ -814,11 +816,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * @param command the command to send
      * @param writer the CharacteristicReadWriteClient to send the command
      * @throws Exception compiler requires us to handle any exception; but actually will be one of the following:
-     *             ExecutionException,
-     *             TimeoutException,
-     *             InterruptedException,
-     *             IOException,
-     *             IllegalStateException
+     * @throws ExecutionException if there is an execution error
+     * @throws TimeoutException if the operation times out
+     * @throws InterruptedException if the operation is interrupted
+     * @throws IOException if there is a communication error
+     * @throws IllegalStateException if the accessory ID or characteristic IID are not initialized
      */
     private synchronized void writeChannel(Channel channel, Command command) throws Exception {
         Long aid = getAccessoryId();
@@ -886,14 +888,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Override method to delegate to the bridge IP transport if we are a child accessory.
+     * Override method to delegate to the bridge IP transport if we are a bridged accessory.
      *
-     * @return own IpTransport service or bridge IpTransport service if we are a child.
+     * @return own IpTransport service or bridge IpTransport service if we are a bridged accessory.
      * @throws IllegalAccessException if access to the transport is denied.
      */
     @Override
     protected IpTransport getIpTransport() throws IllegalAccessException {
-        if (isChildAccessory) {
+        if (isBridgedAccessory) {
             if (getBridge() instanceof Bridge bridge
                     && bridge.getHandler() instanceof HomekitBridgeHandler bridgeHandler) {
                 return bridgeHandler.getIpTransport();
@@ -905,12 +907,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     @Override
-    protected boolean dependentThingsInitialized() {
-        return ThingHandlerHelper.isHandlerInitialized(thing); // no children; return own status
+    protected boolean bridgedThingsInitialized() {
+        return ThingHandlerHelper.isHandlerInitialized(thing); // no bridged accessories; return own status
     }
 
     @Override
-    protected void onRootThingAccessoriesLoaded() {
+    protected void onConnectedThingAccessoriesLoaded() {
         createProperties();
         createChannels();
     }
