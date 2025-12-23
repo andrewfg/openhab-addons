@@ -42,10 +42,16 @@ Once the `home` thing is online, the binding will discover all its respective zo
 
 ### Channels
 
-| Name                | Type   | Description                                                         | Read/Write |
-|---------------------|--------|---------------------------------------------------------------------|------------|
-| `homePresence`      | Switch | Current presence value of the tado home; `ON` = HOME / `OFF` = AWAY | RW         |
-| `geofencingEnabled` | Switch | Selects if automatic geofencing is enabled or disabled              | RW         |
+| Name                            | Type        | Description                                                         | Read/Write |
+| ------------------------------- | ----------- | ------------------------------------------------------------------- | ---------- |
+| `homePresence`                  | Switch      | Current presence value of the tado home; `ON` = HOME / `OFF` = AWAY | RW         |
+| `geofencingEnabled`             | Switch      | Selects if automatic geofencing is enabled or disabled              | RW         |
+| `apiRateRemaining`<sup>1)</sup> | Number      | Number of API calls remaining before the maximum is reached         | R          |
+| `apiRateLimit`<sup>1)</sup>     | Number      | Maximum API calls allowed per specified duration                    | R          |
+| `apiRateDuration`<sup>1)</sup>  | Number:Time | Duration in which the API count rises until maximum                 | R          |
+| `apiRateReset`<sup>1)</sup>     | Number:Time | Duration before the API count resets                                | R          |
+
+<sup>1)</sup> It probably makes the most sense to link *one and the same* Item to *all* `apiRateRemaining` Channels of *all* Things linked to the same `home` Thing (*including* this `home` Thing). That way, that one Item is always as up-to-date as possible. The same applies to `apiRateLimit`, `apiRateDuration` and `apiRateReset`, of course.
 
 ## `zone` Thing
 
@@ -162,7 +168,7 @@ Bridge tado:home:demo [ username="mail@example.com", password="secret" ] {
 }
 ```
 
-### Items
+### Channels
 
 | Name     | Type   | Description                                      | Read/Write |
 |----------|--------|--------------------------------------------------|------------|
