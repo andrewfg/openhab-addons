@@ -10,7 +10,7 @@
 			<label>IP Address</label>
 			<description>IP v4 address (and optional port) of the HomeKit device.</description>
 		</parameter>
-		<parameter name="uniqueId" type="text" required="true">
+		<parameter name="uniqueId" type="text" required="true" pattern="([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}">
 			<label>Unique ID</label>
 			<description>Unique accessory identifier.</description>
 			<advanced>true</advanced>
