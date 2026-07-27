@@ -14,6 +14,7 @@ package org.openhab.binding.shelly.internal.handler;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
+import static org.openhab.binding.shelly.internal.handler.RGBW.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 
 import java.util.List;
@@ -810,13 +811,13 @@ public class ShellyComponents {
                 return false;
             }
             ShellySettingsLight light = orgStatus.lights.get(0);
-            ShellyColorUtils col = new ShellyColorUtils();
-            col.setRGBW(light.red, light.green, light.blue, light.white);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, col.percentRed);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, col.percentGreen);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, col.percentBlue);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, col.percentWhite);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER, col.toHSB());
+            ShellyLightModel model = new ShellyLightModel(profile);
+            model.setRGBW(light.red, light.green, light.blue, light.white);
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, model.getColor(B));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, model.getColor(W));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER, model.getColor());
 
         }
         return updated;
