@@ -139,7 +139,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             }
             logger.debug("{}: command={} light-mode={}", thingName, command, model);
 
-            if (profile.isBulb && !model.isModeDirty()) {
+            if (profile.isBulb && model.isModeDirty()) {
                 logger.debug("{}: Color mode changed to {}", thingName, model.getMode());
                 api.setLightMode(model.getMode());
             }

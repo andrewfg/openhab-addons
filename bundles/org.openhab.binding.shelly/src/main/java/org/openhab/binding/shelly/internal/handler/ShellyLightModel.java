@@ -110,7 +110,7 @@ public class ShellyLightModel extends LightModel {
     }
 
     public void setBrightness(int value) {
-        setBrightness(value);
+        setBrightness((double) value);
         brightnessDirty = true;
     }
 
