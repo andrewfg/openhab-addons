@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.openhab.binding.shelly.internal.api.ShellyApiException;
@@ -158,16 +159,21 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         }
     }
 
+    @Override
+    public @Nullable ShellyLightModel getLightModel(int lightId) {
+        return lightModels.get(lightId);
+    }
+
     private ShellyLightModel getCurrentLightModel(int lightId) {
-        ShellyLightModel col = lightModels.get(lightId);
-        if (col == null) {
-            col = new ShellyLightModel(profile); // create a new entry
-            lightModels.put(lightId, col);
+        ShellyLightModel model = getLightModel(lightId);
+        if (model == null) {
+            model = new ShellyLightModel(profile); // create a new entry
+            lightModels.put(lightId, model);
             logger.trace("{}: Colors entry created for lightId {}", thingName, lightId);
         } else {
-            logger.trace("{}: Colors loaded for lightId {} '{}'", thingName, lightId, col);
+            logger.trace("{}: Colors loaded for lightId {} '{}'", thingName, lightId, model);
         }
-        return col;
+        return model;
     }
 
     @Override
@@ -198,7 +204,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             }
 
             ShellyLightModel model = getCurrentLightModel(lightId);
-            model.setOnOff(light.ison);
+            model.hydrateOnOff(light.ison);
 
             List<ShellySettingsRgbwLight> lights = profile.settings.lights;
             if (lights != null) {
@@ -218,10 +224,10 @@ public class ShellyLightHandler extends ShellyBaseHandler {
 
             if (profile.inColor || (profile.isGen2 && profile.isRGBW2)) {
                 logger.trace("{}: update color settings", thingName);
-                model.setRGBW(getInteger(light.red), getInteger(light.green), getInteger(light.blue),
+                model.hydrateRGBW(getInteger(light.red), getInteger(light.green), getInteger(light.blue),
                         getInteger(light.white));
-                model.setGain(getInteger(light.gain));
-                model.setEffect(getInteger(light.effect));
+                model.hydrateGain(getInteger(light.gain));
+                model.hydrateEffect(getInteger(light.effect));
 
                 String colorGroup = CHANNEL_GROUP_COLOR_CONTROL;
                 logger.trace("{}: Update channels for group {} : '{}'", thingName, colorGroup, model);
@@ -239,12 +245,12 @@ public class ShellyLightHandler extends ShellyBaseHandler {
 
             if ((!profile.inColor && !profile.isGen2) || profile.isBulb) {
                 String whiteGroup = buildWhiteGroupName(profile, channelId);
-                model.setBrightness(getInteger(light.brightness));
+                model.hydrateBrightness(getInteger(light.brightness));
                 updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Switch", model.getOnOff(true));
                 updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Value", model.getBrightness());
 
                 if ((profile.isBulb || profile.isDuo) && (light.temp != null)) {
-                    model.setTemp(getInteger(light.temp));
+                    model.hydrateTemp(getInteger(light.temp));
                     updated |= updateChannel(whiteGroup, CHANNEL_COLOR_TEMP, model.getColorTemperaturePercent());
                     updated |= updateChannel(whiteGroup, CHANNEL_COLOR_PICKER, model.getColor());
                 }
@@ -309,7 +315,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         Integer channelId = lightId + 1;
         Map<String, String> parms = new TreeMap<>();
 
-        if (model.isPowerDirty()) {
+        if (model.isOnOffDirty()) {
             parms.put(SHELLY_LIGHT_TURN, OnOffType.ON == model.getOnOff(true) ? SHELLY_API_ON : SHELLY_API_OFF);
         }
         if (model.isBrightnessDirty()) {

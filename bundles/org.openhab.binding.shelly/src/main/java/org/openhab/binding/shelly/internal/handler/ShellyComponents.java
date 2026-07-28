@@ -852,9 +852,10 @@ public class ShellyComponents {
             if (!thingHandler.areChannelsCreated()) {
                 return false;
             }
-            ShellySettingsLight light = orgStatus.lights.get(0);
-            ShellyLightModel model = new ShellyLightModel(profile);
-            model.setRGBW(light.red, light.green, light.blue, light.white);
+            int lightId = 0;
+            ShellySettingsLight light = orgStatus.lights.get(lightId);
+            ShellyLightModel model = getLightModel(thingHandler, lightId);
+            model.hydrateRGBW(light.red, light.green, light.blue, light.white);
             updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
             updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
             updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, model.getColor(B));
@@ -963,5 +964,13 @@ public class ShellyComponents {
             return ImperialUnits.FAHRENHEIT.getConverterTo(SIUnits.CELSIUS).convert(temp).doubleValue();
         }
         return temp;
+    }
+
+    protected static ShellyLightModel getLightModel(ShellyThingInterface thingHandler, int lightId)
+            throws ShellyApiException {
+        if (thingHandler.getLightModel(lightId) instanceof ShellyLightModel model) {
+            return model;
+        }
+        throw new ShellyApiException("Unable to resolve light model for index " + lightId);
     }
 }

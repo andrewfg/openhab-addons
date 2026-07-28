@@ -69,9 +69,9 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
      */
     @Override
     public boolean handleStatusUpdate(List<CoIotSensor> sensorUpdates, CoIotDescrSen sen, int serial, CoIotSensor s,
-            Map<String, State> updates, ShellyLightModel model) {
+            Map<String, State> updates) {
         // first check the base implementation
-        if (super.handleStatusUpdate(sensorUpdates, sen, s, updates, model)) {
+        if (super.handleStatusUpdate(sensorUpdates, sen, s, updates)) {
             // process by the base class
             return true;
         }
@@ -203,10 +203,12 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         break;
                     case "temp": // Shelly Bulb
                     case "colortemperature": // Shelly Duo
+                        ShellyLightModel model = getLightModelForSensor(sen);
+                        model.hydrateTemp((int) Math.round(getDouble(s.value)));
                         updateChannel(updates,
                                 profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
                                 CHANNEL_COLOR_TEMP, model.getColorTemperaturePercent());
-                        // TODO absolute color temperature in Kelvin
+                        // TODO absolute color temperature channel in Kelvin
                         break;
                     case "sensor state": // Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_SSTATE, getStringType(s.valueStr));
