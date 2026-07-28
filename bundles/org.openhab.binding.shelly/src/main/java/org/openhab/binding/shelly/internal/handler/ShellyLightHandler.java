@@ -82,7 +82,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                 lightId);
 
         ShellyLightModel model = getCurrentLightModel(lightId);
-        model.resetDirtyFlags();
+        model.clearDirtyFlags();
         try {
             switch (channelUID.getIdWithoutGroup()) {
                 default: // non-bulb commands will be handled by the generic handler
@@ -93,12 +93,12 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                     api.setLightParm(lightId, SHELLY_LIGHT_TURN,
                             command == OnOffType.ON ? SHELLY_API_ON : SHELLY_API_OFF);
                     model.handleCommand(command);
-                    model.resetDirtyFlags();
+                    model.clearDirtyFlags();
                     requestUpdates(1, false);
                     break;
                 case CHANNEL_LIGHT_COLOR_MODE:
                     logger.debug("{}: Select color mode {}", thingName, command);
-                    model.setMode((OnOffType) command == OnOffType.ON ? SHELLY_MODE_COLOR : SHELLY_MODE_WHITE);
+                    model.cmdMode((OnOffType) command == OnOffType.ON ? SHELLY_MODE_COLOR : SHELLY_MODE_WHITE);
                     break;
                 case CHANNEL_COLOR_PICKER:
                     logger.debug("{}: Update colors from color picker", thingName);
@@ -106,22 +106,22 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                     break;
                 case CHANNEL_COLOR_FULL:
                     logger.debug("{}: Set colors to {}", thingName, command);
-                    model.setFullColor(command);
+                    model.commandFullColor(command);
                     break;
                 case CHANNEL_COLOR_RED:
-                    model.setColor(R, setColor(lightId, SHELLY_COLOR_RED, command, SHELLY_MAX_COLOR));
+                    model.cmdColor(R, setColor(lightId, SHELLY_COLOR_RED, command, SHELLY_MAX_COLOR));
                     break;
                 case CHANNEL_COLOR_GREEN:
-                    model.setColor(G, setColor(lightId, SHELLY_COLOR_GREEN, command, SHELLY_MAX_COLOR));
+                    model.cmdColor(G, setColor(lightId, SHELLY_COLOR_GREEN, command, SHELLY_MAX_COLOR));
                     break;
                 case CHANNEL_COLOR_BLUE:
-                    model.setColor(B, setColor(lightId, SHELLY_COLOR_BLUE, command, SHELLY_MAX_COLOR));
+                    model.cmdColor(B, setColor(lightId, SHELLY_COLOR_BLUE, command, SHELLY_MAX_COLOR));
                     break;
                 case CHANNEL_COLOR_WHITE:
-                    model.setColor(W, setColor(lightId, SHELLY_COLOR_WHITE, command, SHELLY_MAX_COLOR));
+                    model.cmdColor(W, setColor(lightId, SHELLY_COLOR_WHITE, command, SHELLY_MAX_COLOR));
                     break;
                 case CHANNEL_COLOR_GAIN:
-                    model.setGain(setColor(lightId, SHELLY_COLOR_GAIN, command, SHELLY_MIN_GAIN, SHELLY_MAX_GAIN));
+                    model.cmdGain(setColor(lightId, SHELLY_COLOR_GAIN, command, SHELLY_MIN_GAIN, SHELLY_MAX_GAIN));
                     break;
                 case CHANNEL_BRIGHTNESS: // only in white mode
                     model.handleCommand(command);
@@ -136,7 +136,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                     Integer effect = ((DecimalType) command).intValue();
                     logger.debug("{}: Set color effect to {}", thingName, effect);
                     validateRange("effect", effect, SHELLY_MIN_EFFECT, SHELLY_MAX_EFFECT);
-                    model.setEffect(effect.intValue());
+                    model.cmdEffect(effect.intValue());
             }
             logger.debug("{}: command={} light-mode={}", thingName, command, model);
 
@@ -155,7 +155,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             logger.debug("{}: Unable to handle command", thingName, e);
             return false;
         } finally {
-            model.resetDirtyFlags();
+            model.clearDirtyFlags();
         }
     }
 
@@ -204,7 +204,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             }
 
             ShellyLightModel model = getCurrentLightModel(lightId);
-            model.hydrateOnOff(light.ison);
+            model.cmdOnOff(light.ison);
 
             List<ShellySettingsRgbwLight> lights = profile.settings.lights;
             if (lights != null) {
@@ -224,10 +224,10 @@ public class ShellyLightHandler extends ShellyBaseHandler {
 
             if (profile.inColor || (profile.isGen2 && profile.isRGBW2)) {
                 logger.trace("{}: update color settings", thingName);
-                model.hydrateRGBW(getInteger(light.red), getInteger(light.green), getInteger(light.blue),
+                model.cmdRGBW(getInteger(light.red), getInteger(light.green), getInteger(light.blue),
                         getInteger(light.white));
-                model.hydrateGain(getInteger(light.gain));
-                model.hydrateEffect(getInteger(light.effect));
+                model.cmdGain(getInteger(light.gain));
+                model.cmdEffect(getInteger(light.effect));
 
                 String colorGroup = CHANNEL_GROUP_COLOR_CONTROL;
                 logger.trace("{}: Update channels for group {} : '{}'", thingName, colorGroup, model);
@@ -245,12 +245,12 @@ public class ShellyLightHandler extends ShellyBaseHandler {
 
             if ((!profile.inColor && !profile.isGen2) || profile.isBulb) {
                 String whiteGroup = buildWhiteGroupName(profile, channelId);
-                model.hydrateBrightness(getInteger(light.brightness));
+                model.cmdBrightness(getInteger(light.brightness));
                 updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Switch", model.getOnOff(true));
                 updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Value", model.getBrightness());
 
                 if ((profile.isBulb || profile.isDuo) && (light.temp != null)) {
-                    model.hydrateTemp(getInteger(light.temp));
+                    model.cmdColorTemp(getInteger(light.temp));
                     updated |= updateChannel(whiteGroup, CHANNEL_COLOR_TEMP, model.getColorTemperaturePercent());
                     updated |= updateChannel(whiteGroup, CHANNEL_COLOR_PICKER, model.getColor());
                 }

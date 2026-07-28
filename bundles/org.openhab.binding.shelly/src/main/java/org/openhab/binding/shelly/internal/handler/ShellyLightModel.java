@@ -53,20 +53,20 @@ public class ShellyLightModel extends LightModel {
     /**
      * Set the brightness. Do not set the dirty flag.
      */
-    public void hydrateBrightness(int value) {
+    public void setBrightness(int value) {
         setBrightness((double) value);
     }
 
     /**
-     * Set the brightness. Set the dirty flag.
+     * Set the brightness. And set the dirty flag.
      */
-    public void setBrightness(int value) {
-        setBrightness((double) value);
+    public void cmdBrightness(int value) {
+        setBrightness(value);
         brightnessDirty = true;
     }
 
     /**
-     * Check if the brightness has been changed since the last reset of the dirty flags.
+     * Check if the brightness has been changed since the dirty flags were last cleared.
      */
     public boolean isBrightnessDirty() {
         return brightnessDirty;
@@ -83,25 +83,47 @@ public class ShellyLightModel extends LightModel {
     /**
      * Set the color component at the given RGBW index. Do not set the dirty flag.
      */
-    public void hydrateColor(RGBW index, int value) {
+    public void setColor(RGBW index, int value) {
         double[] rgbw = getRGBx();
         rgbw[index.ordinal()] = value;
         setRGBx(rgbw);
     }
 
     /**
-     * Set the color component at the given RGBW index. Set the dirty flag.
+     * Set the color component at the given RGBW index. And set the dirty flag.
      */
-    public void setColor(RGBW index, int value) {
-        hydrateColor(index, value);
+    public void cmdColor(RGBW index, int value) {
+        setColor(index, value);
         colorDirty = true;
     }
 
     /**
-     * Check if the color has been changed since the last reset of the dirty flags.
+     * Check if the color has been changed since the dirty flags were last cleared.
      */
     public boolean isColorDirty() {
         return colorDirty;
+    }
+
+    /**
+     * Set the color temperature. Do not set the dirty flag.
+     */
+    public void setColorTemp(double value) {
+        setMirek(1000000.0 / value);
+    }
+
+    /**
+     * Set the color temperature. And set the dirty flag.
+     */
+    public void cmdColorTemp(int value) {
+        setColorTemp(value);
+        colorTempDirty = true;
+    }
+
+    /**
+     * Check if the color temperature has been changed since the dirty flags were last cleared.
+     */
+    public boolean isColorTempDirty() {
+        return colorTempDirty;
     }
 
     /**
@@ -112,22 +134,22 @@ public class ShellyLightModel extends LightModel {
     }
 
     /**
-     * Set the effect. Set the dirty flag.
+     * Set the effect. And set the dirty flag.
      */
-    public void hydrateEffect(int value) {
+    public void setEffect(int value) {
         effect = value;
     }
 
     /**
      * Set the effect. Mark it as dirty.
      */
-    public void setEffect(int value) {
+    public void cmdEffect(int value) {
         effect = value;
         effectDirty = true;
     }
 
     /**
-     * Check if the effect has been changed since the last reset of the dirty flags.
+     * Check if the effect has been changed since the dirty flags were last cleared.
      */
     public boolean isEffectDirty() {
         return effectDirty;
@@ -141,22 +163,22 @@ public class ShellyLightModel extends LightModel {
     }
 
     /**
-     * Set the gain. Set the dirty flag.
+     * Set the gain. And set the dirty flag.
      */
-    public void hydrateGain(int value) {
+    public void setGain(int value) {
         gain = value;
     }
 
     /**
      * Set the gain. Mark it as dirty.
      */
-    public void setGain(int value) {
+    public void cmdGain(int value) {
         gain = value;
         gainDirty = true;
     }
 
     /**
-     * Check if the gain has been changed since the last reset of the dirty flags.
+     * Check if the gain has been changed since the dirty flags were last cleared.
      */
     public boolean isGainDirty() {
         return gainDirty;
@@ -172,43 +194,42 @@ public class ShellyLightModel extends LightModel {
     /**
      * Set the led operating mode. Do not set the dirty flag.
      */
-    public void hydrateMode(String mode) {
+    public void setMode(String mode) {
         setLedOperatingMode(SHELLY_MODE_COLOR.equals(mode) ? RGB_ONLY : WHITE_ONLY);
     }
 
     /**
-     * Set the mode. Set the dirty flag.
+     * Set the mode. And set the dirty flag.
      */
-    public void setMode(String modeStr) {
-        hydrateMode(modeStr);
+    public void cmdMode(String modeStr) {
+        setMode(modeStr);
         modeDirty = true;
     }
 
     /**
-     * Check if the mode has been changed since the last reset of the dirty flags.
+     * Check if the mode has been changed since the dirty flags were last cleared.
      */
     public boolean isModeDirty() {
         return modeDirty;
     }
 
     /**
-     * Set the on/off state. Do not set the dirty flag.
+     * TODO
      */
-    public void hydrateOnOff(boolean on) {
-        super.setOnOff(on);
+    public boolean isRgbValid() {
+        return RGB_ONLY == getLedOperatingMode();
     }
 
     /**
-     * Set the on/off state. Set the dirty flag.
+     * Set the on/off state. And set the dirty flag.
      */
-    @Override
-    public void setOnOff(boolean on) {
-        hydrateOnOff(on);
+    public void cmdOnOff(boolean on) {
+        setOnOff(on);
         onOffDirty = true;
     }
 
     /**
-     * Check if the on/off state has been changed since the last reset of the dirty flags.
+     * Check if the on/off state has been changed since the dirty flags were last cleared.
      */
     public boolean isOnOffDirty() {
         return onOffDirty;
@@ -217,22 +238,22 @@ public class ShellyLightModel extends LightModel {
     /**
      * Set the RGBW values. Do not set the dirty flag.
      */
-    public void hydrateRGBW(int red, int green, int blue, int white) {
+    public void setRGBW(int red, int green, int blue, int white) {
         setRGBx(new double[] { red, green, blue, white });
     }
 
     /**
-     * Set the RGBW values. Set the dirty flag.
+     * Set the RGBW values. And set the dirty flag.
      */
-    public void setRGBW(int red, int green, int blue, int white) {
-        hydrateRGBW(red, green, blue, white);
+    public void cmdRGBW(int red, int green, int blue, int white) {
+        setRGBW(red, green, blue, white);
         colorDirty = true;
     }
 
     /**
-     * Set the RGBW values from a comma-separated string. Set the dirty flag.
+     * Set the RGBW values from a comma-separated string. And set the dirty flag.
      */
-    public void setRGBW(String rgbwString) {
+    public void cmdRGBW(String rgbwString) {
         Integer[] values = new Integer[4];
         values[0] = values[1] = values[2] = values[3] = -1;
         try {
@@ -244,36 +265,7 @@ public class ShellyLightModel extends LightModel {
             throw new IllegalArgumentException(
                     "Unable to convert fullColor value: " + rgbwString + ", " + e.getMessage(), e);
         }
-        setRGBW(values[0], values[1], values[2], values[3]);
-    }
-
-    /**
-     * Set the color temperature. Do not set the dirty flag.
-     */
-    public void hydrateTemp(int value) {
-        setMirek(1000000.0 / value);
-    }
-
-    /**
-     * Set the color temperature. Set the dirty flag.
-     */
-    public void setTemp(int value) {
-        hydrateTemp(value);
-        colorTempDirty = true;
-    }
-
-    /**
-     * Check if the color temperature has been changed since the last reset of the dirty flags.
-     */
-    public boolean isColorTempDirty() {
-        return colorTempDirty;
-    }
-
-    /**
-     * TODO
-     */
-    public boolean isRgbValid() {
-        return true;
+        cmdRGBW(values[0], values[1], values[2], values[3]);
     }
 
     @Override
@@ -297,9 +289,9 @@ public class ShellyLightModel extends LightModel {
     }
 
     /**
-     * Reset all dirty flags.
+     * Clear all dirty flags.
      */
-    public void resetDirtyFlags() {
+    public void clearDirtyFlags() {
         modeDirty = false;
         colorDirty = false;
         brightnessDirty = false;

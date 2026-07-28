@@ -143,23 +143,23 @@ public class Shelly1CoIoTProtocol {
                         break;
                     // RGBW2/Bulb
                     case "red":
-                        model.hydrateColor(R, (int) s.value);
+                        model.setColor(R, (int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
                         break;
                     case "green":
-                        model.hydrateColor(G, (int) s.value);
+                        model.setColor(G, (int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
                         break;
                     case "blue":
-                        model.hydrateColor(B, (int) s.value);
+                        model.setColor(B, (int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, model.getColor(B));
                         break;
                     case "white":
-                        model.hydrateColor(W, (int) s.value);
+                        model.setColor(W, (int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, model.getColor(W));
                         break;
                     case "gain":
-                        model.hydrateGain((int) s.value);
+                        model.setGain((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GAIN, model.getGain());
                         break;
                     case "sensorerror":

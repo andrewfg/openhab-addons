@@ -204,7 +204,7 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                     case "temp": // Shelly Bulb
                     case "colortemperature": // Shelly Duo
                         ShellyLightModel model = getLightModelForSensor(sen);
-                        model.hydrateTemp((int) Math.round(getDouble(s.value)));
+                        model.setColorTemp(getDouble(s.value));
                         updateChannel(updates,
                                 profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
                                 CHANNEL_COLOR_TEMP, model.getColorTemperaturePercent());
