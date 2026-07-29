@@ -14,7 +14,7 @@ package org.openhab.binding.shelly.internal.handler;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
-import static org.openhab.binding.shelly.internal.handler.RGBW.*;
+import static org.openhab.binding.shelly.internal.handler.ShellyLightModel.RGBW.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 
 import java.util.List;
@@ -51,6 +51,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSe
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSensor.ShellyExtVoltage.ShellyShortVoltage;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyThermnostat;
 import org.openhab.binding.shelly.internal.provider.ShellyChannelDefinitions;
+import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.unit.ImperialUnits;
@@ -655,26 +656,7 @@ public class ShellyComponents {
                         getOnOff(sdata.smoke));
             }
             if (sdata.mute != null) {
-                if (profile.isSmoke) {
-                    updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_MUTE,
-                            getOnOff(sdata.mute));
-                } else if (profile.isFlood) {
-                    // Flood Gen4 has no mute channel; report mute/unmute via the device#alarm trigger instead
-                    thingHandler.postEvent(sdata.mute ? ALARM_TYPE_MUTED : ALARM_TYPE_NONE, false);
-                }
-            }
-            if (sdata.sensor == null && (sdata.sensorError != null || (profile.isFlood && profile.isGen2))) {
-                updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ERROR,
-                        getStringType(sdata.sensorError));
-            }
-
-            if (profile.isFlood && profile.isGen2) {
-                if (!profile.floodAlarmMode.isEmpty()) {
-                    updated |= thingHandler.updateChannel(CHANNEL_GROUP_CONTROL, CHANNEL_CONTROL_ALARM_MODE,
-                            getStringType(profile.floodAlarmMode));
-                }
-                updated |= thingHandler.updateChannel(CHANNEL_GROUP_CONTROL, CHANNEL_CONTROL_REPORT_HOLDOFF,
-                        toQuantityType((double) profile.reportHoldoff, DIGITS_NONE, Units.SECOND));
+                updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_MUTE, getOnOff(sdata.mute));
             }
 
             if (sdata.gasSensor != null) {
@@ -872,16 +854,15 @@ public class ShellyComponents {
             if (!thingHandler.areChannelsCreated()) {
                 return false;
             }
-            int lightId = 0;
-            ShellySettingsLight light = orgStatus.lights.get(lightId);
-            ShellyColorUtils model = getLightModel(thingHandler, lightId);
-            model.setRGBW(light.red, light.green, light.blue, light.white);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, model.getColor(B));
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, model.getColor(W));
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER, model.getColor());
-
+            ShellySettingsLight light = orgStatus.lights.get(0);
+            ShellyLightModel col = getLightModel(thingHandler, 0);
+            col.setRGBW(light.red, light.green, light.blue, light.white);
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, col.getColor(R));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, col.getColor(G));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, col.getColor(B));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, col.getColor(W));
+            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER,
+                    col.getColor() instanceof HSBType hsb ? hsb : UnDefType.NULL);
         }
         return updated;
     }
@@ -986,10 +967,10 @@ public class ShellyComponents {
         return temp;
     }
 
-    protected static ShellyColorUtils getLightModel(ShellyThingInterface thingHandler, int lightId)
+    protected static ShellyLightModel getLightModel(ShellyThingInterface thingHandler, int lightId)
             throws ShellyApiException {
-        if (thingHandler.getLightModel(lightId) instanceof ShellyColorUtils model) {
-            return model;
+        if (thingHandler.getLightModel(lightId) instanceof ShellyLightModel col) {
+            return col;
         }
         throw new ShellyApiException("Unable to resolve light model for index " + lightId);
     }

@@ -145,7 +145,7 @@ public class ShellyBindingConstants {
     public static final String CHANNEL_SENSOR_TILT = "tilt";
     public static final String CHANNEL_SENSOR_FLOOD = "flood";
     public static final String CHANNEL_SENSOR_SMOKE = "smoke";
-    public static final String CHANNEL_SENSOR_MUTE = "mute"; // Smoke, Flood Gen4
+    public static final String CHANNEL_SENSOR_MUTE = "mute";
     public static final String CHANNEL_SENSOR_STATE = "state";
     public static final String CHANNEL_SENSOR_VALVE = "valve";
     public static final String CHANNEL_SENSOR_SSTATE = "status"; // Shelly Gas
@@ -172,16 +172,14 @@ public class ShellyBindingConstants {
     public static final String CHANNEL_SENSOR_DEWPOINT = "dewPoint"; // BLU Weather
     public static final String CHANNEL_SENSOR_PRECIPITATION = "precipitation"; // BLU Weather
 
-    // Control channels
-    public static final String CHANNEL_CONTROL_SETTEMP = "targetTemp"; // TRV
-    public static final String CHANNEL_CONTROL_POSITION = "position"; // TRV
-    public static final String CHANNEL_CONTROL_MODE = "mode"; // TRV
-    public static final String CHANNEL_CONTROL_BCONTROL = "boost"; // TRV
-    public static final String CHANNEL_CONTROL_BTIMER = "boostTimer"; // TRV
-    public static final String CHANNEL_CONTROL_SCHEDULE = "schedule"; // TRV
-    public static final String CHANNEL_CONTROL_PROFILE = "selectedProfile"; // TRV
-    public static final String CHANNEL_CONTROL_ALARM_MODE = "alarmMode"; // Flood Gen4
-    public static final String CHANNEL_CONTROL_REPORT_HOLDOFF = "reportHoldoff"; // Flood Gen4
+    // TRV
+    public static final String CHANNEL_CONTROL_SETTEMP = "targetTemp";
+    public static final String CHANNEL_CONTROL_POSITION = "position";
+    public static final String CHANNEL_CONTROL_MODE = "mode";
+    public static final String CHANNEL_CONTROL_BCONTROL = "boost";
+    public static final String CHANNEL_CONTROL_BTIMER = "boostTimer";
+    public static final String CHANNEL_CONTROL_SCHEDULE = "schedule";
+    public static final String CHANNEL_CONTROL_PROFILE = "selectedProfile";
 
     // External sensors for Shelly1/1PM
     public static final String CHANNEL_ESENSOR_TEMP1 = CHANNEL_SENSOR_TEMP + "1";
@@ -220,9 +218,10 @@ public class ShellyBindingConstants {
     public static final String CHANNEL_COLOR_GAIN = "gain";
     public static final String CHANNEL_COLOR_EFFECT = "effect";
 
-    // Bulb/RGBW2/Dup in White Mode
+    // Bulb/RGBW2/Duo in White Mode
     public static final String CHANNEL_GROUP_WHITE_CONTROL = "white";
     public static final String CHANNEL_COLOR_TEMP = "temperature";
+    public static final String CHANNEL_COLOR_TEMP_ABS = "temperatureAbsolute";
 
     // Device Status
     public static final String CHANNEL_GROUP_DEV_STATUS = "device";
@@ -290,8 +289,6 @@ public class ShellyBindingConstants {
     public static final String ALARM_TYPE_VALVE_ERROR = "VALVE_ERROR";
     public static final String ALARM_TYPE_BTH_ENCRYPTED = "BTH_ENCRYPTED";
     public static final String ALARM_TYPE_BTH_UNKNOWN_TYPE = "BTH_UNKNOWN_TYPE";
-    public static final String ALARM_TYPE_FLOOD = "FLOOD";
-    public static final String ALARM_TYPE_MUTED = "ALARM_MUTED";
     public static final String EVENT_TYPE_VIBRATION = "VIBRATION";
 
     // Event types

@@ -24,13 +24,15 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrBlk;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrSen;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
-import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
+import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.unit.ImperialUnits;
 import org.openhab.core.library.unit.SIUnits;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +67,6 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
      * @param serial
      * @param s
      * @param updates
-     * @param model
      */
     @Override
     public boolean handleStatusUpdate(List<CoIotSensor> sensorUpdates, CoIotDescrSen sen, int serial, CoIotSensor s,
@@ -203,12 +204,13 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         break;
                     case "temp": // Shelly Bulb
                     case "colortemperature": // Shelly Duo
-                        ShellyColorUtils model = getLightModelForSensor(sen);
-                        model.setColorTemp(getDouble(s.value));
+                        ShellyLightModel col = getLightModelForSensor(sen);
+                        col.setColorTemp(getDouble(s.value));
                         updateChannel(updates,
                                 profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
-                                CHANNEL_COLOR_TEMP, model.getColorTemperaturePercent());
-                        // TODO absolute color temperature channel in Kelvin
+                                CHANNEL_COLOR_TEMP,
+                                col.getColorTemperaturePercent() instanceof PercentType pct ? pct : UnDefType.NULL);
+                        // TODO CHANNEL_COLOR_TEMP_ABS
                         break;
                     case "sensor state": // Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_SSTATE, getStringType(s.valueStr));

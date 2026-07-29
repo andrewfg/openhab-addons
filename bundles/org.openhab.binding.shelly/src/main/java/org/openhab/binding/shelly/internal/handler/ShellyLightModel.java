@@ -12,10 +12,11 @@
  */
 package org.openhab.binding.shelly.internal.handler;
 
-import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
 import static org.openhab.core.util.LightModel.LedOperatingMode.*;
 import static org.openhab.core.util.LightModel.LightCapabilities.*;
 import static org.openhab.core.util.LightModel.RgbDataType.DEFAULT;
+
+import java.util.Arrays;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.shelly.internal.api.ShellyDeviceProfile;
@@ -28,12 +29,23 @@ import org.openhab.core.types.Command;
 import org.openhab.core.util.LightModel;
 
 /**
- * The {@link ShellyColorUtils} overrides the OH Core {@link LightModel} with Shelly specific functions.
+ * The {@link ShellyLightModel} extends the OH Core {@link LightModel} with Shelly specific functions.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class ShellyColorUtils extends LightModel {
+public class ShellyLightModel extends LightModel {
+
+    /**
+     * The RGBW enum is used to indicate which part of an RGBW array to use.
+     */
+    public enum RGBW {
+        R,
+        G,
+        B,
+        W
+    }
+
     private int gain = 0;
     private int effect = 0;
 
@@ -45,23 +57,24 @@ public class ShellyColorUtils extends LightModel {
     private boolean colorTempDirty;
     private boolean onOffDirty;
 
-    public ShellyColorUtils(ShellyDeviceProfile profile) {
+    public ShellyLightModel(ShellyDeviceProfile profile, double stepSize) {
         super(profile.isDuo ? BRIGHTNESS_WITH_COLOR_TEMPERATURE : COLOR_WITH_COLOR_TEMPERATURE, DEFAULT, 0.4,
-                1000000.0 / profile.maxTemp, 1000000.0 / profile.minTemp, null, null, null);
+                reciprocal(profile.maxTemp), reciprocal(profile.minTemp), stepSize, null, null);
+        setLedOperatingMode(profile.isDuo ? WHITE_ONLY : RGB_ONLY);
     }
 
     /**
      * Set the brightness. Do not set the dirty flag.
      */
-    public void setBrightness(int value) {
-        setBrightness((double) value);
+    public void setBrightness(int brightness) {
+        setBrightness((double) brightness);
     }
 
     /**
      * Set the brightness. And set the dirty flag.
      */
-    public void cmdBrightness(int value) {
-        setBrightness(value);
+    public void handleBrightness(int brightness) {
+        setBrightness((double) brightness);
         brightnessDirty = true;
     }
 
@@ -92,8 +105,11 @@ public class ShellyColorUtils extends LightModel {
     /**
      * Set the color component at the given RGBW index. And set the dirty flag.
      */
-    public void cmdColor(RGBW index, int value) {
-        setColor(index, value);
+    public void handleColor(RGBW index, int value) {
+        double[] rgbw = getRGBx();
+        rgbw[index.ordinal()] = value;
+        alignMode(rgbw);
+        setRGBx(rgbw);
         colorDirty = true;
     }
 
@@ -105,17 +121,24 @@ public class ShellyColorUtils extends LightModel {
     }
 
     /**
+     * Convert Kelvin to Mirek or vice-versa.
+     */
+    private static double reciprocal(double value) {
+        return 1000000.0 / value;
+    }
+
+    /**
      * Set the color temperature. Do not set the dirty flag.
      */
-    public void setColorTemp(double value) {
-        setMirek(1000000.0 / value);
+    public void setColorTemp(double kelvin) {
+        setMirek(reciprocal(kelvin));
     }
 
     /**
      * Set the color temperature. And set the dirty flag.
      */
-    public void cmdColorTemp(int value) {
-        setColorTemp(value);
+    public void handleColorTemp(int kelvin) {
+        setMirek(reciprocal(kelvin));
         colorTempDirty = true;
     }
 
@@ -143,7 +166,7 @@ public class ShellyColorUtils extends LightModel {
     /**
      * Set the effect. Mark it as dirty.
      */
-    public void cmdEffect(int value) {
+    public void handleEffect(int value) {
         effect = value;
         effectDirty = true;
     }
@@ -172,7 +195,7 @@ public class ShellyColorUtils extends LightModel {
     /**
      * Set the gain. Mark it as dirty.
      */
-    public void cmdGain(int value) {
+    public void handleGain(int value) {
         gain = value;
         gainDirty = true;
     }
@@ -185,25 +208,41 @@ public class ShellyColorUtils extends LightModel {
     }
 
     /**
-     * Get the led operating mode as a string.
+     * Get the led operating mode.
      */
-    public String getMode() {
-        return RGB_ONLY == getLedOperatingMode() ? SHELLY_MODE_COLOR : SHELLY_MODE_WHITE;
+    public LedOperatingMode getMode() {
+        return getLedOperatingMode();
     }
 
     /**
      * Set the led operating mode. Do not set the dirty flag.
      */
-    public void setMode(String mode) {
-        setLedOperatingMode(SHELLY_MODE_COLOR.equals(mode) ? RGB_ONLY : WHITE_ONLY);
+    public void setMode(LedOperatingMode mode) {
+        setLedOperatingMode(mode);
     }
 
     /**
-     * Set the mode. And set the dirty flag.
+     * Set the led operating mode. And set the dirty flag.
      */
-    public void cmdMode(String modeStr) {
-        setMode(modeStr);
-        modeDirty = true;
+    public void handleMode(LedOperatingMode mode) {
+        if (mode != getLedOperatingMode()) {
+            setLedOperatingMode(mode);
+            modeDirty = true;
+        }
+    }
+
+    /**
+     * Adjust the led operating mode based on the RGB values.
+     * If any of the RGB values are non-zero, set the mode to RGB_ONLY, otherwise set it to WHITE_ONLY.
+     */
+    private void alignMode(double[] rgbw) {
+        if (COLOR_WITH_COLOR_TEMPERATURE == configGetLightCapabilities()) {
+            LedOperatingMode mode = rgbw[0] > 0 || rgbw[1] > 0 || rgbw[2] > 0 ? RGB_ONLY : WHITE_ONLY;
+            if (mode != getLedOperatingMode()) {
+                setLedOperatingMode(mode);
+                modeDirty = true;
+            }
+        }
     }
 
     /**
@@ -214,16 +253,16 @@ public class ShellyColorUtils extends LightModel {
     }
 
     /**
-     * TODO
+     * Check if the RGB values are valid for the current led operating mode.
      */
     public boolean isRgbValid() {
-        return RGB_ONLY == getLedOperatingMode();
+        return WHITE_ONLY != getLedOperatingMode();
     }
 
     /**
      * Set the on/off state. And set the dirty flag.
      */
-    public void cmdOnOff(boolean on) {
+    public void handleOnOff(boolean on) {
         setOnOff(on);
         onOffDirty = true;
     }
@@ -239,49 +278,44 @@ public class ShellyColorUtils extends LightModel {
      * Set the RGBW values. Do not set the dirty flag.
      */
     public void setRGBW(int red, int green, int blue, int white) {
-        setRGBx(new double[] { red, green, blue, white });
+        double[] rgbw = new double[] { red, green, blue, white };
+        setRGBx(rgbw);
     }
 
     /**
      * Set the RGBW values. And set the dirty flag.
      */
-    public void cmdRGBW(int red, int green, int blue, int white) {
-        setRGBW(red, green, blue, white);
+    public void handleRGBW(int red, int green, int blue, int white) {
+        double[] rgbw = new double[] { red, green, blue, white };
+        alignMode(rgbw);
+        setRGBx(rgbw);
         colorDirty = true;
     }
 
     /**
      * Set the RGBW values from a comma-separated string. And set the dirty flag.
      */
-    public void cmdRGBW(String rgbwString) {
-        Integer[] values = new Integer[4];
-        values[0] = values[1] = values[2] = values[3] = -1;
-        try {
-            String[] rgbw = rgbwString.split(",");
-            for (int i = 0; i < rgbw.length; i++) {
-                values[i] = Integer.parseInt(rgbw[i]);
-            }
-        } catch (NumberFormatException e) { // might be a format problem
-            throw new IllegalArgumentException(
-                    "Unable to convert fullColor value: " + rgbwString + ", " + e.getMessage(), e);
-        }
-        cmdRGBW(values[0], values[1], values[2], values[3]);
+    public void handleRGBW(String rgbwStr) {
+        double[] rgbw = Arrays.stream(rgbwStr.split(",")).map(String::trim).mapToDouble(Double::parseDouble).toArray();
+        alignMode(rgbw);
+        setRGBx(rgbw);
+        colorDirty = true;
     }
 
     @Override
     public String toString() {
         double[] rgbw = getRGBx();
-        return "mode=%s, power=%s, rgbw=(%f,%f,%f,%f), bri=%s, color-temp=%f K, min=%f K, max=%f K, gain=%d, effect=%d" //
+        return "mode=%s, power=%s, rgbw=(%f,%f,%f,%f), bri=%s, color-temp=%.1f K, min=%.1f K, max=%.1f K, gain=%.1f, effect=%d"
                 .formatted(getMode(), getOnOff(true), rgbw[0], rgbw[1], rgbw[2], rgbw[3], getBrightness(),
-                        1000000.0 / getMirek(), 1000000.0 / configGetMirekControlWarmest(),
-                        1000000.0 / configGetMirekControlCoolest(), gain, effect);
+                        reciprocal(getMirek()), reciprocal(configGetMirekControlWarmest()),
+                        reciprocal(configGetMirekControlCoolest()), gain, effect);
     }
 
     /**
      * Override handleCommand and set the dirty flags accordingly.
      */
     @Override
-    public synchronized void handleCommand(Command command) throws IllegalArgumentException {
+    public void handleCommand(Command command) {
         super.handleCommand(command);
         colorDirty = command instanceof HSBType;
         brightnessDirty = colorDirty || command instanceof PercentType || command instanceof IncreaseDecreaseType;

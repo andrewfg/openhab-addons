@@ -129,7 +129,7 @@ public interface ShellyThingInterface {
 
     void startScan();
 
-    default @Nullable ShellyColorUtils getLightModel(int lightId) {
+    default @Nullable ShellyLightModel getLightModel(int lightId) {
         return null;
     }
 }

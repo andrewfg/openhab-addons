@@ -48,11 +48,13 @@ import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotGenericS
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensorTypeAdapter;
 import org.openhab.binding.shelly.internal.config.ShellyApiConfiguration;
-import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
+import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
+import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -443,7 +445,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
         Map<String, State> updates = new TreeMap<>();
         logger.debug("{}: {} CoAP sensor updates received", thingName, sensorUpdates.size());
         int failed = 0;
-        ShellyColorUtils model = new ShellyColorUtils(profile);
+        ShellyLightModel col = getLightModel(thingHandler, 0); // TODO
         for (CoIotSensor s : sensorUpdates) {
             CoIotDescrSen sen = sensorMap.get(s.id);
             if (sen == null) {
@@ -492,11 +494,11 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
                 thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_LAST_UPDATE, getTimestamp());
             }
 
-            if (profile.isLight && profile.inColor && model.isRgbValid()) {
+            if (profile.isLight && profile.inColor && col.isRgbValid()) {
                 // Update color picker from single values
-                if (model.isRgbValid()) {
+                if (col.isRgbValid()) {
                     thingHandler.updateChannel(mkChannelId(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER),
-                            model.getColor(), false);
+                            col.getColor() instanceof HSBType hsb ? hsb : UnDefType.NULL, false);
                 }
             }
 
@@ -679,5 +681,13 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
 
     private static String completeUrl(InetAddress ipAddress, int port, String uri) {
         return "coap://" + ipAddress.getHostAddress() + ":" + port + uri;
+    }
+
+    protected static ShellyLightModel getLightModel(ShellyThingInterface thingHandler, int lightId)
+            throws ShellyApiException {
+        if (thingHandler.getLightModel(lightId) instanceof ShellyLightModel col) {
+            return col;
+        }
+        throw new ShellyApiException("Unable to resolve light model for index " + lightId);
     }
 }

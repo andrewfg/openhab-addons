@@ -14,7 +14,7 @@ package org.openhab.binding.shelly.internal.api1;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
-import static org.openhab.binding.shelly.internal.handler.RGBW.*;
+import static org.openhab.binding.shelly.internal.handler.ShellyLightModel.RGBW.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 
 import java.util.List;
@@ -27,7 +27,7 @@ import org.openhab.binding.shelly.internal.api.ShellyDeviceProfile;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrBlk;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrSen;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
-import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
+import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.OpenClosedType;
@@ -97,7 +97,7 @@ public class Shelly1CoIoTProtocol {
                         toQuantityType(s.value, DIGITS_LUX, Units.LUX));
                 break;
             case "s": // CatchAll
-                ShellyColorUtils model = getLightModelForSensor(sen);
+                ShellyLightModel col = getLightModelForSensor(sen);
                 switch (sen.desc.toLowerCase(Locale.ROOT)) {
                     case "state": // Relay status +
                     case "output":
@@ -143,24 +143,24 @@ public class Shelly1CoIoTProtocol {
                         break;
                     // RGBW2/Bulb
                     case "red":
-                        model.setColor(R, (int) s.value);
-                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
+                        col.setColor(R, (int) s.value);
+                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, col.getColor(R));
                         break;
                     case "green":
-                        model.setColor(G, (int) s.value);
-                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
+                        col.setColor(G, (int) s.value);
+                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, col.getColor(G));
                         break;
                     case "blue":
-                        model.setColor(B, (int) s.value);
-                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, model.getColor(B));
+                        col.setColor(B, (int) s.value);
+                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, col.getColor(B));
                         break;
                     case "white":
-                        model.setColor(W, (int) s.value);
-                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, model.getColor(W));
+                        col.setColor(W, (int) s.value);
+                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, col.getColor(W));
                         break;
                     case "gain":
-                        model.setGain((int) s.value);
-                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GAIN, model.getGain());
+                        col.setGain((int) s.value);
+                        updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GAIN, col.getGain());
                         break;
                     case "sensorerror":
                         String sensorError = s.valueStr != null ? getString(s.valueStr) : "" + s.value;
@@ -388,9 +388,9 @@ public class Shelly1CoIoTProtocol {
         return lastWakeup;
     }
 
-    protected ShellyColorUtils getLightModelForSensor(CoIotDescrSen sen) {
+    protected ShellyLightModel getLightModelForSensor(CoIotDescrSen sen) {
         int lightId = getIdFromBlk(sen) - 1; // getIdFromBlk() is 1 based
-        if (lightId >= 0 && thingHandler.getLightModel(lightId) instanceof ShellyColorUtils model) {
+        if (lightId >= 0 && thingHandler.getLightModel(lightId) instanceof ShellyLightModel model) {
             return model;
         }
         throw new IllegalArgumentException("Unable to resolve light index for sensor " + sen.id);
