@@ -28,12 +28,12 @@ import org.openhab.core.types.Command;
 import org.openhab.core.util.LightModel;
 
 /**
- * The {@link ShellyLightModel} overrides the OH Core {@link LightModel} with Shelly specific functions.
+ * The {@link ShellyColorUtils} overrides the OH Core {@link LightModel} with Shelly specific functions.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class ShellyLightModel extends LightModel {
+public class ShellyColorUtils extends LightModel {
     private int gain = 0;
     private int effect = 0;
 
@@ -45,7 +45,7 @@ public class ShellyLightModel extends LightModel {
     private boolean colorTempDirty;
     private boolean onOffDirty;
 
-    public ShellyLightModel(ShellyDeviceProfile profile) {
+    public ShellyColorUtils(ShellyDeviceProfile profile) {
         super(profile.isDuo ? BRIGHTNESS_WITH_COLOR_TEMPERATURE : COLOR_WITH_COLOR_TEMPERATURE, DEFAULT, 0.4,
                 1000000.0 / profile.maxTemp, 1000000.0 / profile.minTemp, null, null, null);
     }

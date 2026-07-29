@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
 @NonNullByDefault
 public class ShellyLightHandler extends ShellyBaseHandler {
     private final Logger logger = LoggerFactory.getLogger(ShellyLightHandler.class);
-    private final Map<Integer, ShellyLightModel> lightModels;
+    private final Map<Integer, ShellyColorUtils> lightModels;
 
     public ShellyLightHandler(final Thing thing, final ShellyTranslationProvider translationProvider,
             final ShellyBindingRuntimeConfig bindingConfig, final ShellyThingTable thingTable,
@@ -81,7 +81,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         logger.trace("{}: Execute command {} on channel {}, lightId={}", thingName, command, channelUID.getAsString(),
                 lightId);
 
-        ShellyLightModel model = getCurrentLightModel(lightId);
+        ShellyColorUtils model = getCurrentLightModel(lightId);
         model.clearDirtyFlags();
         try {
             switch (channelUID.getIdWithoutGroup()) {
@@ -160,14 +160,14 @@ public class ShellyLightHandler extends ShellyBaseHandler {
     }
 
     @Override
-    public @Nullable ShellyLightModel getLightModel(int lightId) {
+    public @Nullable ShellyColorUtils getLightModel(int lightId) {
         return lightModels.get(lightId);
     }
 
-    private ShellyLightModel getCurrentLightModel(int lightId) {
-        ShellyLightModel model = getLightModel(lightId);
+    private ShellyColorUtils getCurrentLightModel(int lightId) {
+        ShellyColorUtils model = getLightModel(lightId);
         if (model == null) {
-            model = new ShellyLightModel(profile); // create a new entry
+            model = new ShellyColorUtils(profile); // create a new entry
             lightModels.put(lightId, model);
             logger.trace("{}: Colors entry created for lightId {}", thingName, lightId);
         } else {
@@ -203,7 +203,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                 updateChannel(CHANNEL_GROUP_LIGHT_CONTROL, CHANNEL_LIGHT_COLOR_MODE, getOnOff(profile.inColor));
             }
 
-            ShellyLightModel model = getCurrentLightModel(lightId);
+            ShellyColorUtils model = getCurrentLightModel(lightId);
             model.cmdOnOff(light.ison);
 
             List<ShellySettingsRgbwLight> lights = profile.settings.lights;
@@ -295,7 +295,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         return setColor(lightId, colorName, command, 0, maxValue);
     }
 
-    private void setFullColor(String colorGroup, ShellyLightModel model) {
+    private void setFullColor(String colorGroup, ShellyColorUtils model) {
         double[] rgbx = model.getRGBx();
         if ((rgbx[0] == SHELLY_MAX_COLOR) && (rgbx[1] == SHELLY_MAX_COLOR) && (rgbx[2] == 0)) {
             updateChannel(colorGroup, CHANNEL_COLOR_FULL, new StringType(SHELLY_COLOR_YELLOW));
@@ -310,7 +310,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         }
     }
 
-    private void sendColors(ShellyDeviceProfile profile, Integer lightId, ShellyLightModel model)
+    private void sendColors(ShellyDeviceProfile profile, Integer lightId, ShellyColorUtils model)
             throws ShellyApiException {
         Integer channelId = lightId + 1;
         Map<String, String> parms = new TreeMap<>();

@@ -48,7 +48,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotGenericS
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensorTypeAdapter;
 import org.openhab.binding.shelly.internal.config.ShellyApiConfiguration;
-import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
+import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.ThingStatusDetail;
@@ -443,7 +443,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
         Map<String, State> updates = new TreeMap<>();
         logger.debug("{}: {} CoAP sensor updates received", thingName, sensorUpdates.size());
         int failed = 0;
-        ShellyLightModel model = new ShellyLightModel(profile);
+        ShellyColorUtils model = new ShellyColorUtils(profile);
         for (CoIotSensor s : sensorUpdates) {
             CoIotDescrSen sen = sensorMap.get(s.id);
             if (sen == null) {

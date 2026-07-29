@@ -874,7 +874,7 @@ public class ShellyComponents {
             }
             int lightId = 0;
             ShellySettingsLight light = orgStatus.lights.get(lightId);
-            ShellyLightModel model = getLightModel(thingHandler, lightId);
+            ShellyColorUtils model = getLightModel(thingHandler, lightId);
             model.setRGBW(light.red, light.green, light.blue, light.white);
             updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, model.getColor(R));
             updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, model.getColor(G));
@@ -986,9 +986,9 @@ public class ShellyComponents {
         return temp;
     }
 
-    protected static ShellyLightModel getLightModel(ShellyThingInterface thingHandler, int lightId)
+    protected static ShellyColorUtils getLightModel(ShellyThingInterface thingHandler, int lightId)
             throws ShellyApiException {
-        if (thingHandler.getLightModel(lightId) instanceof ShellyLightModel model) {
+        if (thingHandler.getLightModel(lightId) instanceof ShellyColorUtils model) {
             return model;
         }
         throw new ShellyApiException("Unable to resolve light model for index " + lightId);
