@@ -10,21 +10,16 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.oppo.internal.configuration;
+package org.openhab.binding.fronius.internal;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * The {@link OppoThingConfiguration} class contains fields mapping thing configuration parameters.
+ * The {@link FroniusBatteryConfiguration} is the class used to match the battery thing configuration.
  *
- * @author Michael Lobstein - Initial contribution
+ * @author Christian Jonak-Möchel - Initial contribution
  */
 @NonNullByDefault
-public class OppoThingConfiguration {
-    public int model = 0;
-    public @Nullable String serialPort;
-    public @Nullable String host;
-    public @Nullable Integer port;
-    public boolean verboseMode;
+public class FroniusBatteryConfiguration extends FroniusBaseDeviceConfiguration {
+    public int batterySettingsRefreshInterval = 5;
 }
