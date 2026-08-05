@@ -14,6 +14,7 @@ package org.openhab.binding.shelly.internal.handler;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
+import static org.openhab.binding.shelly.internal.handler.ShellyLightModel.RGBX.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 
 import java.util.List;
@@ -654,7 +655,26 @@ public class ShellyComponents {
                         getOnOff(sdata.smoke));
             }
             if (sdata.mute != null) {
-                updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_MUTE, getOnOff(sdata.mute));
+                if (profile.isSmoke) {
+                    updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_MUTE,
+                            getOnOff(sdata.mute));
+                } else if (profile.isFlood) {
+                    // Flood Gen4 has no mute channel; report mute/unmute via the device#alarm trigger instead
+                    thingHandler.postEvent(sdata.mute ? ALARM_TYPE_MUTED : ALARM_TYPE_NONE, false);
+                }
+            }
+            if (sdata.sensor == null && (sdata.sensorError != null || (profile.isFlood && profile.isGen2))) {
+                updated |= thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ERROR,
+                        getStringType(sdata.sensorError));
+            }
+
+            if (profile.isFlood && profile.isGen2) {
+                if (!profile.floodAlarmMode.isEmpty()) {
+                    updated |= thingHandler.updateChannel(CHANNEL_GROUP_CONTROL, CHANNEL_CONTROL_ALARM_MODE,
+                            getStringType(profile.floodAlarmMode));
+                }
+                updated |= thingHandler.updateChannel(CHANNEL_GROUP_CONTROL, CHANNEL_CONTROL_REPORT_HOLDOFF,
+                        toQuantityType((double) profile.reportHoldoff, DIGITS_NONE, Units.SECOND));
             }
 
             if (sdata.gasSensor != null) {
@@ -853,14 +873,26 @@ public class ShellyComponents {
                 return false;
             }
             ShellySettingsLight light = orgStatus.lights.get(0);
-            ShellyColorUtils col = new ShellyColorUtils();
-            col.setRGBW(light.red, light.green, light.blue, light.white);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, col.percentRed);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, col.percentGreen);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, col.percentBlue);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, col.percentWhite);
-            updated |= thingHandler.updateChannel(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER, col.toHSB());
-
+            try {
+                ShellyLightModel model = thingHandler.getLightModel(0);
+                try {
+                    // TODO check this
+                    String group = CHANNEL_GROUP_COLOR_CONTROL;
+                    model.lock(ShellyComponents.class, "updateRGBW()");
+                    model.setRGBX(light.red, light.green, light.blue, light.white);
+                    updated |= thingHandler.updateChannel(group, CHANNEL_COLOR_RED, model.getColorState(R));
+                    updated |= thingHandler.updateChannel(group, CHANNEL_COLOR_GREEN, model.getColorState(G));
+                    updated |= thingHandler.updateChannel(group, CHANNEL_COLOR_BLUE, model.getColorState(B));
+                    updated |= thingHandler.updateChannel(group, CHANNEL_COLOR_WHITE, model.getColorState(CW));
+                    updated |= thingHandler.updateChannel(group, CHANNEL_COLOR_PICKER, model.getColorState());
+                    // TODO we should also update the PRIMARY channels ??
+                } finally {
+                    model.unlock();
+                }
+            } catch (UnsupportedOperationException | IllegalArgumentException e) {
+                // TODO log error or re-throw exception
+                return false;
+            }
         }
         return updated;
     }
@@ -899,14 +931,17 @@ public class ShellyComponents {
                 // and send an OFF status to the same channel.
                 // When the device's brightness is > 0 we send the new value to the channel and an ON command
                 if (dimmer.ison != null) {
+                    // TODO should this apply to lights i.e. updating the light model as well?
                     if (dimmer.ison) {
                         updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Switch", OnOffType.ON);
                         updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Value",
                                 toQuantityType((double) getInteger(dimmer.brightness), DIGITS_NONE, Units.PERCENT));
+                        // TODO brightness is not UoM, it should be PercentType
                     } else {
                         updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Switch", OnOffType.OFF);
                         updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Value",
                                 toQuantityType(0.0, DIGITS_NONE, Units.PERCENT));
+                        // TODO brightness is not UoM, it should be PercentType
                     }
                 }
                 if (dimmer.hasTimer != null) {

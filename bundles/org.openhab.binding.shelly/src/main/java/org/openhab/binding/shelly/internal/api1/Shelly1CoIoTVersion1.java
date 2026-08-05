@@ -24,7 +24,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrBlk;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotDescrSen;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
-import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
+import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.unit.ImperialUnits;
@@ -65,13 +65,12 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
      * @param serial
      * @param s
      * @param updates
-     * @param col
      */
     @Override
     public boolean handleStatusUpdate(List<CoIotSensor> sensorUpdates, CoIotDescrSen sen, int serial, CoIotSensor s,
-            Map<String, State> updates, ShellyColorUtils col) {
+            Map<String, State> updates) {
         // first check the base implementation
-        if (super.handleStatusUpdate(sensorUpdates, sen, s, updates, col)) {
+        if (super.handleStatusUpdate(sensorUpdates, sen, s, updates)) {
             // process by the base class
             return true;
         }
@@ -203,10 +202,24 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         break;
                     case "temp": // Shelly Bulb
                     case "colortemperature": // Shelly Duo
-                        updateChannel(updates,
-                                profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
-                                CHANNEL_COLOR_TEMP,
-                                ShellyColorUtils.toPercent((int) s.value, profile.minTemp, profile.maxTemp));
+                        try {
+                            ShellyLightModel model = getLightModelForSensor(sen);
+                            try {
+                                model.lock(this.getClass(), sen.desc);
+                                model.setColorTemp(getDouble(s.value));
+                                // TODO check logic
+                                // TODO does color group have a CT channel ??
+                                updateChannel(updates,
+                                        profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
+                                        CHANNEL_COLOR_TEMP, model.getColorTemperaturePercentState());
+                                // TODO update PRIMARY CT channels
+                            } finally {
+                                model.unlock();
+                            }
+                        } catch (UnsupportedOperationException | IllegalArgumentException e) {
+                            logger.debug("{}: Unable to update color temperature for {}: {}", thingName, sen.desc,
+                                    e.getMessage());
+                        }
                         break;
                     case "sensor state": // Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_SSTATE, getStringType(s.valueStr));

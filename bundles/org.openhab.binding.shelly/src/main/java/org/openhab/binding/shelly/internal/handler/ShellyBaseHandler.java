@@ -127,6 +127,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
     private volatile boolean stopping = false;
     private int vibrationFilter = 0;
     private String lastWakeupReason = "";
+    private volatile boolean updateMarkerSet;
 
     // Scheduler
     private volatile double watchdog = now();
@@ -542,6 +543,20 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
                     logger.debug("{}: Set boost timer to {}", thingName, command);
                     api.setValveBoostTime(0, getNumber(command).intValue());
                     break;
+                case CHANNEL_CONTROL_ALARM_MODE:
+                    if (profile.isFlood) {
+                        logger.debug("{}: Set Flood alarm mode to {}", thingName, command);
+                        api.setFloodConfig(0, command.toString(), profile.reportHoldoff);
+                        update = true;
+                    }
+                    break;
+                case CHANNEL_CONTROL_REPORT_HOLDOFF:
+                    if (profile.isFlood) {
+                        logger.debug("{}: Set Flood report holdoff to {}", thingName, command);
+                        api.setFloodConfig(0, profile.floodAlarmMode, getNumber(command).intValue());
+                        update = true;
+                    }
+                    break;
                 case CHANNEL_SENSOR_MUTE:
                     if (profile.isSmoke && ((OnOffType) command) == OnOffType.ON) {
                         logger.debug("{}: Mute Smoke Alarm", thingName);
@@ -578,6 +593,10 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
             ShellyApiResult res = e.getApiResult();
             if (res.isNotCalibrtated()) {
                 logger.warn("{}: {}", thingName, messages.get("roller.calibrating"));
+            } else if (e.isTimeout() && profile.isSensor) {
+                logger.debug(
+                        "{}: Command {} for channel {} timed out, device is likely a sleeping battery-powered sensor: {}",
+                        thingName, command, channelUID, e.toString());
             } else {
                 logger.warn("{}: {} - {}", thingName, messages.get("command.failed", command, channelUID),
                         e.toString());
@@ -627,6 +646,16 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
                 // but not while firmware update is in progress
                 if (getThingStatusDetail() != ThingStatusDetail.FIRMWARE_UPDATING) {
                     setThingOnline();
+
+                    // set or clear the update available marker
+                    boolean updateAvailable = getBool(status.update.hasUpdate);
+                    if (updateAvailable && !updateMarkerSet) {
+                        updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE,
+                                messages.get("manager.action.checkupd.new", getString(status.update.newVersion)));
+                        updateMarkerSet = true; // specifically set update marker flag only in this case
+                    } else if (!updateAvailable && updateMarkerSet) {
+                        updateStatus(ThingStatus.ONLINE);
+                    }
                 }
 
                 // map status to channels
@@ -647,6 +676,13 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
                 cache.enable();
             }
         }
+    }
+
+    @Override
+    protected void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        // overloaded updateStatus() methods always call this so we clear the update marker flag by default here
+        updateMarkerSet = false;
+        super.updateStatus(status, statusDetail, description);
     }
 
     /**

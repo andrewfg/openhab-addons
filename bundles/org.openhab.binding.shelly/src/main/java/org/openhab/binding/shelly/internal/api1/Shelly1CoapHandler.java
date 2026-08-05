@@ -48,7 +48,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotGenericS
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensor;
 import org.openhab.binding.shelly.internal.api1.Shelly1CoapJSonDTO.CoIotSensorTypeAdapter;
 import org.openhab.binding.shelly.internal.config.ShellyApiConfiguration;
-import org.openhab.binding.shelly.internal.handler.ShellyColorUtils;
+import org.openhab.binding.shelly.internal.handler.ShellyLightModel;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.ThingStatusDetail;
@@ -443,7 +443,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
         Map<String, State> updates = new TreeMap<>();
         logger.debug("{}: {} CoAP sensor updates received", thingName, sensorUpdates.size());
         int failed = 0;
-        ShellyColorUtils col = new ShellyColorUtils();
+
         for (CoIotSensor s : sensorUpdates) {
             CoIotDescrSen sen = sensorMap.get(s.id);
             if (sen == null) {
@@ -463,7 +463,7 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
                     getString(s.valueStr).isEmpty() ? s.value : s.valueStr, sen.desc, sen.type, sen.range, sen.links,
                     element.desc);
 
-            if (!coiot.handleStatusUpdate(sensorUpdates, sen, serial, s, updates, col)) {
+            if (!coiot.handleStatusUpdate(sensorUpdates, sen, serial, s, updates)) {
                 logger.debug("{}: CoIoT data for id {}, type {}/{} not processed, value={}; payload={}", thingName,
                         sen.id, sen.type, sen.desc, s.value, payload);
             }
@@ -492,11 +492,23 @@ public class Shelly1CoapHandler implements Shelly1CoapListener {
                 thingHandler.updateChannel(CHANNEL_GROUP_SENSOR, CHANNEL_LAST_UPDATE, getTimestamp());
             }
 
-            if (profile.isLight && profile.inColor && col.isRgbValid()) {
-                // Update color picker from single values
-                if (col.isRgbValid()) {
-                    thingHandler.updateChannel(mkChannelId(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER),
-                            col.toHSB(), false);
+            if (profile.isLight && profile.inColor) {
+                try {
+                    // TODO check logic
+                    // NOTE: hard coded '0' as color picker links to rgb(w) which is always the first light
+                    ShellyLightModel model = thingHandler.getLightModel(0);
+                    try {
+                        // TODO check logic
+                        model.lock(this.getClass(), "coap post processing");
+                        // Update color picker
+                        thingHandler.updateChannel(mkChannelId(CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_PICKER),
+                                model.getColorState(), false);
+                        // TODO update PRIMARY and other linked channels
+                    } finally {
+                        model.unlock();
+                    }
+                } catch (UnsupportedOperationException | IllegalArgumentException e) {
+                    logger.debug("{}: Unable to update color picker from CoIoT status: {}", thingName, e.getMessage());
                 }
             }
 

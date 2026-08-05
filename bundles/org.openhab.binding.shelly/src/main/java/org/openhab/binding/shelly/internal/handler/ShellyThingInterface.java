@@ -128,4 +128,8 @@ public interface ShellyThingInterface {
     void incProtErrors();
 
     void startScan();
+
+    default ShellyLightModel getLightModel(int lightId) {
+        throw new UnsupportedOperationException("LightModel is not supported for this device");
+    }
 }
