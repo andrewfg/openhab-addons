@@ -337,7 +337,8 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         }
 
         // BRIGHTNESS:
-        if (!profile.inColor && model.isBrightnessDirty() && model.getBrightnessState() instanceof PercentType pct) {
+        if (((!profile.inColor && (!profile.isGen2 || profile.isRGBW2)) || profile.isBulb) && model.isBrightnessDirty()
+                && model.getBrightnessState() instanceof PercentType pct) {
             parms.put(SHELLY_COLOR_BRIGHTNESS, String.valueOf(pct.intValue()));
         }
 
