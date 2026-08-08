@@ -35,7 +35,6 @@ import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
-import org.openhab.core.types.UnDefType;
 import org.openhab.core.util.LightModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,8 +67,7 @@ public class ShellyLightModel extends LightModel {
      */
     public enum Mode {
         WHITE,
-        COLOR,
-        COLOR_TEMP
+        COLOR
     }
 
     /**
@@ -86,7 +84,7 @@ public class ShellyLightModel extends LightModel {
     private final int[] cacheRGBX = new int[RGBX.values().length];
     private final int rgbxLength;
     private final int lightId;
-    private final String thingName;
+    private final ShellyLightHandler lightHandler;
     private final ReentrantLock lock = new ReentrantLock();
 
     private Mode shellyMode = Mode.WHITE;
@@ -100,18 +98,16 @@ public class ShellyLightModel extends LightModel {
     private volatile @Nullable OnOffType initialOnOff;
     private volatile @Nullable QuantityType<?> initialColorTemperature;
     private volatile @Nullable String initialSnapshot;
-    private volatile @Nullable Object lockContext;
-    private volatile @Nullable Object dataSource;
 
     /**
      * Public static class factory that creates a {@link ShellyLightModel} with the correct parameters based on the
      * given {@link ThingTypeUID} and {@link ShellyDeviceProfile}.
      */
-    public static ShellyLightModel create(String thingName, int lightId, ThingTypeUID thingTypeUID,
+    public static ShellyLightModel create(ShellyLightHandler lightHandler, int lightId, ThingTypeUID thingTypeUID,
             ShellyDeviceProfile profile, double stepSize) {
         Parameters params = getParams(thingTypeUID, profile.device.profile);
-        return new ShellyLightModel(thingName, lightId, params.lightCapabilities, params.rgbDataType, null,
-                reciprocal(profile.maxTemp), reciprocal(profile.minTemp), stepSize, null, null, params.ledOperatingMode,
+        return new ShellyLightModel(lightHandler, lightId, params.lightCapabilities, params.rgbDataType,
+                reciprocal(profile.maxTemp), reciprocal(profile.minTemp), stepSize, params.ledOperatingMode,
                 params.shellyMode);
     }
 
@@ -134,7 +130,7 @@ public class ShellyLightModel extends LightModel {
             return new Parameters(COLOR_WITH_COLOR_TEMPERATURE, RGB_W_NO_BRIGHTNESS, COMBINED, Mode.COLOR);
         }
         if (THING_TYPE_SHELLYDUO.equals(thingTypeUID)) {
-            return new Parameters(BRIGHTNESS_WITH_COLOR_TEMPERATURE, DEFAULT, WHITE_ONLY, Mode.COLOR_TEMP);
+            return new Parameters(BRIGHTNESS_WITH_COLOR_TEMPERATURE, DEFAULT, WHITE_ONLY, Mode.WHITE);
         }
         if (THING_TYPE_SHELLYVINTAGE.equals(thingTypeUID)) {
             return new Parameters(BRIGHTNESS, DEFAULT, WHITE_ONLY, Mode.WHITE);
@@ -146,7 +142,7 @@ public class ShellyLightModel extends LightModel {
             return new Parameters(COLOR, RGB_W_NO_BRIGHTNESS, COMBINED, Mode.COLOR);
         }
         if (THING_TYPE_SHELLYRGBW2_WHITE.equals(thingTypeUID)) {
-            return new Parameters(BRIGHTNESS, DEFAULT, WHITE_ONLY, Mode.COLOR_TEMP);
+            return new Parameters(BRIGHTNESS, DEFAULT, WHITE_ONLY, Mode.WHITE);
         }
 
         // ==== GENERATION 2 ====
@@ -188,15 +184,13 @@ public class ShellyLightModel extends LightModel {
      * @param ledOperatingMode
      * @param shellyMode
      */
-    private ShellyLightModel(String thingName, int lightId, LightCapabilities lightCapabilities,
-            RgbDataType rgbDataType, @Nullable Double minimumOnBrightness, @Nullable Double mirekControlCoolest,
-            @Nullable Double mirekControlWarmest, @Nullable Double stepSize, @Nullable Double coolWhiteLedMirek,
-            @Nullable Double warmWhiteLedMirek, LedOperatingMode ledOperatingMode, Mode shellyModeParam)
-            throws IllegalArgumentException {
-        super(lightCapabilities, rgbDataType, minimumOnBrightness, mirekControlCoolest, mirekControlWarmest, stepSize,
-                coolWhiteLedMirek, warmWhiteLedMirek);
+    private ShellyLightModel(ShellyLightHandler lightHandler, int lightId, LightCapabilities lightCapabilities,
+            RgbDataType rgbDataType, Double mirekControlCoolest, Double mirekControlWarmest, Double stepSize,
+            LedOperatingMode ledOperatingMode, Mode shellyModeParam) throws IllegalArgumentException {
 
-        this.thingName = thingName;
+        super(lightCapabilities, rgbDataType, null, mirekControlCoolest, mirekControlWarmest, stepSize, null, null);
+
+        this.lightHandler = lightHandler;
         this.lightId = lightId;
         shellyMode = shellyModeParam;
         setLedOperatingMode(ledOperatingMode);
@@ -205,8 +199,9 @@ public class ShellyLightModel extends LightModel {
         initialShellyMode = shellyMode;
 
         logger.debug(
-                "{}: Light model for {} lightId={}: Created with capabilities={}, rgbDataType={}, ledOperatingMode={}, shellyMode={}",
-                thingName, lightId, lightCapabilities, rgbDataType, ledOperatingMode, initialShellyMode);
+                "{}: created model for lightId {} with capabilities {}, rgbDataType {}, ledOperatingMode {}, shellyMode {}, ct-range [{} K..{} K]",
+                lightHandler.thingName, lightId, lightCapabilities, rgbDataType, ledOperatingMode, initialShellyMode,
+                Math.round(reciprocal(mirekControlWarmest)), Math.round(reciprocal(mirekControlCoolest)));
     }
 
     /**
@@ -229,14 +224,14 @@ public class ShellyLightModel extends LightModel {
     @Override
     public void handleColorTemperatureCommand(Command command) {
         super.handleColorTemperatureCommand(command);
-        setMode(Mode.COLOR_TEMP);
+        setMode(Mode.WHITE);
     }
 
     /**
      * Get the brightness state. This is the brightness when in color temperature mode.
      */
     public State getBrightnessState() {
-        return getBrightness(true) instanceof PercentType pct ? pct : UnDefType.UNDEF;
+        return toNonNull(getBrightness(true));
     }
 
     /**
@@ -244,7 +239,7 @@ public class ShellyLightModel extends LightModel {
      */
     public void setBrightness(int brightness) {
         setBrightness((double) brightness);
-        setMode(Mode.COLOR_TEMP);
+        setMode(Mode.WHITE);
     }
 
     /**
@@ -253,7 +248,7 @@ public class ShellyLightModel extends LightModel {
     public void setBrightness(Command command) {
         if (!(command instanceof HSBType)) {
             super.handleCommand(command);
-            setMode(Mode.COLOR_TEMP);
+            setMode(Mode.WHITE);
         }
     }
 
@@ -282,7 +277,7 @@ public class ShellyLightModel extends LightModel {
      * Get the color as an HSBType.
      */
     public State getColorState() {
-        return getColor() instanceof HSBType hsb ? hsb : UnDefType.UNDEF;
+        return toNonNull(getColor());
     }
 
     /**
@@ -323,16 +318,14 @@ public class ShellyLightModel extends LightModel {
      * Get the color temperature as a QuantityType.
      */
     public State getColorTemperatureAbsoluteState() {
-        return getColorTemperature() instanceof QuantityType<?> qty ? qty : UnDefType.UNDEF;
+        return toNonNull(getColorTemperature());
     }
 
     /**
      * Get the color temperature as a PercentType.
      */
     public State getColorTemperaturePercentState() {
-        return getColorTemperaturePercent() instanceof PercentType pct
-                ? new PercentType((int) Math.round(pct.doubleValue()))
-                : UnDefType.UNDEF;
+        return toNonNull(getColorTemperaturePercent());
     }
 
     /**
@@ -340,7 +333,7 @@ public class ShellyLightModel extends LightModel {
      */
     public void setColorTemp(double kelvin) {
         setMirek(reciprocal(kelvin));
-        setMode(Mode.COLOR_TEMP);
+        setMode(Mode.WHITE);
     }
 
     /**
@@ -404,6 +397,13 @@ public class ShellyLightModel extends LightModel {
     }
 
     /**
+     * Get the light Id.
+     */
+    public int getLightId() {
+        return lightId;
+    }
+
+    /**
      * Get the shelly device mode.
      */
     public Mode getMode() {
@@ -436,7 +436,7 @@ public class ShellyLightModel extends LightModel {
     }
 
     public State getOnOffState() {
-        return getOnOff(true) instanceof OnOffType onOff ? onOff : UnDefType.UNDEF;
+        return toNonNull(getOnOff(true));
     }
 
     /**
@@ -509,11 +509,9 @@ public class ShellyLightModel extends LightModel {
 
     @Override
     public String toString() {
-        return "mode=%s, power=%s, bri=%s, rgbw=%s, color-temp=%s%%, color-temp-abs=%s, min=%.0f K, max=%.0f K, effect=%s"
-                .formatted(getMode(), getOnOffState(), getBrightnessState(), Arrays.toString(getRGBX()),
-                        getColorTemperaturePercentState(), getColorTemperatureAbsoluteState(),
-                        reciprocal(configGetMirekControlWarmest()), reciprocal(configGetMirekControlCoolest()),
-                        getEffectState());
+        return "mode: %s, power: %s, gain/bri: %s, rgbw: %s, color-temp: %s, color-temp-abs: %s, effect: %s".formatted(
+                getMode(), getOnOffState(), getBrightnessState(), Arrays.toString(getRGBX()),
+                getColorTemperaturePercentState(), getColorTemperatureAbsoluteState(), getEffectState());
     }
 
     /**
@@ -525,15 +523,10 @@ public class ShellyLightModel extends LightModel {
     }
 
     /**
-     * Acquire the lock. And save the current model state to allow for dirty flag checking.
-     * 
-     * @param lockContext an object that identifies the context that is acquiring the lock
-     * @param dataSource an object that identifies the source of the data that is acquiring the lock
+     * Acquire the lock, and save the initial model state to allow for subsequent dirty flag checks.
      */
-    public void lock(Object lockContext, Object dataSource) {
+    public void lock() {
         lock.lock();
-        this.lockContext = lockContext;
-        this.dataSource = dataSource;
         initialSnapshot = logger.isDebugEnabled() ? toString() : null;
         initialRGBx = getRGBX();
         initialOnOff = getOnOff(true);
@@ -541,17 +534,22 @@ public class ShellyLightModel extends LightModel {
         initialShellyMode = shellyMode;
         initialBrightness = getBrightness(true);
         initialColorTemperature = getColorTemperature();
-        logger.debug("{}: Light model for lightId {}: Lock acquired by {}", thingName, lightId, lockContext);
+        logger.debug("{}: light {} model locked", lightHandler.thingName, lightId);
     }
 
     /**
-     * Release the lock.
+     * Release the lock, and check if the model is dirty and if so update the handlers channels from this light model.
+     * 
+     * @return true if the model was dirty and the channels were updated, false otherwise.
      */
-    public void unlock() {
-        if (isDirty()) {
-            logger.debug("{}: Light model for lightId {}: Updated by {}\n - Old: [{}]\n - New: [{}]", thingName,
-                    lightId, dataSource, initialSnapshot, this);
+    public boolean unlock() {
+        boolean updated = lightHandler.updateDirtyChannelsForLightModel(this);
+        if (updated) {
+            logger.debug("{}: light {} model updated\n => OLD: {}\n => NEW: {}", lightHandler.thingName, lightId,
+                    initialSnapshot, this);
         }
+        logger.debug("{}: light {} model unlocked", lightHandler.thingName, lightId);
         lock.unlock();
+        return updated;
     }
 }

@@ -694,7 +694,7 @@ public abstract class ShellyBaseHandler extends BaseThingHandler
      */
     private boolean updateAllChannels(ShellySettingsStatus status) throws ShellyApiException {
         updateChannel(CHANNEL_GROUP_DEV_STATUS, CHANNEL_DEVST_NAME, getStringType(profile.settings.name));
-        boolean updated = this.updateDeviceStatus(status);
+        boolean updated = updateDeviceStatus(status);
         updated |= ShellyComponents.updateDeviceStatus(this, status);
         fillDeviceStatus(status, updated);
         updated |= updateInputs(status);

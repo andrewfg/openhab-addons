@@ -79,24 +79,22 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             throw new IllegalArgumentException("Empty groupName");
         }
 
-        int lightId = getLightIdFromGroup(groupName);
-        ShellyLightModel model = getOrCreateLightModel(lightId);
-
         try {
-            model.lock(channelUID, command);
-            if (updateLightModelFromChannelCommand(model, channelUID, command)) {
-                updateRemoteDeviceFromLightModel(model, lightId);
-                return true;
+            int lightId = getLightIdFromGroup(groupName);
+            ShellyLightModel model = getOrCreateLightModel(lightId);
+            try {
+                model.lock();
+                if (updateLightModelFromChannelCommand(model, channelUID, command)) {
+                    updateRemoteDeviceFromLightModel(model, lightId);
+                    return true;
+                }
+                return false;
+            } finally {
+                model.unlock();
             }
-            return false;
         } catch (ShellyApiException e) {
             logger.debug("{}: Unable to handle command: {}", thingName, e.toString());
             return false;
-        } catch (IllegalArgumentException e) {
-            logger.debug("{}: Unable to handle command", thingName, e);
-            return false;
-        } finally {
-            model.unlock();
         }
     }
 
@@ -104,7 +102,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         ShellyLightModel model = lightModels.get(lightId);
         if (model == null) {
             // create a new entry
-            model = ShellyLightModel.create(thingName, lightId, thing.getThingTypeUID(), profile, DIM_STEPSIZE);
+            model = ShellyLightModel.create(this, lightId, thing.getThingTypeUID(), profile, DIM_STEPSIZE);
             lightModels.put(lightId, model);
         }
         return model;
@@ -126,59 +124,15 @@ public class ShellyLightHandler extends ShellyBaseHandler {
 
         boolean updated = false;
 
-// <<<<<<< shelly_fixrgbwpm
-            if (getBool(light.overpower)) {
-                postEvent(ALARM_TYPE_OVERPOWER, false);
-            }
-
-            if (profile.inColor) {
-                logger.trace("{}: update color settings", thingName);
-                col.setRGBW(getInteger(light.red), getInteger(light.green), getInteger(light.blue),
-                        getInteger(light.white));
-                col.setGain(getInteger(light.gain));
-                col.setEffect(getInteger(light.effect));
-
-                String colorGroup = CHANNEL_GROUP_COLOR_CONTROL;
-                logger.trace("{}: Update channels for group {}: RGBW={}/{}/{}, in %:{}%/{}%/{}%, white={}%, gain={}%",
-                        thingName, colorGroup, col.red, col.green, col.blue, col.percentRed, col.percentGreen,
-                        col.percentBlue, col.percentWhite, col.percentGain);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_RED, col.percentRed);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_GREEN, col.percentGreen);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_BLUE, col.percentBlue);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_WHITE, col.percentWhite);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_GAIN, col.percentGain);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_EFFECT, getDecimal(col.effect));
-                setFullColor(colorGroup, col);
-
-                logger.trace("{}: update {}.color picker", thingName, colorGroup);
-                updated |= updateChannel(colorGroup, CHANNEL_COLOR_PICKER, col.toHSB());
-            }
-
-            if ((!profile.inColor && (!profile.isGen2 || profile.isRGBW2)) || profile.isBulb) {
-                String whiteGroup = buildWhiteGroupName(profile, channelId);
-                col.setBrightness(getInteger(light.brightness));
-                updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Switch", col.power);
-                updated |= updateChannel(whiteGroup, CHANNEL_BRIGHTNESS + "$Value",
-                        toQuantityType(col.power == OnOffType.ON ? col.percentBrightness.doubleValue() : 0, DIGITS_NONE,
-                                Units.PERCENT));
-
-                if ((profile.isBulb || profile.isDuo) && (light.temp != null)) {
-                    col.setTemp(getInteger(light.temp));
-                    updated |= updateChannel(whiteGroup, CHANNEL_COLOR_TEMP, col.percentTemp);
-                    logger.trace("{}: update {}.color picker", thingName, whiteGroup);
-                    updated |= updateChannel(whiteGroup, CHANNEL_COLOR_PICKER, col.toHSB());
-                }
-// =======
         int lightId = 0;
         for (ShellyStatusLightChannel light : status.lights) {
             ShellyLightModel model = getOrCreateLightModel(lightId);
             try {
-                model.lock("updateDeviceStatus", genericStatus.json);
-                updateLightModelFromLightStatus(model, light);
-                updated |= updateChannelsFromLightModel(model, light, lightId);
+                model.lock();
+                updateLightModelFromStatus(model, light);
+                updated |= updateChannelsFromLightStatusDTO(light, lightId);
             } finally {
-                model.unlock();
-// >>>>>>> shelly-test-merged
+                updated |= model.unlock();
             }
             lightId++;
         }
@@ -226,11 +180,20 @@ public class ShellyLightHandler extends ShellyBaseHandler {
     }
 
     @Override
-    public ShellyLightModel getLightModel(int lightId) {
-        if (lightModels.get(lightId) instanceof ShellyLightModel model) {
-            return model;
+    public Map<Integer, ShellyLightModel> acquireLightModels() {
+        for (ShellyLightModel model : lightModels.values()) {
+            model.lock();
         }
-        throw new IllegalArgumentException("LightModel for lightId %d does not exist".formatted(lightId));
+        return lightModels;
+    }
+
+    @Override
+    public boolean releaseLightModels() {
+        boolean result = false;
+        for (ShellyLightModel model : lightModels.values()) {
+            result |= model.unlock();
+        }
+        return result;
     }
 
     /**
@@ -261,7 +224,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
                 break;
 
             case CHANNEL_LIGHT_COLOR_MODE:
-                model.setMode(OnOffType.ON == command ? Mode.COLOR : Mode.COLOR_TEMP);
+                model.setMode(OnOffType.ON == command ? Mode.COLOR : Mode.WHITE);
                 break;
 
             case CHANNEL_COLOR_PICKER:
@@ -314,7 +277,7 @@ public class ShellyLightHandler extends ShellyBaseHandler {
      * @param lightId the light ID
      * @throws ShellyApiException if the API call fails
      */
-    private void updateRemoteDeviceFromLightModel(ShellyLightModel model, int lightId) throws ShellyApiException {
+    public void updateRemoteDeviceFromLightModel(ShellyLightModel model, int lightId) throws ShellyApiException {
         // POWER:
         /**
          * 
@@ -335,9 +298,11 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         boolean apiCommandSent = false;
 
         // MODE:
-        if (profile.isBulb && model.isModeDirty()) {
-            api.setLightMode(Mode.COLOR == model.getMode() ? SHELLY_MODE_COLOR : SHELLY_MODE_WHITE);
-            apiCommandSent = true;
+        if (profile.isBulb) { // TODO check filter logic
+            if (model.isModeDirty()) {
+                api.setLightMode(Mode.COLOR == model.getMode() ? SHELLY_MODE_COLOR : SHELLY_MODE_WHITE);
+                apiCommandSent = true;
+            }
         }
 
         // map of changed light parameters to send to the device
@@ -349,51 +314,37 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             String onOffString = OnOffType.ON == model.getOnOff(true) ? SHELLY_API_ON : SHELLY_API_OFF;
             parms.put(SHELLY_LIGHT_TURN, onOffString);
         }
-// <<<<<<< shelly_fixrgbwpm
-        if (profile.inColor) {
-            if (oldCol.red != newCol.red || oldCol.green != newCol.green || oldCol.blue != newCol.blue
-                    || oldCol.white != newCol.white) {
-                logger.debug("{}: Setting RGBW to {}/{}/{}/{}", thingName, newCol.red, newCol.green, newCol.blue,
-                        newCol.white);
-                parms.put(SHELLY_COLOR_RED, String.valueOf(newCol.red));
-                parms.put(SHELLY_COLOR_GREEN, String.valueOf(newCol.green));
-                parms.put(SHELLY_COLOR_BLUE, String.valueOf(newCol.blue));
-                parms.put(SHELLY_COLOR_WHITE, String.valueOf(newCol.white));
-// =======
 
         // COLOR:
-        if (profile.inColor) {
-            if (model.isColorDirty()) {
-                int[] rgbw = model.getRGBX();
-                parms.put(SHELLY_COLOR_RED, String.valueOf(rgbw[0]));
-                parms.put(SHELLY_COLOR_GREEN, String.valueOf(rgbw[1]));
-                parms.put(SHELLY_COLOR_BLUE, String.valueOf(rgbw[2]));
-                if (rgbw.length == 4) {
-                    parms.put(SHELLY_COLOR_WHITE, String.valueOf(rgbw[3]));
-                }
-            }
-            if (model.isGainDirty() && model.getGainState() instanceof PercentType pct) {
-                parms.put(SHELLY_COLOR_GAIN, String.valueOf(pct.intValue()));
-            }
-            if (model.isEffectDirty() && model.getEffectState() instanceof DecimalType dec) {
-                parms.put(SHELLY_COLOR_EFFECT, String.valueOf(dec.intValue()));
-// >>>>>>> shelly-test-merged
+        if (profile.inColor && model.isColorDirty()) {
+            int[] rgbw = model.getRGBX();
+            parms.put(SHELLY_COLOR_RED, String.valueOf(rgbw[0]));
+            parms.put(SHELLY_COLOR_GREEN, String.valueOf(rgbw[1]));
+            parms.put(SHELLY_COLOR_BLUE, String.valueOf(rgbw[2]));
+            if (rgbw.length == 4) {
+                parms.put(SHELLY_COLOR_WHITE, String.valueOf(rgbw[3]));
             }
         }
 
-        // WHITE:
-        if ((!profile.inColor && (!profile.isGen2 || profile.isRGBW2)) || profile.isBulb) {
-            // TODO maybe just if (!profile.inColor) { ???
-            if (model.isBrightnessDirty() && model.getBrightnessState() instanceof PercentType pct) {
-                parms.put(SHELLY_COLOR_BRIGHTNESS, String.valueOf(pct.intValue()));
-            }
+        // GAIN:
+        if (profile.inColor && model.isGainDirty() && model.getGainState() instanceof PercentType pct) {
+            parms.put(SHELLY_COLOR_GAIN, String.valueOf(pct.intValue()));
+        }
+
+        // EFFECT:
+        if (profile.inColor && model.isEffectDirty() && model.getEffectState() instanceof DecimalType dec) {
+            parms.put(SHELLY_COLOR_EFFECT, String.valueOf(dec.intValue()));
+        }
+
+        // BRIGHTNESS:
+        if (!profile.inColor && model.isBrightnessDirty() && model.getBrightnessState() instanceof PercentType pct) {
+            parms.put(SHELLY_COLOR_BRIGHTNESS, String.valueOf(pct.intValue()));
         }
 
         // COLOR TEMP:
-        if ((profile.isBulb || profile.isDuo)) {
-            if (model.isColorTempDirty() && model.getColorTemperatureAbsoluteState() instanceof QuantityType<?> qty) {
-                parms.put(SHELLY_COLOR_TEMP, String.valueOf(qty.intValue()));
-            }
+        if (!profile.inColor && !profile.isRGBW2 && model.isColorTempDirty() // TODO exclude Vintage
+                && model.getColorTemperatureAbsoluteState() instanceof QuantityType<?> qty) {
+            parms.put(SHELLY_COLOR_TEMP, String.valueOf(qty.intValue()));
         }
 
         if (!parms.isEmpty()) {
@@ -417,9 +368,11 @@ public class ShellyLightHandler extends ShellyBaseHandler {
      * @param model the light model to update
      * @param light the incoming light status DTO
      */
-    private void updateLightModelFromLightStatus(ShellyLightModel model, ShellyStatusLightChannel light) {
+    private void updateLightModelFromStatus(ShellyLightModel model, ShellyStatusLightChannel light) {
         // ON/OFF:
-        model.setOnOff(light.ison);
+        if (light.ison != null) {
+            model.setOnOff(light.ison);
+        }
 
         // TIMERS & POWER:
         // this will be handled in PHASE 2 updateChannelsFromModel()
@@ -427,69 +380,61 @@ public class ShellyLightHandler extends ShellyBaseHandler {
         // OVERPOWER:
         // this will be handled in PHASE 2 updateChannelsFromModel()
 
-        // COLOR:
-        if (profile.inColor) {
-            // note: setters change the model's mode
-            if (light.red != null && light.green != null && light.blue != null) {
-                if (light.white != null) {
-                    model.setRGBX(new int[] { light.red, light.green, light.blue, light.white });
-                } else {
-                    model.setRGBX(new int[] { light.red, light.green, light.blue });
-                }
+        // COLOR: (setter changes model's mode)
+        if (light.red != null && light.green != null && light.blue != null) {
+            if (light.white != null) {
+                model.setRGBX(new int[] { light.red, light.green, light.blue, light.white });
+            } else {
+                model.setRGBX(new int[] { light.red, light.green, light.blue });
             }
+        }
+
+        // GAIN: (setter changes model's mode)
+        if (light.gain != null) {
             model.setGain(getInteger(light.gain));
+        }
+
+        // EFFECT:
+        if (light.effect != null) {
             model.setEffect(getInteger(light.effect));
         }
 
-        // WHITE:
-        if ((!profile.inColor && (!profile.isGen2 || profile.isRGBW2)) || profile.isBulb) {
-            // note: setters change the model's mode
+        // BRIGHTNESS: (setter changes model's mode)
+        if (light.brightness != null) {
             model.setBrightness(getInteger(light.brightness));
         }
 
-        // COLOR TEMP:
-        if ((profile.isBulb || profile.isDuo) && (light.temp != null)) {
-            // note: setters change the model's mode
+        // COLOR TEMP: (setter changes model's mode)
+        if (light.temp != null) {
             model.setColorTemp(getInteger(light.temp));
         }
 
-        // MODE:
-        // note: setters change the model's mode, so do this last to ensure the mode is finally correct
-        if (profile.isBulb) {
-            Mode mode = SHELLY_MODE_COLOR.equals(profile.device.mode) ? Mode.COLOR : Mode.COLOR_TEMP;
+        // MODE: setters change model's mode, so do this last to ensure the mode ends up correct
+        if (profile.device.mode != null) {
+            Mode mode = SHELLY_MODE_COLOR.equals(profile.device.mode) ? Mode.COLOR : Mode.WHITE;
             model.setMode(mode);
         }
     }
 
     /**
-     * PHASE 2: Updates the channels from the final light model state (read after write)
+     * PHASE 2: Updates the channels from the incoming light status DTO (write before read)
      * 
-     * @param model the light model to update
      * @param light the incoming light status DTO
      * @param lightId the light ID
      *
      * @return true if any channel was updated, false otherwise
      */
-    private boolean updateChannelsFromLightModel(ShellyLightModel model, ShellyStatusLightChannel light, int lightId) {
+    private boolean updateChannelsFromLightStatusDTO(ShellyStatusLightChannel light, int lightId) {
         boolean updated = false;
         Integer channelId = lightId + 1;
         createLightChannels(light, lightId);
-        String group;
 
-        // MODE:
-        if (profile.isBulb) {
-            group = CHANNEL_GROUP_LIGHT_CONTROL;
-            updated |= updateChannel(group, CHANNEL_LIGHT_COLOR_MODE, model.getModeState());
-        }
-
-        // ON/OFF:
-        // TIMERS & POWER:
+        // TIMERS:
         List<ShellySettingsRgbwLight> lights = profile.settings.lights;
         if (lights != null && lights.get(lightId) instanceof ShellySettingsRgbwLight ls) {
-            group = buildControlGroupName(profile, channelId);
+            String group = buildControlGroupName(profile, channelId);
             updated |= updateChannel(group, CHANNEL_TIMER_AUTOON, toQuantityType(getDouble(ls.autoOn), Units.SECOND));
             updated |= updateChannel(group, CHANNEL_TIMER_AUTOOFF, toQuantityType(getDouble(ls.autoOff), Units.SECOND));
-            updated |= updateChannel(group, CHANNEL_LIGHT_POWER, model.getOnOffState());
             updated |= updateChannel(group, CHANNEL_TIMER_ACTIVE, getOnOff(light.hasTimer));
         }
 
@@ -498,40 +443,79 @@ public class ShellyLightHandler extends ShellyBaseHandler {
             postEvent(ALARM_TYPE_OVERPOWER, false);
         }
 
+        return updated;
+    }
+
+    /**
+     * PHASE 3: Updates the channels from the final light model state (read after write)
+     * 
+     * @param model the light model to update
+     *
+     * @return true if any channel was updated, false otherwise
+     */
+    public boolean updateDirtyChannelsForLightModel(ShellyLightModel model) {
+        boolean updated = false;
+        Integer channelId = model.getLightId();
+        String group = null;
+
+        // POWER:
+        if (model.isOnOffDirty()) {
+            group = profile.inColor ? buildControlGroupName(profile, channelId)
+                    : buildWhiteGroupName(profile, channelId);
+            updated |= updateChannel(group, CHANNEL_LIGHT_POWER, model.getOnOffState());
+        }
+
+        // MODE:
+        if (profile.isBulb && model.isModeDirty()) {
+            group = CHANNEL_GROUP_LIGHT_CONTROL;
+            updated |= updateChannel(group, CHANNEL_LIGHT_COLOR_MODE, model.getModeState());
+        }
+
         // COLOR:
-        if (profile.inColor) {
+        if (profile.inColor && model.isColorDirty()) {
             group = CHANNEL_GROUP_COLOR_CONTROL;
             updated |= updateChannel(group, CHANNEL_COLOR_RED, model.getColorState(R));
             updated |= updateChannel(group, CHANNEL_COLOR_GREEN, model.getColorState(G));
             updated |= updateChannel(group, CHANNEL_COLOR_BLUE, model.getColorState(B));
-            updated |= updateChannel(group, CHANNEL_COLOR_WHITE, model.getColorState(CW));
-            updated |= updateChannel(group, CHANNEL_COLOR_GAIN, model.getGainState());
-            updated |= updateChannel(group, CHANNEL_COLOR_EFFECT, model.getEffectState());
+            if (model.getRGBx().length == 4) {
+                updated |= updateChannel(group, CHANNEL_COLOR_WHITE, model.getColorState(CW));
+            }
             updated |= updateChannel(group, CHANNEL_COLOR_PICKER, model.getColorState());
             updated |= setFullColor(group, model);
         }
 
-        // WHITE:
-        if ((!profile.inColor && (!profile.isGen2 || profile.isRGBW2)) || profile.isBulb) {
+        // GAIN:
+        if (profile.inColor && model.isGainDirty()) {
+            group = CHANNEL_GROUP_COLOR_CONTROL;
+            updated |= updateChannel(group, CHANNEL_COLOR_GAIN, model.getGainState());
+        }
+
+        // EFFECT:
+        if (profile.inColor && model.isEffectDirty()) {
+            group = CHANNEL_GROUP_COLOR_CONTROL;
+            updated |= updateChannel(group, CHANNEL_COLOR_EFFECT, model.getEffectState());
+        }
+
+        // BRIGHTNESS:
+        if (!profile.inColor && model.isBrightnessDirty()) {
             group = buildWhiteGroupName(profile, channelId);
-            // TODO light model synchs onOff, brightness; maybe $Switch, $Value not needed
-            updated |= updateChannel(group, CHANNEL_BRIGHTNESS + "$Switch", model.getOnOffState());
-            updated |= updateChannel(group, CHANNEL_BRIGHTNESS + "$Value", model.getBrightnessState());
+            updated |= updateChannel(group, CHANNEL_BRIGHTNESS, model.getBrightnessState());
         }
 
         // COLOR TEMP:
-        if ((profile.isBulb || profile.isDuo) && (light.temp != null)) {
+        if (!profile.inColor && !profile.isRGBW2 && model.isColorTempDirty()) {
             group = buildWhiteGroupName(profile, channelId);
             updated |= updateChannel(group, CHANNEL_COLOR_TEMP, model.getColorTemperaturePercentState());
-            updated |= updateChannel(group, CHANNEL_COLOR_PICKER, model.getColorState());
         }
 
         // PRIMARY GROUP:
-        group = CHANNEL_GROUP_PRIMARY;
-        updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR, model.getColorState());
-        updated |= updateChannel(group, CHANNEL_PRIMARY_BRIGHTNESS, model.getBrightnessState());
-        updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR_TEMP, model.getColorTemperaturePercentState());
-        updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR_TEMP_ABS, model.getColorTemperatureAbsoluteState());
+        if (model.isDirty()) {
+            group = CHANNEL_GROUP_PRIMARY;
+            updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR, model.getColorState());
+            updated |= updateChannel(group, CHANNEL_PRIMARY_BRIGHTNESS, model.getBrightnessState());
+            updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR_TEMP, model.getColorTemperaturePercentState());
+            updated |= updateChannel(group, CHANNEL_PRIMARY_COLOR_TEMP_ABS, model.getColorTemperatureAbsoluteState());
+        }
 
         return updated;
     }
