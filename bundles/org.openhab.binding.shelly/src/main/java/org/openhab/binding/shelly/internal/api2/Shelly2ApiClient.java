@@ -29,6 +29,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.openhab.binding.shelly.internal.api.ShellyApiException;
+import org.openhab.binding.shelly.internal.api.ShellyApiLightUtil.ShellyLightApiComponent;
 import org.openhab.binding.shelly.internal.api.ShellyApiResult;
 import org.openhab.binding.shelly.internal.api.ShellyDeviceProfile;
 import org.openhab.binding.shelly.internal.api.ShellyDiscoveryInterface;
@@ -1310,15 +1311,11 @@ public class Shelly2ApiClient extends ShellyHttpClient implements ShellyDiscover
         ds.ison = value.output;
 
         status.lights.set(rgbwId, ds);
-// <<<<<<< HEAD
-        return channelUpdate ? ShellyComponents.updateRGBW(getThing(), rgbwId, status) : false;
-// =======
         if (profile.isProRgbwwPm) {
             // the color component always sits at settings.lights[0]
             updateComponentMeter(status, 0, value.apower, value.aenergy, value.voltage, value.current, channelUpdate);
         }
-        return channelUpdate ? ShellyComponents.updateRGBW(getThing(), status) : false;
-// >>>>>>> afg-copy-markus-rgbw
+        return channelUpdate ? ShellyComponents.updateRGBW(getThing(), rgbwId, status) : false;
     }
 
     private boolean updateLightModeStatus(int id, ShellySettingsStatus status, @Nullable Shelly2DeviceStatusLight value,

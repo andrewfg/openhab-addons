@@ -13,7 +13,6 @@
 package org.openhab.binding.shelly.internal.api1;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
-import static org.openhab.binding.shelly.internal.api.ShellyApiLightUtil.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
 import static org.openhab.binding.shelly.internal.handler.ShellyLightModel.RGBX.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
@@ -151,7 +150,7 @@ public class Shelly1CoIoTProtocol {
                     case "gain":
                     case "effect":
                         if (lightModelHandler != null && lightModelHandler
-                                .getLightModel(getIdFromBlk(sen) - 1) instanceof ShellyLightModel model) {
+                                .getLightModelForChannelGroup(getIdFromBlk(sen)) instanceof ShellyLightModel model) {
                             switch (sen.desc.toLowerCase(Locale.ROOT)) {
                                 case "red":
                                     model.setColor(R, (int) s.value);
@@ -278,7 +277,7 @@ public class Shelly1CoIoTProtocol {
                 }
             } else if (profile.isLight) {
                 if (lightModelHandler != null
-                        && lightModelHandler.getLightModel(id - 1) instanceof ShellyLightModel model) {
+                        && lightModelHandler.getLightModelForChannelGroup(id) instanceof ShellyLightModel model) {
                     if (brightness != -1) {
                         if (ShellyLightModel.Mode.COLOR == model.getMode()) {
                             model.setGain((int) brightness);

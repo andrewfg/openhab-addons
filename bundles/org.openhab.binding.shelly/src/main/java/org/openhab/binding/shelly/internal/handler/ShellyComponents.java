@@ -856,26 +856,26 @@ public class ShellyComponents {
         return updated;
     }
 
-    public static boolean updateRGBW(ShellyThingInterface thingHandler, int componentIndex,
-            ShellySettingsStatus orgStatus) throws ShellyApiException {
+    public static boolean updateRGBW(ShellyThingInterface thingHandler, int index, ShellySettingsStatus orgStatus)
+            throws ShellyApiException {
         boolean updated = false;
         ShellyDeviceProfile profile = thingHandler.getProfile();
         if (profile.isRGBW2) {
             if (!thingHandler.areChannelsCreated()) {
                 return false;
             }
-            ShellySettingsLight light = orgStatus.lights.get(componentIndex);
+            ShellySettingsLight light = orgStatus.lights.get(index);
             if (light == null) {
-                throw new ShellyApiException("updateRGBW() failed: component:%d not found".formatted(componentIndex));
+                throw new ShellyApiException("updateRGBW() failed: component:%d not found".formatted(index));
             }
             if (thingHandler instanceof ShellyLightModelHandler lightModelHandler) {
                 try {
                     lightModelHandler.acquireLock();
-                    if (lightModelHandler.getLightModel(componentIndex) instanceof ShellyLightModel model) {
+                    if (lightModelHandler.getLightModelForChannelGroup(index) instanceof ShellyLightModel model) {
                         model.setRGBX(light.red, light.green, light.blue, light.white);
                     } else {
                         throw new ShellyApiException(
-                                "updateRGBW() failed: component:%d model missing".formatted(componentIndex));
+                                "updateRGBW() failed: component:%d model missing".formatted(index));
                     }
                 } finally {
                     lightModelHandler.releaseLock();
@@ -893,17 +893,21 @@ public class ShellyComponents {
             if (!thingHandler.areChannelsCreated()) {
                 return false;
             }
-// <<<<<<< HEAD
             if (thingHandler instanceof ShellyLightModelHandler lightHandler) {
                 try {
                     lightHandler.acquireLock();
                     List<ShellySettingsLight> lights = orgStatus.lights;
-                    for (int componentIndex = 0; componentIndex < lights.size(); componentIndex++) {
-                        ShellySettingsLight light = lights.get(componentIndex);
-                        ShellyLightModel model = lightHandler.getLightModel(componentIndex);
+                    for (int i = 0; i < lights.size(); i++) {
+                        if (profile.hasColorTag(i)) {
+                            // color component is handled by updateRGBW(); this loop only covers CCT/Light components
+                            // (a hybrid profile's secondary component(s), or all of them for a plain white-mode RGBW2)
+                            continue;
+                        }
+                        ShellySettingsLight light = lights.get(i);
+                        ShellyLightModel model = lightHandler.getLightModelForChannelGroup(i + 1);
                         if (model == null) {
                             throw new ShellyApiException(
-                                    "updateLightMode() failed: component:%d model missing".formatted(componentIndex));
+                                    "updateLightMode() failed: component:%d model missing".formatted(i));
                         }
                         if (light.ison != null) {
                             model.setOnOff(light.ison);
@@ -913,34 +917,15 @@ public class ShellyComponents {
                             model.setBrightness(light.brightness);
                             updated = true;
                         }
+                        if (light.temp != null) {
+                            model.setColorTempRange(profile.getMinTemp(i), profile.getMaxTemp(i));
+                            model.setColorTemp(light.temp);
+                        }
                     }
                 } finally {
                     lightHandler.releaseLock();
                 }
             }
-// =======
-            List<ShellySettingsLight> lights = orgStatus.lights;
-            for (int i = 0; i < lights.size(); i++) {
-                if (profile.hasColorTag(i)) {
-                    // color component is handled by updateRGBW(); this loop only covers CCT/Light components
-                    // (a hybrid profile's secondary component(s), or all of them for a plain white-mode RGBW2)
-                    continue;
-                }
-                ShellySettingsLight light = lights.get(i);
-                String groupName = profile.getControlGroup(i);
-                OnOffType power = getOnOff(light.ison);
-                updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Switch", power);
-                updated |= thingHandler.updateChannel(groupName, CHANNEL_BRIGHTNESS + "$Value",
-                        toQuantityType(power == OnOffType.ON ? (double) getInteger(light.brightness) : 0.0, DIGITS_NONE,
-                                Units.PERCENT));
-                if (light.temp != null) {
-                    ShellyColorUtils col = new ShellyColorUtils();
-                    col.setMinMaxTemp(profile.getMinTemp(i), profile.getMaxTemp(i));
-                    col.setTemp(getInteger(light.temp));
-                    updated |= thingHandler.updateChannel(groupName, CHANNEL_COLOR_TEMP, col.percentTemp);
-                }
-            }
-// >>>>>>> afg-copy-markus-rgbw
         }
         return updated;
     }

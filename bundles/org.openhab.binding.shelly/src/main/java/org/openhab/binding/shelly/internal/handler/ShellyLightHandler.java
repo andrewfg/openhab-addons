@@ -87,19 +87,15 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
     @Override
     public boolean handleDeviceCommand(ChannelUID channelUID, Command command) throws IllegalArgumentException {
         logger.trace("{}: handleDeviceCommand() channel {}, command {}", thingName, channelUID, command);
-        String groupName = getString(channelUID.getGroupId());
-        if (groupName.isEmpty()) {
-            throw new IllegalArgumentException("Empty groupName");
-        }
         try {
             acquireLock();
             try {
-                int componentIndex = getLightIdFromGroup(groupName);
-                ShellyLightModel model = lightModels.get(componentIndex);
+                int channelGroupNumber = getChannelGroupFromChannelId(channelUID.getId());
+                ShellyLightModel model = lightModels.get(channelGroupNumber);
                 if (model == null) {
-                    model = ShellyLightModel.create(this, componentIndex, profile, DIM_STEPSIZE);
+                    model = ShellyLightModel.create(this, channelGroupNumber, profile, DIM_STEPSIZE);
                     model.acquire();
-                    lightModels.put(componentIndex, model);
+                    lightModels.put(channelGroupNumber, model);
                 }
                 WhatUpdated whatUpdated = updateLightModelFromChannelCommand(model, channelUID, command);
                 switch (whatUpdated) {
@@ -245,11 +241,11 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
                 return WhatUpdated.LIGHT_MODEL;
 
             case CHANNEL_TIMER_AUTOON:
-                api.setAutoTimer(model.getComponentIndex(), SHELLY_TIMER_AUTOON, getNumber(command).doubleValue());
+                api.setAutoTimer(model.getChannelGroupNumber(), SHELLY_TIMER_AUTOON, getNumber(command).doubleValue());
                 return WhatUpdated.OTHER;
 
             case CHANNEL_TIMER_AUTOOFF:
-                api.setAutoTimer(model.getComponentIndex(), SHELLY_TIMER_AUTOOFF, getNumber(command).doubleValue());
+                api.setAutoTimer(model.getChannelGroupNumber(), SHELLY_TIMER_AUTOOFF, getNumber(command).doubleValue());
                 return WhatUpdated.OTHER;
 
             default: // non- light commands will be handled by the generic handler
@@ -269,7 +265,7 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
 
         // ON-OFF (via own channel): send first as it may affect the processing of subsequent parameters
         if (model.supportsOnOffChannel() && model.isOnOffDirty()) { // config.getBrightnessAutoOn() not used
-            api.setLightTurn(model.getComponentIndex(),
+            api.setLightTurn(model.getChannelGroupNumber(),
                     OnOffType.ON == model.getOnOff(true) ? SHELLY_API_ON : SHELLY_API_OFF);
             apiCommandSent = true;
         }
@@ -323,8 +319,8 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
         }
 
         if (!parms.isEmpty()) {
-            logger.debug("{}: lightId {} set new light parameters {}", thingName, model.getComponentIndex(), parms);
-            api.setLightParms(model.getComponentIndex(), parms);
+            logger.debug("{}: lightId {} set new light parameters {}", thingName, model.getChannelGroupNumber(), parms);
+            api.setLightParms(model.getChannelGroupNumber(), parms);
             apiCommandSent = true;
         }
 
@@ -398,13 +394,12 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
             logger.trace("{}: updateChannelsFromLightStatusDTO() with {}", thingName, new Gson().toJson(light));
         }
         boolean updated = false;
-        Integer channelId = lightId + 1;
         createLightChannels(light, lightId);
 
         // TIMERS:
         List<ShellySettingsRgbwLight> lights = profile.settings.lights;
         if (lights != null && lightId < lights.size() && lights.get(lightId) instanceof ShellySettingsRgbwLight ls) {
-            String group = buildControlGroupName(profile, channelId);
+            String group = profile.getControlGroup(lightId);
             updated |= updateChannel(group, CHANNEL_TIMER_AUTOON, toQuantityType(getDouble(ls.autoOn), Units.SECOND));
             updated |= updateChannel(group, CHANNEL_TIMER_AUTOOFF, toQuantityType(getDouble(ls.autoOff), Units.SECOND));
             updated |= updateChannel(group, CHANNEL_TIMER_ACTIVE, getOnOff(light.hasTimer));
@@ -428,15 +423,12 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
     public boolean updateChannelsFromLightModel(ShellyLightModel model) {
         logger.trace("{}: updateDirtyChannelsForLightModel() with [{}]", thingName, model);
         boolean updated = false;
-        int lightId = model.getComponentIndex(); // zero based
-        int channelId = lightId + 1; // one based
+        int componentIndex = model.getChannelGroupNumber();
         String group = null;
 
         // ON-OFF:
-        // New supportsOnOffViaBrightnessChannel() devices don't have an own on-off channel to be updated, but
-        // maybe legacy devices did, in which case this ensures non breaking of items linked to such channels
-        if ((model.supportsOnOffChannel() || model.supportsOnOffViaBrightnessChannel()) && model.isOnOffDirty()) {
-            group = buildControlGroupName(profile, channelId);
+        if ((model.supportsOnOffChannel()) && model.isOnOffDirty()) {
+            group = CHANNEL_GROUP_LIGHT_CONTROL;
             updated |= updateChannel(group, CHANNEL_LIGHT_POWER, model.getOnOffState());
         }
 
@@ -474,13 +466,15 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
 
         // BRIGHTNESS:
         if (model.supportsBrightnessChannel() && model.isBrightnessDirty()) {
-            group = buildWhiteGroupName(profile, channelId);
+            group = model.getChannelGroupNumber() == 0 ? CHANNEL_GROUP_WHITE_CONTROL
+                    : CHANNEL_GROUP_LIGHT_INDEX + model.getChannelGroupNumber();
             updated |= updateChannel(group, CHANNEL_BRIGHTNESS, model.getBrightnessState());
         }
 
         // COLOR TEMP:
         if (model.supportsColorTempChannel() && model.isColorTempDirty()) {
-            group = buildWhiteGroupName(profile, channelId);
+            group = model.getChannelGroupNumber() == 0 ? CHANNEL_GROUP_WHITE_CONTROL
+                    : CHANNEL_GROUP_LIGHT_INDEX + model.getChannelGroupNumber();
             updated |= updateChannel(group, CHANNEL_COLOR_TEMP, model.getColorTemperaturePercentState());
         }
 
@@ -503,9 +497,9 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
     }
 
     @Override
-    public @Nullable ShellyLightModel getLightModel(int componentIndex) {
-        ShellyLightModel model = lightModels.get(componentIndex);
-        logger.debug("{}: getLightModel({}) returns {}", thingName, componentIndex, model);
+    public @Nullable ShellyLightModel getLightModelForChannelGroup(int channelGroupNumber) {
+        ShellyLightModel model = lightModels.get(channelGroupNumber);
+        logger.debug("{}: getLightModel({}) returns {}", thingName, channelGroupNumber, model);
         return model;
     }
 
@@ -525,5 +519,13 @@ public class ShellyLightHandler extends ShellyBaseHandler implements ShellyLight
         }
         logger.debug("{}: all light models released", thingName);
         return result;
+    }
+
+    private static int getChannelGroupFromChannelId(String channelId) {
+        try {
+            return Integer.parseInt(channelId.replaceAll(".*?(\\d+)#.*", "$1"));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }
