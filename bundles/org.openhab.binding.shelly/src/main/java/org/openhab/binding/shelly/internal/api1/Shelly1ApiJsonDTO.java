@@ -392,11 +392,11 @@ public class Shelly1ApiJsonDTO {
         public String btnType1;
         @SerializedName("btn2_type") // Shelly 1L
         public String btnType2;
-        @SerializedName("has_timer")
+        @SerializedName(SHELLY_TIMER_ACTIVE)
         public Boolean hasTimer; // Whether a timer is currently armed for this channel
-        @SerializedName("auto_on")
+        @SerializedName(SHELLY_TIMER_AUTOON)
         public Double autoOn; // Automatic flip back timer, seconds. Will engage after turning Shelly1 OFF.
-        @SerializedName("auto_off")
+        @SerializedName(SHELLY_TIMER_AUTOOFF)
         public Double autoOff; // Automatic flip back timer, seconds. Will engage after turning Shelly1 ON.
         @SerializedName("btn_on_url")
         public String btnOnUrl; // input is activated
@@ -430,9 +430,9 @@ public class Shelly1ApiJsonDTO {
         public Boolean ison; // true: output is ON
         @SerializedName("default_state")
         public String defaultState; // Accepted values: off, on, last, switch
-        @SerializedName("auto_on")
+        @SerializedName(SHELLY_TIMER_AUTOON)
         public Double autoOn; // Automatic flip back timer, seconds. Will engage after turning Shelly1 OFF.
-        @SerializedName("auto_off")
+        @SerializedName(SHELLY_TIMER_AUTOOFF)
         public Double autoOff; // Automatic flip back timer, seconds. Will engage after turning Shelly1 ON.
         @SerializedName("btn1_on_url")
         public String btn1OnUrl; // URL to access when SW input is activated
@@ -482,7 +482,7 @@ public class Shelly1ApiJsonDTO {
         public Double power;
         @SerializedName("is_valid")
         public Boolean isValid;
-        @SerializedName("safety_switch")
+        @SerializedName(SHELLY_API_STOPR_SAFETYSW)
         public Boolean safetySwitch;
         @SerializedName("obstacle_mode")
         public String obstaclMode; // SHELLY_OBSTMODE_
@@ -511,9 +511,9 @@ public class Shelly1ApiJsonDTO {
         public Integer transition;
         @SerializedName("default_state")
         public String defaultState;
-        @SerializedName("auto_on")
+        @SerializedName(SHELLY_TIMER_AUTOON)
         public Double autoOn; // Automatic flip back timer, seconds. Will engage after turning Shelly1 OFF.
-        @SerializedName("auto_off")
+        @SerializedName(SHELLY_TIMER_AUTOOFF)
         public Double autoOff; // Automatic flip back timer, seconds. Will engage after turning Shelly1 ON.
         public Boolean schedule;
         @SerializedName("btn_type")
@@ -691,10 +691,10 @@ public class Shelly1ApiJsonDTO {
         @SerializedName("temperature_units")
         public String temperatureUnits = "C"; // Either'C'or'F'
 
-        @SerializedName("led_status_disable")
+        @SerializedName(SHELLY_LED_STATUS_DISABLE)
         public Boolean ledStatusDisable; // PlugS only Disable LED indication for network
                                          // status
-        @SerializedName("led_power_disable")
+        @SerializedName(SHELLY_LED_POWER_DISABLE)
         public Boolean ledPowerDisable; // PlugS only Disable LED indication for network
                                         // status
         @SerializedName("light_sensor")
@@ -870,7 +870,7 @@ public class Shelly1ApiJsonDTO {
         // https://shelly-api-docs.shelly.cloud/#shelly1-1pm-settings-relay-0
         @SerializedName("is_valid")
         public Boolean isValid;
-        @SerializedName("has_timer")
+        @SerializedName(SHELLY_TIMER_ACTIVE)
         public Boolean hasTimer; // Whether a timer is currently armed for this channel
         @SerializedName("timer_remaining")
         public Integer timerRemaining; // FW 1.6+
@@ -886,7 +886,7 @@ public class Shelly1ApiJsonDTO {
         @SerializedName("is_valid")
         public Boolean isValid;
         public Boolean ison; // Whether output channel is on or off
-        @SerializedName("has_timer")
+        @SerializedName(SHELLY_TIMER_ACTIVE)
         public Boolean hasTimer; // Whether a timer is currently armed for this channel
         @SerializedName("timer_remaining")
         public Integer timerRemaining;
@@ -899,7 +899,7 @@ public class Shelly1ApiJsonDTO {
         public Boolean ison; // Whether output channel is on or off
         public String mode; // color or white - valid only for Bulb and RGBW2 even Dimmer returns it also
         public Integer brightness; // brightness: 0.100%
-        @SerializedName("has_timer")
+        @SerializedName(SHELLY_TIMER_ACTIVE)
         public Boolean hasTimer;
         @SerializedName("timer_duration")
         public Integer timerDuration;
@@ -950,7 +950,7 @@ public class Shelly1ApiJsonDTO {
         public Double power; // Current power consumption in Watts
         @SerializedName("is_valid")
         public Boolean isValid; // If the power meter functions properly
-        @SerializedName("safety_switch")
+        @SerializedName(SHELLY_API_STOPR_SAFETYSW)
         public Boolean safetySwitch; // Whether the safety input is currently triggered
         public Boolean overtemperature;
         @SerializedName("stop_reason")
@@ -1295,9 +1295,9 @@ public class Shelly1ApiJsonDTO {
                                // 4: Flash, 5: On/Off Gradual, 6: Red/Green Change
         @SerializedName("default_state")
         public String defaultState; // one of on, off or last
-        @SerializedName("auto_on")
+        @SerializedName(SHELLY_TIMER_AUTOON)
         public Double autoOn; // see above
-        @SerializedName("auto_off")
+        @SerializedName(SHELLY_TIMER_AUTOOFF)
         public Double autoOff; // see above
 
         public Integer dcpower; // RGW2:Set to true for 24 V power supply, false for 12 V
@@ -1320,7 +1320,7 @@ public class Shelly1ApiJsonDTO {
         public Boolean ison;
         public Double power;
         public Boolean overpower;
-        @SerializedName("has_timer")
+        @SerializedName(SHELLY_TIMER_ACTIVE)
         public Boolean hasTimer;
         @SerializedName("timer_started")
         public Integer timerStarted;

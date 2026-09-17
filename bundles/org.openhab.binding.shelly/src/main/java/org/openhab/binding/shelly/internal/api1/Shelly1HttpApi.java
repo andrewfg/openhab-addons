@@ -378,13 +378,13 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
 
     @Override
     public String setWiFiRecovery(boolean enable) throws ShellyApiException {
-        return callApi(SHELLY_URL_SETTINGS + "?wifirecovery_reboot_enabled=" + (enable ? "true" : "false"),
+        return callApi(SHELLY_URL_SETTINGS + "?wifirecovery_reboot_enabled=" + (enable ? SHELLY_API_TRUE : SHELLY_API_FALSE),
                 String.class); // FW 1.10+: Enable auto-restart on WiFi problems
     }
 
     @Override
     public String setApRoaming(boolean enable) throws ShellyApiException { // FW 1.10+: Enable AP Roadming
-        return callApi(SHELLY_URL_SETTINGS + "?ap_roaming_enabled=" + (enable ? "true" : "false"), String.class);
+        return callApi(SHELLY_URL_SETTINGS + "?ap_roaming_enabled=" + (enable ? SHELLY_API_TRUE : SHELLY_API_FALSE), String.class);
     }
 
     @Override
@@ -635,7 +635,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
             if (profile.containsEventUrl(eventType)) {
                 // H&T adds the type=xx to report_url itself, so we need to ommit here
                 String eclass = profile.isSensor ? EVENT_TYPE_SENSORDATA : eventType;
-                String urlParm = eventType.contains("temp") || profile.isHT ? "" : "?type=" + eventType;
+                String urlParm = eventType.contains(SHELLY_COLOR_TEMP) || profile.isHT ? "" : "?type=" + eventType;
                 String callBackUrl = config.getEventCallbackUrl() + profile.thingName + "/" + eclass + urlParm;
                 String newUrl = enabled ? callBackUrl : SHELLY_NULL_URL;
                 String testUrl = "\"" + mkEventUrl(eventType) + "\":\"" + newUrl + "\"";
