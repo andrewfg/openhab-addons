@@ -48,6 +48,25 @@ import com.google.gson.JsonSyntaxException;
  */
 @NonNullByDefault
 public class Shelly1CoIoTProtocol {
+    private static final String DESC_STATE = "state";
+    private static final String DESC_OUTPUT = "output";
+    private static final String DESC_INPUT = "input";
+    private static final String DESC_OVERTEMP = "overtemp";
+    private static final String DESC_POSITION = "position";
+    private static final String DESC_FLOOD = "flood";
+    private static final String DESC_LUMINOSITY_LEVEL = "luminositylevel";
+    private static final String DESC_CHARGER = "charger";
+    private static final String DESC_SENSOR_ERROR = "sensorerror";
+    private static final String CHANNEL_SUFFIX_VALUE = "$Value";
+    private static final String DESC_EXTERNAL_TEMPERATURE = "external_temperature";
+    private static final String DESC_EXTERNAL_TEMPERATURE_C = "external temperature c";
+    private static final String DESC_EXT_TEMP = "extTemp";
+    private static final String LOG_BUTTON_TRIGGER_CHECK = "{}: Check button[{}] for event trigger (inButtonMode={}, isButton={}, hasBattery={}, serial={}, count={}, lastEventCount[{}]={}";
+    private static final String LOG_TRIGGER_EVENT = "{}: Trigger event {}";
+    private static final String LOG_UPDATE_POWER = "{}: updatePower() for L={}";
+    private static final String LOG_SENSOR_ID_NOT_FOUND = "{}: sensorId {} not found in sensorMap!";
+    private static final String LOG_PARSE_SENSOR_DEFINITION = "Unable to parse sensor definition: {}";
+
     private final Logger logger = LoggerFactory.getLogger(Shelly1CoIoTProtocol.class);
     protected final String thingName;
     protected final ShellyThingInterface thingHandler;
@@ -98,22 +117,22 @@ public class Shelly1CoIoTProtocol {
                 break;
             case "s": // CatchAll
                 switch (sen.desc.toLowerCase(Locale.ROOT)) {
-                    case "state": // Relay status +
-                    case "output":
+                    case DESC_STATE: // Relay status +
+                    case DESC_OUTPUT:
                         updatePower(profile, updates, rIndex, sen, s, sensorUpdates);
                         break;
-                    case "input":
+                    case DESC_INPUT:
                         handleInput(sen, s, rGroup, updates);
                         break;
-                    case "brightness":
+                    case SHELLY_COLOR_BRIGHTNESS:
                         // already handled by state/output
                         break;
-                    case "overtemp": // ++
+                    case DESC_OVERTEMP: // ++
                         if (s.value == 1) {
                             thingHandler.postEvent(ALARM_TYPE_OVERTEMP, true);
                         }
                         break;
-                    case "position":
+                    case DESC_POSITION:
                         // work around: Roller reports 101% instead max 100
                         double pos = Math.max(SHELLY_MIN_ROLLER_POS, Math.min(s.value, SHELLY_MAX_ROLLER_POS));
                         updateChannel(updates, CHANNEL_GROUP_ROL_CONTROL, CHANNEL_ROL_CONTROL_CONTROL,
@@ -121,11 +140,11 @@ public class Shelly1CoIoTProtocol {
                         updateChannel(updates, CHANNEL_GROUP_ROL_CONTROL, CHANNEL_ROL_CONTROL_POS,
                                 toQuantityType(pos, Units.PERCENT));
                         break;
-                    case "flood":
+                    case DESC_FLOOD:
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_FLOOD,
                                 OnOffType.from(s.value == 1));
                         break;
-                    case "vibration": // DW with FW1.6.5+
+                    case SHELLY_EVENT_VIBRATION: // DW with FW1.6.5+
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_VIBRATION,
                                 OnOffType.from(s.value == 1));
                         if (s.value == 1) {
@@ -133,36 +152,36 @@ public class Shelly1CoIoTProtocol {
                                     EVENT_TYPE_VIBRATION);
                         }
                         break;
-                    case "luminositylevel": // +
+                    case DESC_LUMINOSITY_LEVEL: // +
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ILLUM, getStringType(s.valueStr));
                         break;
-                    case "charger": // Sense
+                    case DESC_CHARGER: // Sense
                         updateChannel(updates, CHANNEL_GROUP_DEV_STATUS, CHANNEL_DEVST_CHARGER,
                                 OnOffType.from(s.value == 1));
                         break;
                     // RGBW2/Bulb
-                    case "red":
+                    case SHELLY_COLOR_RED:
                         col.setRed((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_RED, col.getPercentRed());
                         break;
-                    case "green":
+                    case SHELLY_COLOR_GREEN:
                         col.setGreen((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GREEN, col.getPercentGreen());
                         break;
-                    case "blue":
+                    case SHELLY_COLOR_BLUE:
                         col.setBlue((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_BLUE, col.getPercentBlue());
                         break;
-                    case "white":
+                    case SHELLY_COLOR_WHITE:
                         col.setWhite((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_WHITE, col.getPercentWhite());
                         break;
-                    case "gain":
+                    case SHELLY_COLOR_GAIN:
                         col.setGain((int) s.value);
                         updateChannel(updates, CHANNEL_GROUP_COLOR_CONTROL, CHANNEL_COLOR_GAIN,
                                 ShellyColorUtils.toPercent((int) s.value, SHELLY_MIN_GAIN, SHELLY_MAX_GAIN));
                         break;
-                    case "sensorerror":
+                    case DESC_SENSOR_ERROR:
                         String sensorError = s.valueStr != null ? getString(s.valueStr) : "" + s.value;
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ERROR, getStringType(sensorError));
                         break;
@@ -202,14 +221,12 @@ public class Shelly1CoIoTProtocol {
         } else {
             // event count
             updateChannel(updates, group, CHANNEL_STATUS_EVENTCOUNT + profile.getInputSuffix(idx), getDecimal(count));
-            logger.trace(
-                    "{}: Check button[{}] for event trigger (inButtonMode={}, isButton={}, hasBattery={}, serial={}, count={}, lastEventCount[{}]={}",
-                    thingName, idx, profile.inButtonMode(idx), profile.isButton, profile.hasBattery, serial, count, idx,
-                    lastEventCount[idx]);
+            logger.trace(LOG_BUTTON_TRIGGER_CHECK, thingName, idx, profile.inButtonMode(idx), profile.isButton,
+                    profile.hasBattery, serial, count, idx, lastEventCount[idx]);
             if (profile.inButtonMode(idx) && ((profile.hasBattery && count == 1) || lastEventCount[idx] == -1
                     || count != lastEventCount[idx])) {
                 if (!profile.isButton || (profile.isButton && (serial != 0x200))) { // skip duplicate on wake-up
-                    logger.debug("{}: Trigger event {}", thingName, inputEvent[idx]);
+                    logger.debug(LOG_TRIGGER_EVENT, thingName, inputEvent[idx]);
                     thingHandler.triggerButton(group, idx, inputEvent[idx]);
                 }
             }
@@ -246,7 +263,7 @@ public class Shelly1CoIoTProtocol {
             } else if (profile.isRGBW2) {
                 checkL = String.valueOf(id); // String.valueOf(id - 1); // id is 1-based, L is 0-based
                 group = lightChannelGroupPrefix(profile) + id;
-                logger.trace("{}: updatePower() for L={}", thingName, checkL);
+                logger.trace(LOG_UPDATE_POWER, thingName, checkL);
             }
 
             // We need to update brightness and on/off state at the same time to avoid "flipping brightness slider" in
@@ -259,14 +276,14 @@ public class Shelly1CoIoTProtocol {
                     // continue until we find the correct one
                     continue;
                 }
-                if ("brightness".equalsIgnoreCase(d.desc)) {
+                if (SHELLY_COLOR_BRIGHTNESS.equalsIgnoreCase(d.desc)) {
                     brightness = update.value;
-                } else if ("output".equalsIgnoreCase(d.desc) || "state".equalsIgnoreCase(d.desc)) {
+                } else if (DESC_OUTPUT.equalsIgnoreCase(d.desc) || DESC_STATE.equalsIgnoreCase(d.desc)) {
                     power = update.value;
                 }
             }
             if (brightness != -1) {
-                updateChannel(updates, group, channel + "$Value",
+                updateChannel(updates, group, channel + CHANNEL_SUFFIX_VALUE,
                         toQuantityType(power == 1 ? brightness : 0, DIGITS_NONE, Units.PERCENT));
             }
         } else if (profile.hasRelays) {
@@ -307,7 +324,7 @@ public class Shelly1CoIoTProtocol {
                 return idx;
             }
         }
-        logger.debug("{}: sensorId {} not found in sensorMap!", thingName, sensorId);
+        logger.debug(LOG_SENSOR_ID_NOT_FOUND, thingName, sensorId);
         return -1;
     }
 
@@ -348,15 +365,17 @@ public class Shelly1CoIoTProtocol {
         int idx = 0;
         for (Map.Entry<String, CoIotDescrSen> se : sensorMap.entrySet()) {
             CoIotDescrSen sen = se.getValue();
-            if ("external_temperature".equalsIgnoreCase(sen.desc) || "external temperature c".equalsIgnoreCase(sen.desc)
-                    || ("extTemp".equalsIgnoreCase(sen.desc) && !sen.unit.equalsIgnoreCase(SHELLY_TEMP_FAHRENHEIT))) {
+            if (DESC_EXTERNAL_TEMPERATURE.equalsIgnoreCase(sen.desc)
+                    || DESC_EXTERNAL_TEMPERATURE_C.equalsIgnoreCase(sen.desc)
+                    || (DESC_EXT_TEMP.equalsIgnoreCase(sen.desc)
+                            && !sen.unit.equalsIgnoreCase(SHELLY_TEMP_FAHRENHEIT))) {
                 idx++; // iterate from temperature1..2..n
             }
             if (sen.id.equalsIgnoreCase(sensorId)) {
                 return idx;
             }
         }
-        logger.debug("{}: sensorId {} not found in sensorMap!", thingName, sensorId);
+        logger.debug(LOG_SENSOR_ID_NOT_FOUND, thingName, sensorId);
         return -1;
     }
 
@@ -377,7 +396,7 @@ public class Shelly1CoIoTProtocol {
             }
         } catch (JsonSyntaxException e) {
             // should never happen
-            logger.trace("Unable to parse sensor definition: {}", json, e);
+            logger.trace(LOG_PARSE_SENSOR_DEFINITION, json, e);
         }
     }
 

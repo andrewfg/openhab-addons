@@ -41,6 +41,61 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly1CoIoTInterface {
+    private static final String DESC_TEMPERATURE = "temperature";
+    private static final String DESC_TEMPERATURE_F = "temperature f";
+    private static final String DESC_TEMPERATURE_C = "temperature c";
+    private static final String DESC_EXTERNAL_TEMPERATURE_F = "external temperature f";
+    private static final String DESC_EXTERNAL_TEMPERATURE_C = "external temperature c";
+    private static final String DESC_EXTERNAL_TEMPERATURE = "external_temperature";
+    private static final String DESC_OVERTEMP = "overtemp";
+    private static final String DESC_ENERGY_COUNTER_0 = "energy counter 0 [w-min]";
+    private static final String DESC_ENERGY_COUNTER_1 = "energy counter 1 [w-min]";
+    private static final String DESC_ENERGY_COUNTER_2 = "energy counter 2 [w-min]";
+    private static final String DESC_ENERGY_COUNTER_TOTAL_WH = "energy counter total [w-h]";
+    private static final String DESC_ENERGY_COUNTER_TOTAL_WMIN = "energy counter total [w-min]";
+    private static final String DESC_VOLTAGE = "voltage";
+    private static final String DESC_CURRENT = "current";
+    private static final String DESC_POSITION = "position";
+    private static final String DESC_INPUT_EVENT = "input event";
+    private static final String DESC_INPUT_EVENT_COUNTER = "input event counter";
+    private static final String DESC_FLOOD = "flood";
+    private static final String DESC_TILT = "tilt";
+    private static final String DESC_COLOR_TEMPERATURE = "colortemperature";
+    private static final String DESC_SENSOR_STATE = "sensor state";
+    private static final String DESC_ALARM_STATE = "alarm state";
+    private static final String DESC_SELF_TEST_STATE = "self-test state";
+    private static final String DESC_CONCENTRATION = "concentration";
+    private static final String DESC_SENSOR_ERROR = "sensorerror";
+    private static final String DESC_POWER = "power";
+    private static final String DESC_VSWITCH = "vswitch";
+    private static final String TYPE_OVER_TEMP = "Overtemp";
+    private static final String TYPE_W = "w";
+    private static final String TYPE_RELAY0 = "relay0";
+    private static final String TYPE_SWITCH = "switch";
+    private static final String TYPE_STATE = "State";
+    private static final String TYPE_MOTION = "motion";
+    private static final String TYPE_BATTERY = "battery";
+    private static final String TYPE_E_CNT_0 = "e cnt 0 [w-min]";
+    private static final String TYPE_E_CNT_1 = "e cnt 1 [w-min]";
+    private static final String TYPE_E_CNT_2 = "e cnt 2 [w-min]";
+    private static final String TYPE_E_CNT_TOTAL = "e cnt total [w-min]";
+    private static final String TYPE_E_CNT = "e cnt";
+    private static final String TYPE_ENERGY_COUNTER = "energy counter";
+    private static final String TYPE_INPUT = "input";
+    private static final String TYPE_OUTPUT = "output";
+    private static final String TYPE_TOSTATE = "tostate";
+    private static final String TEXT_POWER = "Power";
+    private static final String TEXT_TEMPERATURE_C = "Temperature C";
+    private static final String TEXT_TEMPERATURE_F = "Temperature F";
+    private static final String TEXT_MOTION = "Motion";
+    private static final String TEXT_BATTERY = "Battery";
+    private static final String TEXT_TEMPERATURE = "Temperature";
+    private static final String TEXT_INPUT = "Input";
+    private static final String TEXT_OUTPUT = "Output";
+    private static final String TEXT_BRIGHTNESS = "Brightness";
+    private static final String LOG_EXT_SENSOR_ID = "{}: Unable to get extSensorId {} from {}/{}";
+    private static final String LOG_UNKNOWN_TEMPERATURE = "{}: Unknown temperature type: {}";
+
     private final Logger logger = LoggerFactory.getLogger(Shelly1CoIoTVersion1.class);
 
     public Shelly1CoIoTVersion1(String thingName, ShellyThingInterface thingHandler, Map<String, CoIotDescrBlk> blkMap,
@@ -84,7 +139,7 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
             case "t": // Temperature +
                 Double value = getDouble(s.value);
                 switch (sen.desc.toLowerCase(Locale.ROOT)) {
-                    case "temperature": // Sensor Temp
+                    case DESC_TEMPERATURE: // Sensor Temp
                         if (getString(getProfile().settings.temperatureUnits)
                                 .equalsIgnoreCase(SHELLY_TEMP_FAHRENHEIT)) {
                             value = ImperialUnits.FAHRENHEIT.getConverterTo(SIUnits.CELSIUS).convert(getDouble(s.value))
@@ -93,29 +148,28 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_TEMP,
                                 toQuantityType(value, DIGITS_TEMP, SIUnits.CELSIUS));
                         break;
-                    case "temperature f": // Device Temp -> ignore (we use C only)
+                    case DESC_TEMPERATURE_F: // Device Temp -> ignore (we use C only)
                         break;
-                    case "temperature c": // Device Temp in C
+                    case DESC_TEMPERATURE_C: // Device Temp in C
                         // Device temperature
                         updateChannel(updates, CHANNEL_GROUP_DEV_STATUS, CHANNEL_DEVST_ITEMP,
                                 toQuantityType(value, DIGITS_NONE, SIUnits.CELSIUS));
                         break;
-                    case "external temperature f": // Shelly 1/1PM external temp sensors
+                    case DESC_EXTERNAL_TEMPERATURE_F: // Shelly 1/1PM external temp sensors
                         // ignore F, we use C only
                         break;
-                    case "external temperature c": // Shelly 1/1PM external temp sensors
-                    case "external_temperature":
+                    case DESC_EXTERNAL_TEMPERATURE_C: // Shelly 1/1PM external temp sensors
+                    case DESC_EXTERNAL_TEMPERATURE:
                         int idx = getExtTempId(sen.id);
                         if (idx > 0) {
                             updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_TEMP + idx,
                                     toQuantityType(value, DIGITS_TEMP, SIUnits.CELSIUS));
                         } else {
-                            logger.debug("{}: Unable to get extSensorId {} from {}/{}", thingName, sen.id, sen.type,
-                                    sen.desc);
+                            logger.debug(LOG_EXT_SENSOR_ID, thingName, sen.id, sen.type, sen.desc);
                         }
                         break;
                     default:
-                        logger.debug("{}: Unknown temperature type: {}", thingName, sen.desc);
+                        logger.debug(LOG_UNKNOWN_TEMPERATURE, thingName, sen.desc);
                 }
                 break;
             case "p": // Power/Watt
@@ -128,12 +182,12 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                 break;
             case "s" /* CatchAll */:
                 switch (sen.desc.toLowerCase(Locale.ROOT)) {
-                    case "overtemp":
+                    case DESC_OVERTEMP:
                         if (s.value == 1) {
                             thingHandler.postEvent(ALARM_TYPE_OVERTEMP, true);
                         }
                         break;
-                    case "energy counter 0 [w-min]":
+                    case DESC_ENERGY_COUNTER_0:
                         // lastPower1 (W, backward compat) has no dual-write mapping — the W state is
                         // incompatible with the Wh channel — so both channels are written explicitly.
                         updateChannel(updates, rGroup, CHANNEL_METER_LASTMIN1,
@@ -141,34 +195,34 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         updateChannel(updates, rGroup, CHANNEL_METER_ENERGYHISTMIN1,
                                 toQuantityType(s.value / 60.0, DIGITS_KWH, Units.WATT_HOUR));
                         break;
-                    case "energy counter 1 [w-min]":
+                    case DESC_ENERGY_COUNTER_1:
                         updateChannel(updates, rGroup, CHANNEL_METER_ENERGYHISTMIN2,
                                 toQuantityType(s.value / 60.0, DIGITS_KWH, Units.WATT_HOUR));
                         break;
-                    case "energy counter 2 [w-min]":
+                    case DESC_ENERGY_COUNTER_2:
                         // energyAvgLast3Min is not computed here: each counter arrives as an independent
                         // CoIoT event, so the poll path remains the only source for that average
                         updateChannel(updates, rGroup, CHANNEL_METER_ENERGYHISTMIN3,
                                 toQuantityType(s.value / 60.0, DIGITS_KWH, Units.WATT_HOUR));
                         break;
-                    case "energy counter total [w-h]": // 3EM reports W/h
-                    case "energy counter total [w-min]":
+                    case DESC_ENERGY_COUNTER_TOTAL_WH: // 3EM reports W/h
+                    case DESC_ENERGY_COUNTER_TOTAL_WMIN:
                         Double total = profile.isEMeter ? s.value / 1000 : s.value / 60 / 1000;
                         updateChannel(updates, rGroup, CHANNEL_METER_TOTALKWH,
                                 toQuantityType(total, DIGITS_KWH, Units.KILOWATT_HOUR));
                         break;
-                    case "voltage":
+                    case DESC_VOLTAGE:
                         updateChannel(updates, rGroup, CHANNEL_EMETER_VOLTAGE,
                                 toQuantityType(getDouble(s.value), DIGITS_VOLT, Units.VOLT));
                         break;
-                    case "current":
+                    case DESC_CURRENT:
                         updateChannel(updates, rGroup, CHANNEL_EMETER_CURRENT,
                                 toQuantityType(getDouble(s.value), DIGITS_AMPERE, Units.AMPERE));
                         break;
                     case "pf":
                         updateChannel(updates, rGroup, CHANNEL_EMETER_PFACTOR, getDecimal(s.value));
                         break;
-                    case "position":
+                    case DESC_POSITION:
                         // work around: Roller reports 101% instead max 100
                         double pos = Math.max(SHELLY_MIN_ROLLER_POS, Math.min(s.value, SHELLY_MAX_ROLLER_POS));
                         updateChannel(updates, CHANNEL_GROUP_ROL_CONTROL, CHANNEL_ROL_CONTROL_CONTROL,
@@ -176,21 +230,21 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                         updateChannel(updates, CHANNEL_GROUP_ROL_CONTROL, CHANNEL_ROL_CONTROL_POS,
                                 toQuantityType(pos, Units.PERCENT));
                         break;
-                    case "input event": // Shelly Button 1
+                    case DESC_INPUT_EVENT: // Shelly Button 1
                         handleInputEvent(sen, getString(s.valueStr), -1, serial, updates);
                         break;
-                    case "input event counter": // Shelly Button 1/ix3
+                    case DESC_INPUT_EVENT_COUNTER: // Shelly Button 1/ix3
                         handleInputEvent(sen, "", getInteger((int) s.value), serial, updates);
                         break;
-                    case "flood":
+                    case DESC_FLOOD:
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_FLOOD,
                                 OnOffType.from(s.value == 1));
                         break;
-                    case "tilt": // DW with FW1.6.5+ //+
+                    case DESC_TILT: // DW with FW1.6.5+ //+
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_TILT,
                                 toQuantityType(s.value, DIGITS_NONE, Units.DEGREE_ANGLE));
                         break;
-                    case "vibration": // DW with FW1.6.5+
+                    case SHELLY_EVENT_VIBRATION: // DW with FW1.6.5+
                         if (profile.isMotion) {
                             // handle as status
                             updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_VIBRATION,
@@ -201,29 +255,29 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                                     EVENT_TYPE_VIBRATION);
                         }
                         break;
-                    case "temp": // Shelly Bulb
-                    case "colortemperature": // Shelly Duo
+                    case SHELLY_COLOR_TEMP: // Shelly Bulb
+                    case DESC_COLOR_TEMPERATURE: // Shelly Duo
                         updateChannel(updates,
                                 profile.inColor ? CHANNEL_GROUP_COLOR_CONTROL : CHANNEL_GROUP_WHITE_CONTROL,
                                 CHANNEL_COLOR_TEMP,
                                 ShellyColorUtils.toPercent((int) s.value, profile.minTemp, profile.maxTemp));
                         break;
-                    case "sensor state": // Shelly Gas
+                    case DESC_SENSOR_STATE: // Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_SSTATE, getStringType(s.valueStr));
                         break;
-                    case "alarm state": // Shelly Gas
+                    case DESC_ALARM_STATE: // Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ALARM_STATE,
                                 getStringType(s.valueStr));
                         break;
-                    case "self-test state":// Shelly Gas
+                    case DESC_SELF_TEST_STATE:// Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_DEV_STATUS, CHANNEL_DEVST_SELFTTEST,
                                 getStringType(s.valueStr));
                         break;
-                    case "concentration":// Shelly Gas
+                    case DESC_CONCENTRATION:// Shelly Gas
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_PPM,
                                 toQuantityType(getDouble(s.value), DIGITS_NONE, Units.PARTS_PER_MILLION));
                         break;
-                    case "sensorerror":
+                    case DESC_SENSOR_ERROR:
                         updateChannel(updates, CHANNEL_GROUP_SENSOR, CHANNEL_SENSOR_ERROR, getStringType(s.valueStr));
                         break;
                     default:
@@ -271,7 +325,8 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
 
         // RGBW2 reports Power_0, Power_1, Power_2, Power_3; same for VSwitch and Brightness, all of them linkted to L:0
         // we break it up to Power with L:0, Power with L:1...
-        if (desc.contains("_") && (desc.contains("power") || desc.contains("vswitch") || desc.contains("brightness"))) {
+        if (desc.contains("_")
+                && (desc.contains(DESC_POWER) || desc.contains(DESC_VSWITCH) || desc.contains(SHELLY_COLOR_BRIGHTNESS))) {
             String newDesc = substringBefore(sen.desc, "_");
             String newLink = substringAfter(sen.desc, "_");
             sen.desc = newDesc;
@@ -289,54 +344,54 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
         }
 
         switch (sen.type.toLowerCase(Locale.ROOT)) {
-            case "w": // old devices/firmware releases use "W", new ones "P"
+            case TYPE_W: // old devices/firmware releases use "W", new ones "P"
                 sen.type = "P";
-                sen.desc = "Power";
+                sen.desc = TEXT_POWER;
                 break;
             case "tc":
                 sen.type = "T";
-                sen.desc = "Temperature C";
+                sen.desc = TEXT_TEMPERATURE_C;
                 break;
             case "tf":
                 sen.type = "T";
-                sen.desc = "Temperature F";
+                sen.desc = TEXT_TEMPERATURE_F;
                 break;
-            case "overtemp":
+            case DESC_OVERTEMP:
                 sen.type = "S";
-                sen.desc = "Overtemp";
+                sen.desc = TYPE_OVER_TEMP;
                 break;
-            case "relay0":
-            case "switch":
-            case "vswitch":
+            case TYPE_RELAY0:
+            case TYPE_SWITCH:
+            case DESC_VSWITCH:
                 sen.type = "S";
-                sen.desc = "State";
+                sen.desc = TYPE_STATE;
                 break;
         }
 
         switch (sen.desc.toLowerCase(Locale.ROOT)) {
-            case "motion": // fix acc to spec it's T=M
+            case TYPE_MOTION: // fix acc to spec it's T=M
                 sen.type = "M";
-                sen.desc = "Motion";
+                sen.desc = TEXT_MOTION;
                 break;
-            case "battery": // fix: type is B not H
+            case TYPE_BATTERY: // fix: type is B not H
                 sen.type = "B";
-                sen.desc = "Battery";
+                sen.desc = TEXT_BATTERY;
                 break;
-            case "overtemp":
+            case DESC_OVERTEMP:
                 sen.type = "S";
-                sen.desc = "Overtemp";
+                sen.desc = TYPE_OVER_TEMP;
                 break;
-            case "relay0":
-            case "switch":
-            case "vswitch":
+            case TYPE_RELAY0:
+            case TYPE_SWITCH:
+            case DESC_VSWITCH:
                 sen.type = "S";
-                sen.desc = "State";
+                sen.desc = TYPE_STATE;
                 break;
-            case "e cnt 0 [w-min]": // 4 Pro
-            case "e cnt 1 [w-min]":
-            case "e cnt 2 [w-min]":
-            case "e cnt total [w-min]": // 4 Pro
-                sen.desc = sen.desc.toLowerCase(Locale.ROOT).replace("e cnt", "energy counter");
+            case TYPE_E_CNT_0: // 4 Pro
+            case TYPE_E_CNT_1:
+            case TYPE_E_CNT_2:
+            case TYPE_E_CNT_TOTAL: // 4 Pro
+                sen.desc = sen.desc.toLowerCase(Locale.ROOT).replace(TYPE_E_CNT, TYPE_ENERGY_COUNTER);
                 break;
 
         }
@@ -344,33 +399,33 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
         if (sen.desc.isEmpty()) {
             switch (sen.type.toLowerCase(Locale.ROOT)) {
                 case "p":
-                    sen.desc = "Power";
+                    sen.desc = TEXT_POWER;
                     break;
                 case "T":
-                    sen.desc = "Temperature";
+                    sen.desc = TEXT_TEMPERATURE;
                     break;
-                case "input":
+                case TYPE_INPUT:
                     sen.type = "S";
-                    sen.desc = "Input";
+                    sen.desc = TEXT_INPUT;
                     break;
-                case "output":
+                case TYPE_OUTPUT:
                     sen.type = "S";
-                    sen.desc = "Output";
+                    sen.desc = TEXT_OUTPUT;
                     break;
-                case "brightness":
+                case SHELLY_COLOR_BRIGHTNESS:
                     sen.type = "S";
-                    sen.desc = "Brightness";
+                    sen.desc = TEXT_BRIGHTNESS;
                     break;
-                case "red":
-                case "green":
-                case "blue":
-                case "white":
-                case "gain":
-                case "temp": // Bulb: Color temperature
+                case SHELLY_COLOR_RED:
+                case SHELLY_COLOR_GREEN:
+                case SHELLY_COLOR_BLUE:
+                case SHELLY_COLOR_WHITE:
+                case SHELLY_COLOR_GAIN:
+                case SHELLY_COLOR_TEMP: // Bulb: Color temperature
                     sen.desc = sen.type;
                     sen.type = "S";
                     break;
-                case "vswitch":
+                case DESC_VSWITCH:
                     // it seems that Shelly tends to break their own spec: T is the description and D is no longer
                     // included -> map D to sen.T and set CatchAll for T
                     sen.desc = sen.type;
@@ -378,7 +433,7 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                     break;
                 // Default: set no description
                 // (there are no T values defined in the CoIoT spec)
-                case "tostate":
+                case TYPE_TOSTATE:
                 default:
                     sen.desc = "";
             }
