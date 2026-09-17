@@ -401,7 +401,7 @@ public class Shelly1CoIoTVersion1 extends Shelly1CoIoTProtocol implements Shelly
                 case "p":
                     sen.desc = TEXT_POWER;
                     break;
-                case "T":
+                case "t":
                     sen.desc = TEXT_TEMPERATURE;
                     break;
                 case TYPE_INPUT:
