@@ -15,9 +15,9 @@ package org.openhab.binding.shelly.internal.handler;
 import static org.openhab.binding.shelly.internal.ShellyDevices.*;
 import static org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.*;
 import static org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.*;
-import static org.openhab.core.util.LightModel.LedOperatingMode.*;
-import static org.openhab.core.util.LightModel.LightCapabilities.*;
-import static org.openhab.core.util.LightModel.RgbDataType.*;
+import static org.openhab.binding.shelly.internal.handler.LightModel.LedOperatingMode.*;
+import static org.openhab.binding.shelly.internal.handler.LightModel.LightCapabilities.*;
+import static org.openhab.binding.shelly.internal.handler.LightModel.RgbDataType.*;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -39,7 +39,6 @@ import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
-import org.openhab.core.util.LightModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
