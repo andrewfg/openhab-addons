@@ -96,7 +96,8 @@ public class PHCBridgeHandler extends BaseBridgeHandler implements SerialPortEve
         SerialPortIdentifier portId = serialPortManager.getIdentifier(port);
 
         if (portId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Serial port '" + port + "' could not be found.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Serial port '" + port + "' could not be found.");
             return;
         }
 
@@ -152,13 +153,13 @@ public class PHCBridgeHandler extends BaseBridgeHandler implements SerialPortEve
                 }
             });
         } catch (PortInUseException | TooManyListenersException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Could not open serial port " + port + ": " + e.getMessage());
         } catch (UnsupportedCommOperationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Could not configure serial port " + port + ": " + e.getMessage());
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Failed to get input or output stream for serialPort: " + e.getMessage());
             logger.debug("Failed to get inputstream for serialPort", e);
         }
@@ -736,7 +737,7 @@ public class PHCBridgeHandler extends BaseBridgeHandler implements SerialPortEve
                 serialOut.write(msg);
                 serialOut.flush();
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Error writing '" + msg + "' to serial port : " + e.getMessage());
             }
 

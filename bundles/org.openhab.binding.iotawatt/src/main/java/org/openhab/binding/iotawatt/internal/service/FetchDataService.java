@@ -66,8 +66,8 @@ public class FetchDataService {
      * Handles error cases and updates the Thing accordingly.
      */
     public void pollDevice() {
-        Optional.ofNullable(ioTaWattClient).ifPresentOrElse(this::pollDevice,
-                () -> deviceHandlerCallback.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR));
+        Optional.ofNullable(ioTaWattClient).ifPresentOrElse(this::pollDevice, () -> deviceHandlerCallback
+                .updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR));
     }
 
     private void pollDevice(IoTaWattClient client) {
@@ -77,16 +77,17 @@ public class FetchDataService {
                 deviceHandlerCallback.updateStatus(ThingStatus.ONLINE);
                 updateChannels(statusResponse.get());
             } else {
-                deviceHandlerCallback.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         } catch (IoTaWattClientInterruptedException e) {
-            deviceHandlerCallback.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NOT_YET_READY);
         } catch (IoTaWattClientCommunicationException e) {
-            deviceHandlerCallback.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         } catch (IoTaWattClientConfigurationException e) {
-            deviceHandlerCallback.updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, getErrorMessage(e));
+            deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    getErrorMessage(e));
         } catch (IoTaWattClientException e) {
-            deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, getErrorMessage(e));
+            deviceHandlerCallback.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, getErrorMessage(e));
         }
     }
 

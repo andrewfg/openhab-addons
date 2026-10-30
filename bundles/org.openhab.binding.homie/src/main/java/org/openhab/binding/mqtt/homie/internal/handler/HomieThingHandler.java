@@ -119,7 +119,7 @@ public class HomieThingHandler extends AbstractMQTTThingHandler implements Devic
         config = getConfigAs(HandlerConfiguration.class);
         logger.debug("About to initialize Homie device {}", config.deviceid);
         if (config.deviceid.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Object ID unknown");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Object ID unknown");
             return;
         }
         device.initialize(config.basetopic, config.deviceid, thing.getChannels());
@@ -195,25 +195,25 @@ public class HomieThingHandler extends AbstractMQTTThingHandler implements Devic
     public void readyStateChanged(ReadyState state) {
         switch (state) {
             case alert:
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_ERROR);
                 break;
             case disconnected:
                 updateStatus(ThingStatus.OFFLINE);
                 break;
             case init:
-                updateStatus(ThingStatus.UNKNOWN);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_PENDING);
                 break;
             case lost:
-                updateStatus(ThingStatusDetail.GONE, "Device did not send heartbeat in time");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "Device did not send heartbeat in time");
                 break;
             case ready:
                 updateStatus(ThingStatus.ONLINE);
                 break;
             case sleeping:
-                updateStatus(ThingStatusDetail.DUTY_CYCLE);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.DUTY_CYCLE);
                 break;
             case unknown:
-                updateStatus(ThingStatusDetail.GONE, "Device did not publish a ready state");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "Device did not publish a ready state");
                 break;
             default:
                 break;

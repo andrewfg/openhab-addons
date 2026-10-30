@@ -33,6 +33,7 @@ import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -206,7 +207,7 @@ public class OpenSprinklerDeviceHandler extends OpenSprinklerBaseHandler {
     public void handleCommand(ChannelUID channelUID, Command command) {
         OpenSprinklerApi api = getApi();
         if (api == null) {
-            updateStatus(ThingStatus.OFFLINE, "OpenSprinkler bridge returned no API.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "OpenSprinkler bridge returned no API.");
             return;
         }
         OpenSprinklerHttpBridgeHandler localBridge = bridgeHandler;

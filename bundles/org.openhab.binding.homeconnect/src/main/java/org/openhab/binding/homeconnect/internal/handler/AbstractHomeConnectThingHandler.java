@@ -73,7 +73,6 @@ import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
-import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.BaseThingHandler;
@@ -142,16 +141,11 @@ public abstract class AbstractHomeConnectThingHandler extends BaseThingHandler i
     public void initialize() {
         // Mark a new initialization generation; any previously scheduled or running init task becomes stale.
         final long generation = ++initializationGeneration;
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            accessible.set(false);
-            return;
-        }
         if (getBridgeHandler().isEmpty()) {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             accessible.set(false);
         } else if (isBridgeOffline()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             accessible.set(false);
         } else {
             updateStatus(UNKNOWN);
@@ -291,7 +285,7 @@ public abstract class AbstractHomeConnectThingHandler extends BaseThingHandler i
             } catch (ApplianceOfflineException e) {
                 logger.debug("Could not handle command {}. Appliance offline. thing={}, haId={}, error={}",
                         command.toFullString(), getThingLabel(), getThingHaId(), e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 resetChannelsOnOfflineEvent();
                 resetProgramStateChannels(true);
             } catch (CommunicationException e) {
@@ -800,21 +794,21 @@ public abstract class AbstractHomeConnectThingHandler extends BaseThingHandler i
                 logger.debug(
                         "Update status to OFFLINE. Home Connect service is not reachable or a problem occurred!  thing={}, haId={}, error={}.",
                         getThingLabel(), getThingHaId(), e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Home Connect service is not reachable or a problem occurred! (" + e.getMessage() + ").");
                 accessible.set(false);
             } catch (AuthorizationException e) {
                 logger.debug(
                         "Update status to OFFLINE. Home Connect service is not reachable or a problem occurred!  thing={}, haId={}, error={}",
                         getThingLabel(), getThingHaId(), e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Home Connect service is not reachable or a problem occurred! (" + e.getMessage() + ").");
                 accessible.set(false);
                 handleAuthenticationError(e);
             }
         });
         if (apiClient.isEmpty()) {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             accessible.set(false);
         }
     }

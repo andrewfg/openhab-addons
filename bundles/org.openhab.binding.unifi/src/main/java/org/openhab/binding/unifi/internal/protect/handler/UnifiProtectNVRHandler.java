@@ -223,18 +223,18 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
         if (parentHandler == null) {
             Bridge parentBridge = getBridge();
             if (parentBridge != null) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             } else {
                 Object storedHost = getThing().getConfiguration().get("hostname");
                 String hint = storedHost != null ? " (previously configured host: " + storedHost + ")" : "";
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.requires-unifi-controller-bridge" + hint);
             }
             return;
         }
 
         final UnifiProtectNVRConfiguration config = getConfigAs(UnifiProtectNVRConfiguration.class);
-        updateStatus(ThingStatus.UNKNOWN);
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.CONFIGURATION_PENDING, "@text/offline.initializing");
 
         initializationTask = parentHandler.getSessionAsync().whenCompleteAsync((session, sessionError) -> {
             if (shuttingDown) {
@@ -242,7 +242,7 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
             }
             if (sessionError != null) {
                 logger.debug("Parent bridge session not available", sessionError);
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, sessionError.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, sessionError.getMessage());
                 return;
             }
             initializeWithSession(config, parentHandler, session);
@@ -275,7 +275,7 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
 
             if (apiToken == null || apiToken.isBlank()) {
                 if (!autoManageToken) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                             "API token required when auto-manage is disabled");
                     return;
                 }
@@ -283,7 +283,8 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
                 try {
                     UniFiApiKeyManager keyManager = parentHandler.getApiKeyManager();
                     if (keyManager == null) {
-                        updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "Parent bridge API key manager not available");
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                                "Parent bridge API key manager not available");
                         return;
                     }
 
@@ -299,7 +300,8 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
                     tokenAutoManaged = true;
                 } catch (Exception e) {
                     logger.debug("Failed to auto-create API key", e);
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-api-key-creation");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "@text/offline.conf-error-api-key-creation");
                     return;
                 }
             }
@@ -491,7 +493,8 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
             cancelChildRefreshRetry(deviceId);
         } catch (InterruptedException | ExecutionException e) {
             logger.debug("Failed to refresh child {} from API", deviceId, e);
-            handler.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-refresh-failed");
+            handler.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error-refresh-failed");
             scheduleChildRefreshRetry(deviceId);
         }
     }
@@ -659,13 +662,13 @@ public class UnifiProtectNVRHandler extends BaseBridgeHandler {
             throttledReconnectAttempt++;
             logger.debug("Scheduling reconnect in {} seconds (throttled, attempt {})", delay,
                     throttledReconnectAttempt);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.login-throttled");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.login-throttled");
         } else {
             delay = Math.min((int) Math.pow(2, reconnectAttempt) * 5, MAX_RECONNECT_DELAY_SECONDS);
             reconnectAttempt++;
             logger.debug("Scheduling reconnect in {} seconds (attempt {})", delay, reconnectAttempt);
             if (message != null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
             } else {
                 updateStatus(ThingStatus.OFFLINE);
             }

@@ -121,7 +121,7 @@ public final class ControllerHandler extends BaseBridgeHandler {
                 logger.trace("Temperature scale '{}' set to {}", scale, unit);
             } catch (final IOException ioe) {
                 logger.warn("Could not determine temperature scale", ioe);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, ioe.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, ioe.getMessage());
             }
         }
     }
@@ -148,7 +148,7 @@ public final class ControllerHandler extends BaseBridgeHandler {
         try {
             checkConnection();
         } catch (final IOException ioe) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, ioe.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, ioe.getMessage());
             return;
         }
         for (Thing t : getThing().getThings()) {
@@ -160,7 +160,7 @@ public final class ControllerHandler extends BaseBridgeHandler {
         if (isConnected()) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 

@@ -82,11 +82,7 @@ public class PrgBridgeHandler extends BaseBridgeHandler {
 
             @Override
             public void statusChanged(ThingStatus status, ThingStatusDetail detail, String msg) {
-                if (detail == ThingStatusDetail.NONE) {
-                    updateStatus(status, msg);
-                } else {
-                    updateStatus(detail, msg);
-                }
+                updateStatus(status, detail, msg);
 
                 if (status != ThingStatus.ONLINE) {
                     disconnect(true);
@@ -239,7 +235,7 @@ public class PrgBridgeHandler extends BaseBridgeHandler {
         }
 
         if (config.getIpAddress() == null || config.getIpAddress().trim().length() == 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "IP Address/Host Name of GRX-PRG/GRX-CI-PRG is missing from configuration");
             return;
         }
@@ -277,7 +273,7 @@ public class PrgBridgeHandler extends BaseBridgeHandler {
             logger.error("Exception during connection attempt", e);
         }
 
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, response);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, response);
         retryConnect();
     }
 
@@ -330,7 +326,7 @@ public class PrgBridgeHandler extends BaseBridgeHandler {
         final PrgBridgeConfig config = getConfigAs(PrgBridgeConfig.class);
 
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
         }
 
         return config;

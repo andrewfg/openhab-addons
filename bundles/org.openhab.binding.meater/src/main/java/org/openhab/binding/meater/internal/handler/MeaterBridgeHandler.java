@@ -81,7 +81,8 @@ public class MeaterBridgeHandler extends BaseBridgeHandler {
         refreshTimeInSeconds = config.refresh;
 
         if (config.email.isBlank() || config.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/config.missing-username-password.description");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/config.missing-username-password.description");
         } else {
             updateStatus(ThingStatus.UNKNOWN);
             scheduler.execute(() -> {
@@ -121,7 +122,7 @@ public class MeaterBridgeHandler extends BaseBridgeHandler {
                 }
             });
         } catch (MeaterException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

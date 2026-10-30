@@ -16,6 +16,7 @@ import static java.util.concurrent.TimeUnit.*;
 import static org.openhab.binding.pihole.internal.PiHoleBindingConstants.Channels.*;
 import static org.openhab.binding.pihole.internal.PiHoleBindingConstants.Channels.DisableEnable.ENABLE;
 import static org.openhab.core.library.unit.Units.PERCENT;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 import static org.openhab.core.thing.ThingStatus.UNKNOWN;
 import static org.openhab.core.thing.ThingStatusDetail.*;
@@ -90,7 +91,7 @@ public class PiHoleHandler extends BaseThingHandler {
         var config = getConfigAs(PiHoleConfiguration.class);
 
         if (config.refreshIntervalSeconds <= 0) {
-            updateStatus(CONFIGURATION_ERROR, "@text/handler.init.wrongInterval");
+            updateStatus(OFFLINE, CONFIGURATION_ERROR, "@text/handler.init.wrongInterval");
             return;
         }
 
@@ -98,11 +99,12 @@ public class PiHoleHandler extends BaseThingHandler {
         try {
             hostname = new URI(config.hostname);
         } catch (URISyntaxException e) {
-            updateStatus(CONFIGURATION_ERROR, "@text/handler.init.invalidHostname[\"" + config.hostname + "\"]");
+            updateStatus(OFFLINE, CONFIGURATION_ERROR,
+                    "@text/handler.init.invalidHostname[\"" + config.hostname + "\"]");
             return;
         }
         if (config.token.isEmpty()) {
-            updateStatus(CONFIGURATION_ERROR, "@text/handler.init.noToken");
+            updateStatus(OFFLINE, CONFIGURATION_ERROR, "@text/handler.init.noToken");
             return;
         }
 
@@ -131,7 +133,7 @@ public class PiHoleHandler extends BaseThingHandler {
                 updateStatus(ONLINE);
             } catch (Exception e) {
                 logger.debug("Error occurred when refreshing DnsStatistics from Pi-hole", e);
-                updateStatus(COMMUNICATION_ERROR, e.getLocalizedMessage());
+                updateStatus(OFFLINE, COMMUNICATION_ERROR, e.getLocalizedMessage());
             }
         }
     }
@@ -156,7 +158,7 @@ public class PiHoleHandler extends BaseThingHandler {
                     }
                 } catch (PiHoleException ex) {
                     logger.debug("Cannot invoke {} on channel {}", value, channelUID, ex);
-                    updateStatus(COMMUNICATION_ERROR, ex.getLocalizedMessage());
+                    updateStatus(OFFLINE, COMMUNICATION_ERROR, ex.getLocalizedMessage());
                 }
             }
         }

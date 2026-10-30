@@ -80,7 +80,7 @@ public class MikrotikInterfaceThingHandler extends MikrotikBaseThingHandler<Inte
     }
 
     @Override
-    protected void statusUpdated(ThingStatus status, ThingStatusDetail statusDetail) {
+    protected void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
         RouterosDevice routeros = getRouterOs();
         InterfaceThingConfig cfg = this.config;
         if (routeros != null && cfg != null) {
@@ -91,7 +91,7 @@ public class MikrotikInterfaceThingHandler extends MikrotikBaseThingHandler<Inte
                 routeros.unregisterForMonitoring(cfg.name);
             }
         }
-        super.statusUpdated(status, statusDetail);
+        super.updateStatus(status, statusDetail, description);
     }
 
     @Override
@@ -104,7 +104,7 @@ public class MikrotikInterfaceThingHandler extends MikrotikBaseThingHandler<Inte
             if (rosInterface == null) {
                 String statusMsg = String.format("RouterOS interface %s is not found for thing %s", cfg.name,
                         getThing().getUID());
-                updateStatus(GONE, statusMsg);
+                updateStatus(OFFLINE, GONE, statusMsg);
             } else {
                 txByteRate.update(rosInterface.getTxBytes());
                 rxByteRate.update(rosInterface.getRxBytes());

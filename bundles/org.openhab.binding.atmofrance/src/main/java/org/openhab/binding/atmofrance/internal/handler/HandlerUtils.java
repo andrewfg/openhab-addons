@@ -59,9 +59,9 @@ public interface HandlerUtils {
                     return clazz.cast(bridgeHandler);
                 }
             }
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "");
         }
         return null;
     }
@@ -92,9 +92,7 @@ public interface HandlerUtils {
         getJobs().clear();
     }
 
-    void updateStatus(ThingStatusDetail statusDetail);
-
-    void updateStatus(ThingStatusDetail statusDetail, @Nullable String description);
+    void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description);
 
     @Nullable
     Bridge getBridge();

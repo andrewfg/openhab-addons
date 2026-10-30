@@ -76,12 +76,13 @@ public class PirateWeatherAPIHandler extends BaseBridgeHandler {
         PirateWeatherAPIConfiguration config = this.config = getConfigAs(PirateWeatherAPIConfiguration.class);
 
         if (config.apikey.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-apikey");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-apikey");
             return;
         }
         int refreshInterval = config.refreshInterval;
         if (refreshInterval < 1) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-refreshInterval");
             return;
         }
@@ -173,10 +174,10 @@ public class PirateWeatherAPIHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
             return data;
         } catch (PirateWeatherConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             throw e;
         } catch (PirateWeatherCommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             throw e;
         }
     }

@@ -209,17 +209,19 @@ public class FroniusWattpilotHandler extends BaseThingHandler implements Wattpil
 
         FroniusWattpilotConfiguration config = this.config;
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
             return;
         }
 
         if (config.hostname.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.no-host");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.no-host");
             return;
         }
 
         if (config.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.no-password");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.no-password");
             return;
         }
 
@@ -228,7 +230,7 @@ public class FroniusWattpilotHandler extends BaseThingHandler implements Wattpil
             logger.debug("Connecting to Wattpilot at {} ...", config.hostname);
             client.connect(config.hostname, config.password);
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -276,7 +278,7 @@ public class FroniusWattpilotHandler extends BaseThingHandler implements Wattpil
             return;
         }
         logger.debug("Disconnected from Wattpilot: {}", reason, cause);
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, reason);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, reason);
         synchronized (this) {
             var reconnectJob = this.reconnectJob;
             if (cause != null && reconnectJob == null && !isDisposed) {

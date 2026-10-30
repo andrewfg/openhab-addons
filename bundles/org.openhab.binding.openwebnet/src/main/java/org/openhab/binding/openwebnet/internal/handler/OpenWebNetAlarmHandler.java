@@ -24,6 +24,7 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.types.Command;
@@ -108,7 +109,7 @@ public class OpenWebNetAlarmHandler extends OpenWebNetThingHandler {
             }
         } catch (OWNException e) {
             logger.debug("Exception while requesting state for channel {}: {} ", channel, e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

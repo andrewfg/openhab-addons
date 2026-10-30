@@ -412,17 +412,20 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
             return value;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
 
             throw new FreeAtHomeHttpCommunicationException(0,
                     "Http communication interrupted [ " + e.getMessage() + " ]");
         } catch (ExecutionException | TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
 
             throw new FreeAtHomeHttpCommunicationException(0,
                     "Http communication timout or execution interrupted [ " + e.getMessage() + " ]");
         } catch (JsonParseException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
 
             throw new FreeAtHomeHttpCommunicationException(0,
                     "Invalid JSON file is received by getDatapoint with the URL [ " + e.getMessage() + " ]");
@@ -456,12 +459,14 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
 
             throw new FreeAtHomeHttpCommunicationException(0,
                     "Http communication interrupted [ " + e.getMessage() + " ]");
         } catch (ExecutionException | TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
 
             throw new FreeAtHomeHttpCommunicationException(0,
                     "Http communication interrupted [ " + e.getMessage() + " ]");
@@ -742,19 +747,22 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
 
         ipAddress = locConfig.ipAddress;
         if (ipAddress.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.ip-address-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.ip-address-missing");
             return;
         }
 
         password = locConfig.password;
         if (password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.password-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.password-missing");
             return;
         }
 
         username = locConfig.username;
         if (username.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.username-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.username-missing");
             return;
         }
 
@@ -768,14 +776,15 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
 
             // Open Http connection
             if (!openHttpConnection()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.http-wrongpass-or-ip");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/comm-error.http-wrongpass-or-ip");
 
                 thingReachable = false;
             }
 
             // Open the websocket connection for immediate status updates
             if (!openWebSocketConnection()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/comm-error.not-able-open-websocketconnection");
 
                 thingReachable = false;
@@ -911,7 +920,8 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
             logger.debug("Server connecting to websocket");
 
             if (!connectWebsocketSession()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.general-websocket-issue");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/comm-error.general-websocket-issue");
 
                 reconnectDelay.set(BRIDGE_WEBSOCKET_RECONNECT_DELAY);
 
@@ -925,7 +935,8 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
                     boolean established = websocketSessionEstablished.await(BRIDGE_WEBSOCKET_TIMEOUT, TimeUnit.SECONDS);
                     if (!established || websocketSession == null) {
                         logger.trace("WebSocket connection timed out or failed during establishment");
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.general-websocket-issue");
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                                "@text/comm-error.general-websocket-issue");
                         reconnectDelay.set(BRIDGE_WEBSOCKET_RECONNECT_DELAY);
                         return false;
                     }
@@ -1023,7 +1034,8 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
                 updateStatus(ThingStatus.ONLINE); // Set the status to ONLINE
             } else {
                 logger.warn("Failed to fetch SysAP version after successful reconnect");
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/comm-error.fetch-version-error");
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/comm-error.fetch-version-error");
             }
 
             lastReceivedTime = System.currentTimeMillis();
@@ -1067,7 +1079,7 @@ public class FreeAtHomeBridgeHandler extends BaseBridgeHandler implements WebSoc
         websocketSession = null;
 
         // Update the thing status to OFFLINE with error details
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                 "WebSocket connection failed: " + (cause != null ? cause.getMessage() : "unknown error"));
     }
 

@@ -240,7 +240,8 @@ public class HeatpumpHandler extends BaseThingHandler {
                 String cls = error.getClass().getName();
                 String msg = error.getMessage();
 
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, String.format("Error with: %s: %s", cls, msg));
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        String.format("Error with: %s: %s", cls, msg));
             }
         }
     }
@@ -274,7 +275,7 @@ public class HeatpumpHandler extends BaseThingHandler {
 
         ModbusEndpointThingHandler slaveEndpointThingHandler = getEndpointThingHandler();
         if (slaveEndpointThingHandler == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
@@ -287,7 +288,7 @@ public class HeatpumpHandler extends BaseThingHandler {
         }
 
         if (comms == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             logger.debug("CommunicationInterface of Heat Pump is null, Thing & Bridge are offline");
             return;
         }
@@ -482,7 +483,8 @@ public class HeatpumpHandler extends BaseThingHandler {
         }
         String msg = failure.getCause().getMessage();
         String cls = failure.getCause().getClass().getName();
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, String.format("Error with read: %s: %s", cls, msg));
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                String.format("Error with read: %s: %s", cls, msg));
     }
 
     /**
@@ -495,7 +497,8 @@ public class HeatpumpHandler extends BaseThingHandler {
         }
         String msg = failure.getCause().getMessage();
         String cls = failure.getCause().getClass().getName();
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, String.format("Error with write: %s: %s", cls, msg));
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                String.format("Error with write: %s: %s", cls, msg));
     }
 
     /**

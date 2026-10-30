@@ -56,8 +56,6 @@ import org.openhab.core.types.UnDefType;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.service.component.annotations.Reference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The {@link MetOfficeDataHubSiteHandler} is responsible for handling commands, which are
@@ -67,8 +65,6 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class MetOfficeDataHubSiteHandler extends BaseThingHandler implements ISiteResponseListener {
-
-    private final Logger logger = LoggerFactory.getLogger(MetOfficeDataHubSiteHandler.class);
 
     private final Object checkDataRequiredSchedulerLock = new Object();
     private final Object checkDailySchedulerLock = new Object();
@@ -144,7 +140,8 @@ public class MetOfficeDataHubSiteHandler extends BaseThingHandler implements ISi
             @Nullable
             PointType userLocation = locationProvider.getLocation();
             if (userLocation == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, getLocalizedText("site.error.no-user-location"));
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        getLocalizedText("site.error.no-user-location"));
                 return;
             } else {
                 location = userLocation;
@@ -153,7 +150,8 @@ public class MetOfficeDataHubSiteHandler extends BaseThingHandler implements ISi
             try {
                 location = new PointType(config.location);
             } catch (Exception e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, getLocalizedText("site.error.invalid-location"));
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        getLocalizedText("site.error.invalid-location"));
                 return;
             }
         }
@@ -212,9 +210,7 @@ public class MetOfficeDataHubSiteHandler extends BaseThingHandler implements ISi
         initTask = scheduler.schedule(() -> {
             MetOfficeDataHubBridgeHandler metBridge = getMetOfficeDataHubBridge();
             if (metBridge != null) {
-                ThingStatus bridgeStatus = metBridge.getThing().getStatus();
-                updateStatus((bridgeStatus == ThingStatus.ONLINE || bridgeStatus == ThingStatus.OFFLINE) ? bridgeStatus
-                        : ThingStatus.UNKNOWN);
+                updateStatus(metBridge.getThing().getStatus());
             }
 
             checkDataRequired();
@@ -247,13 +243,10 @@ public class MetOfficeDataHubSiteHandler extends BaseThingHandler implements ISi
     }
 
     private void sendForecastRequest(final boolean daily) {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
         MetOfficeDataHubBridgeHandler uplinkBridge = getMetOfficeDataHubBridge();
         if (uplinkBridge == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, getLocalizedText("site.error.no-bridge"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    getLocalizedText("site.error.no-bridge"));
             return;
         }
         final String pollId = (daily) ? dailyPollKey : hourlyPollKey;

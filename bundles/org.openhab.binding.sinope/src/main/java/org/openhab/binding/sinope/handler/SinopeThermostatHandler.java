@@ -103,7 +103,7 @@ public class SinopeThermostatHandler extends BaseThingHandler {
                 }
             } else {
                 logger.debug("Could not connect to bridge to update Setpoint Temp");
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Cannot connect to bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Cannot connect to bridge");
             }
         } finally {
             getSinopeGatewayHandler().schedulePoll();
@@ -129,7 +129,7 @@ public class SinopeThermostatHandler extends BaseThingHandler {
                 }
             } else {
                 logger.debug("Could not connect to bridge to update Setpoint Temp");
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Cannot connect to bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Cannot connect to bridge");
             }
         } finally {
             getSinopeGatewayHandler().schedulePoll();
@@ -193,7 +193,7 @@ public class SinopeThermostatHandler extends BaseThingHandler {
             }
         } else {
             logger.error("Device id is null for Thing UID: {}", getThing().getUID());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
         }
     }
 
@@ -252,13 +252,13 @@ public class SinopeThermostatHandler extends BaseThingHandler {
         this.deviceId = SinopeConfig.convert(sDeviceId);
         if (this.deviceId.length == 0) {
             logger.debug("Invalid Device id, cannot convert id: {}", sDeviceId);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Invalid Device id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Invalid Device id");
             return;
         }
 
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
         SinopeGatewayHandler handler = getSinopeGatewayHandler();

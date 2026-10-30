@@ -127,7 +127,8 @@ public class DeviceHandler extends ViessmannThingHandler {
         ThingsConfig config = getConfigAs(ThingsConfig.class);
         this.config = config;
         if (config.deviceId.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.device-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.device-id");
             return;
         }
         updateProperty(PROPERTY_ID, config.deviceId); // set representation property used by discovery
@@ -264,7 +265,8 @@ public class DeviceHandler extends ViessmannThingHandler {
     public void initChannelState() {
         BridgeInterface bridgeInterface = getBridgeInterface();
         if (bridgeInterface == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.bridge-type");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.bridge-type");
             return;
         }
         bridgeInterface.setConfigInstallationGatewayIdToDevice(this);
@@ -513,7 +515,8 @@ public class DeviceHandler extends ViessmannThingHandler {
     private void sendChannelCommand(String uri, String param, int delaySeconds, boolean reloadFeatures) {
         BridgeInterface bridge = getBridgeInterface();
         if (bridge == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.bridge-type");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.bridge-type");
             return;
         }
 
@@ -522,7 +525,7 @@ public class DeviceHandler extends ViessmannThingHandler {
                 scheduler.schedule(this::initChannelState, delaySeconds, TimeUnit.SECONDS);
             }
         } catch (ViessmannCommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

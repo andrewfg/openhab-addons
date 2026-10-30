@@ -362,11 +362,7 @@ public class AsuswrtRouter extends BaseBridgeHandler {
      */
     public void setState(ThingStatus thingStatus, ThingStatusDetail statusDetail, String text) {
         if (!thingStatus.equals(getThing().getStatus())) {
-            if (statusDetail == ThingStatusDetail.NONE) {
-                updateStatus(thingStatus, text);
-            } else {
-                updateStatus(statusDetail, text);
-            }
+            updateStatus(thingStatus, statusDetail, text);
             updateChildStates(thingStatus);
             if (ThingStatus.OFFLINE.equals(thingStatus)) {
                 stopScheduler(pollingJob);

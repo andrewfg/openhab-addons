@@ -91,7 +91,8 @@ public class FoobotDeviceHandler extends BaseThingHandler {
         uuid = (String) getConfig().get(FoobotBindingConstants.CONFIG_UUID);
 
         if (uuid.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Parameter 'uuid' is mandatory and must be configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Parameter 'uuid' is mandatory and must be configured");
             return;
         }
         final FoobotAccountHandler bridgeHandler = getBridgeHandler();
@@ -127,15 +128,15 @@ public class FoobotDeviceHandler extends BaseThingHandler {
         try {
             sensorData = connector.getSensorData(uuid);
             if (sensorData == null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No sensor data received");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "No sensor data received");
                 return sensorData;
             }
         } catch (FoobotApiException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return null;
         } catch (RuntimeException e) {
             logger.debug("Error requesting sensor data: ", e);
-            updateStatus(ThingStatus.OFFLINE, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, e.getMessage());
             return null;
         }
         if (getThing().getStatus() != ThingStatus.ONLINE) {
@@ -208,11 +209,8 @@ public class FoobotDeviceHandler extends BaseThingHandler {
     }
 
     private @Nullable FoobotAccountHandler getBridgeHandler() {
-        var bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return null;
-        }
-        return bridge.getHandler() instanceof FoobotAccountHandler handler ? handler : null;
+        return getBridge() != null && getBridge().getHandler() instanceof FoobotAccountHandler
+                ? (FoobotAccountHandler) getBridge().getHandler()
+                : null;
     }
 }

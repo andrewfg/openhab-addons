@@ -190,19 +190,21 @@ public class SnmpTargetHandler extends BaseThingHandler implements ResponseListe
             } else if (config.protocol.toInteger() == SnmpConstants.version3) {
                 String userName = config.user;
                 if (userName == null) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "user not set");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "user not set");
                     return;
                 }
                 String authPassphrase = config.authPassphrase;
                 if (config.securityModel != SnmpSecurityModel.NO_AUTH_NO_PRIV
                         && (authPassphrase == null || authPassphrase.isBlank())) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Authentication passphrase not configured");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "Authentication passphrase not configured");
                     return;
                 }
                 String privPassphrase = config.privPassphrase;
                 if (config.securityModel == SnmpSecurityModel.AUTH_PRIV
                         && (privPassphrase == null || privPassphrase.isBlank())) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Privacy passphrase not configured");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "Privacy passphrase not configured");
                     return;
                 }
                 usmUser = new UsmUser(new OctetString(userName),
@@ -220,7 +222,7 @@ public class SnmpTargetHandler extends BaseThingHandler implements ResponseListe
                 target.setSecurityLevel(config.securityModel.getSecurityLevel());
                 this.target = target;
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "SNMP version not supported");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "SNMP version not supported");
                 return;
             }
 
@@ -235,7 +237,7 @@ public class SnmpTargetHandler extends BaseThingHandler implements ResponseListe
         } catch (IllegalArgumentException e) {
             // some methods of SNMP4J throw an unchecked IllegalArgumentException if they receive invalid values
             String message = "Exception during initialization: " + e.getMessage();
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, message);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, message);
             return;
         }
 
@@ -282,7 +284,7 @@ public class SnmpTargetHandler extends BaseThingHandler implements ResponseListe
             if (e == null) { // no response, no error -> request timed out
                 timeoutCounter++;
                 if (timeoutCounter > config.retries) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "request timed out");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "request timed out");
                     target.setAddress(null);
                 }
                 return;
@@ -568,14 +570,15 @@ public class SnmpTargetHandler extends BaseThingHandler implements ResponseListe
                     userTarget.setAuthoritativeEngineID(engineIdBytes);
                 } else {
                     target.setAddress(null);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Cannot determine engineId");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Cannot determine engineId");
                     return false;
                 }
             }
             return true;
         } catch (UnknownHostException e) {
             target.setAddress(null);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Cannot resolve target host");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Cannot resolve target host");
             return false;
         }
     }

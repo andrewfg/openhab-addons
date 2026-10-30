@@ -94,7 +94,8 @@ public class WemoHolmesHandler extends WemoBaseThingHandler {
                     TimeUnit.SECONDS);
             updateStatus(ThingStatus.UNKNOWN);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/config-status.error.missing-udn");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/config-status.error.missing-udn");
         }
     }
 
@@ -114,7 +115,7 @@ public class WemoHolmesHandler extends WemoBaseThingHandler {
             // Check if the Wemo device is set in the UPnP service registry
             if (!isUpnpDeviceRegistered()) {
                 logger.debug("UPnP device {} not yet registered", getUDN());
-                updateStatus(ThingStatus.OFFLINE,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE,
                         "@text/config-status.pending.device-not-registered [\"" + getUDN() + "\"]");
                 return;
             }
@@ -239,10 +240,11 @@ public class WemoHolmesHandler extends WemoBaseThingHandler {
             probeAndExecuteCall(DEVICEACTION, soapHeader, content);
             updateStatus(ThingStatus.ONLINE);
         } catch (MissingHostException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/config-status.error.missing-ip");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/config-status.error.missing-ip");
         } catch (WemoException e) {
             logger.warn("Failed to send command '{}' for thing '{}':", command, getThing().getUID(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -471,10 +473,11 @@ public class WemoHolmesHandler extends WemoBaseThingHandler {
             }
             updateStatus(ThingStatus.ONLINE);
         } catch (MissingHostException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/config-status.error.missing-ip");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/config-status.error.missing-ip");
         } catch (RuntimeException | ParserConfigurationException | SAXException | IOException | WemoException e) {
             logger.debug("Failed to get actual state for thing '{}':", getThing().getUID(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 }

@@ -72,7 +72,8 @@ public class JeeLinkHandler extends BaseBridgeHandler implements BridgeHandler, 
         if (cfg.serialPort != null && cfg.baudRate != null) {
             SerialPortIdentifier serialPortIdentifier = serialPortManager.getIdentifier(cfg.serialPort);
             if (serialPortIdentifier == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Port not found: " + cfg.serialPort);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Port not found: " + cfg.serialPort);
                 return;
             }
             connection = new JeeLinkSerialConnection(serialPortIdentifier, cfg.baudRate, this);
@@ -81,7 +82,8 @@ public class JeeLinkHandler extends BaseBridgeHandler implements BridgeHandler, 
             connection = new JeeLinkTcpConnection(cfg.ipAddress + ":" + cfg.port, scheduler, this);
             connection.openConnection();
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Connection configuration incomplete");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Connection configuration incomplete");
         }
     }
 
@@ -143,7 +145,7 @@ public class JeeLinkHandler extends BaseBridgeHandler implements BridgeHandler, 
 
     @Override
     public void connectionAborted(String cause) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, cause);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, cause);
 
         if (monitorJob != null) {
             monitorJob.cancel(true);

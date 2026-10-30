@@ -91,7 +91,8 @@ public class SmgwHandler extends BaseThingHandler {
             uri = new URI("https://" + config.hostname + "/cgi-bin/hanservice.cgi");
         } catch (URISyntaxException e) {
             uri = URI_NOT_SET;
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Could not create URI from given hostname");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Could not create URI from given hostname");
             return;
         }
 
@@ -176,13 +177,13 @@ public class SmgwHandler extends BaseThingHandler {
 
     private @Nullable Object onShowMeterValue(@Nullable SmgwResponse response, @Nullable Throwable t) {
         if (t != null || response == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         } else {
             Element valueElement = response.document().selectFirst("#table_metervalues_col_wert");
             Element unitElement = response.document().selectFirst("#table_metervalues_col_einheit");
             Element dateTimeElement = response.document().selectFirst("#table_metervalues_col_timestamp");
             if (valueElement == null || unitElement == null || dateTimeElement == null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             } else {
                 QuantityType<Energy> value = new QuantityType<>(valueElement.text() + " " + unitElement.text());
                 DateTimeType dateTime = DateTimeType.valueOf(dateTimeElement.text().replace(" ", "T"));

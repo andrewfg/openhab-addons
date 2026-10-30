@@ -152,7 +152,7 @@ public abstract class AbstractSunSpecHandler extends BaseThingHandler {
             updateStatus(ThingStatus.UNKNOWN);
             registerPollTask(mainBlock);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "SunSpec item should either have the address and length configuration set or should been created by auto discovery");
             return;
         }
@@ -276,7 +276,8 @@ public abstract class AbstractSunSpecHandler extends BaseThingHandler {
         if (slaveEndpointThingHandler == null) {
             @SuppressWarnings("null")
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, String.format("Bridge '%s' is offline", label));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                    String.format("Bridge '%s' is offline", label));
             logger.debug("No bridge handler available -- aborting init for {}", label);
             return;
         }
@@ -291,7 +292,7 @@ public abstract class AbstractSunSpecHandler extends BaseThingHandler {
         if (comms == null) {
             @SuppressWarnings("null")
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     String.format("Bridge '%s' not completely initialized", label));
             logger.debug("Bridge not initialized fully (no endpoint) -- aborting init for {}", this);
             return;
@@ -312,7 +313,7 @@ public abstract class AbstractSunSpecHandler extends BaseThingHandler {
      */
     private synchronized void registerPollTask(ModelBlock mainBlock) {
         if (pollTask != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
             throw new IllegalStateException("pollTask should be unregistered before registering a new one!");
         }
         @Nullable
@@ -385,7 +386,8 @@ public abstract class AbstractSunSpecHandler extends BaseThingHandler {
         }
         String msg = failure.getCause().getMessage();
         String cls = failure.getCause().getClass().getName();
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, String.format("Error with read: %s: %s", cls, msg));
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                String.format("Error with read: %s: %s", cls, msg));
     }
 
     /**

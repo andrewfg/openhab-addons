@@ -161,7 +161,7 @@ public abstract class AbstractMieleThingHandler extends BaseThingHandler {
      * Invoked when the device managed by this handler was removed from the Miele cloud.
      */
     public final void onDeviceRemoved() {
-        updateStatus(ThingStatusDetail.GONE, I18NKeys.THING_STATUS_DESCRIPTION_REMOVED);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, I18NKeys.THING_STATUS_DESCRIPTION_REMOVED);
     }
 
     /**
@@ -202,7 +202,8 @@ public abstract class AbstractMieleThingHandler extends BaseThingHandler {
             try {
                 action.run();
             } catch (TooManyRequestsException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, I18NKeys.THING_STATUS_DESCRIPTION_RATELIMIT);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        I18NKeys.THING_STATUS_DESCRIPTION_RATELIMIT);
                 onError.accept(e);
             } catch (Exception e) {
                 onError.accept(e);
@@ -229,7 +230,8 @@ public abstract class AbstractMieleThingHandler extends BaseThingHandler {
      */
     private void updateThingStatus(DeviceState deviceState) {
         if (deviceState.isInState(StateType.NOT_CONNECTED)) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, I18NKeys.THING_STATUS_DESCRIPTION_DISCONNECTED);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    I18NKeys.THING_STATUS_DESCRIPTION_DISCONNECTED);
         } else {
             updateStatus(ThingStatus.ONLINE);
         }

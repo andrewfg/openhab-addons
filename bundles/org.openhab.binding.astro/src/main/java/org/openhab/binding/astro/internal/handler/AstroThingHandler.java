@@ -207,7 +207,7 @@ public abstract class AstroThingHandler extends BaseThingHandler {
             updateStatus(ONLINE);
             restartJobs();
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+            updateStatus(OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
         }
         logger.debug("Thing {} initialized {}", getThing().getUID(), getThing().getStatus());
     }

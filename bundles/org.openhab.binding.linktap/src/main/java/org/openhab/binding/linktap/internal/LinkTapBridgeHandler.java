@@ -425,7 +425,8 @@ public class LinkTapBridgeHandler extends BaseBridgeHandler {
         if (!registerBridge(this)) {
             requestMdnsScan();
             scheduleReconnect();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, getLocalizedText("bridge.error.host-not-found"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    getLocalizedText("bridge.error.host-not-found"));
             return;
         }
 
@@ -443,7 +444,7 @@ public class LinkTapBridgeHandler extends BaseBridgeHandler {
                 updateProperties(currentProps);
             } else {
                 if (!api.unlockWebInterface(bridgeKey, getResponseTimeout(), config.username, config.password)) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             getLocalizedText("bridge.error.check-credentials"));
                     return;
                 }
@@ -521,13 +522,16 @@ public class LinkTapBridgeHandler extends BaseBridgeHandler {
         } catch (InterruptedException ignored) {
         } catch (LinkTapException | NotTapLinkGatewayException e) {
             deregisterBridge(this);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, getLocalizedText("bridge.error.target-is-not-gateway"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    getLocalizedText("bridge.error.target-is-not-gateway"));
         } catch (TransientCommunicationIssueException e) {
             scheduleReconnect();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, getLocalizedText("bridge.error.cannot-connect"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    getLocalizedText("bridge.error.cannot-connect"));
         } catch (UnknownHostException e) {
             scheduleReconnect();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, getLocalizedText("bridge.error.unknown-host"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    getLocalizedText("bridge.error.unknown-host"));
         }
     }
 
@@ -626,7 +630,7 @@ public class LinkTapBridgeHandler extends BaseBridgeHandler {
                 }
             }
         } catch (final GatewayIdException gide) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, gide.getI18Key());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, gide.getI18Key());
         }
         return "";
     }

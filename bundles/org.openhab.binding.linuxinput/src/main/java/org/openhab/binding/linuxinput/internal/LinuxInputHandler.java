@@ -37,6 +37,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.CommonTriggerEvents;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.types.Command;
@@ -78,11 +79,11 @@ public final class LinuxInputHandler extends DeviceReadingHandler {
     boolean immediateSetup() {
         config = getConfigAs(LinuxInputConfiguration.class);
         channels.clear();
+        String statusDesc = null;
         if (!config.enable) {
-            updateStatus(ThingStatus.OFFLINE, "Administratively disabled");
-        } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            statusDesc = "Administratively disabled";
         }
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING, statusDesc);
         return true;
     }
 

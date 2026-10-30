@@ -219,7 +219,7 @@ public class NuvoHandler extends BaseThingHandler implements NuvoMessageEventLis
         }
 
         if (configError != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configError);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configError);
             return;
         }
 
@@ -230,7 +230,8 @@ public class NuvoHandler extends BaseThingHandler implements NuvoMessageEventLis
             this.isMps4 = (port.intValue() == MPS4_PORT);
             mps4Host = host;
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Either Serial port or Host & Port must be specifed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Either Serial port or Host & Port must be specifed");
             return;
         }
 
@@ -649,7 +650,7 @@ public class NuvoHandler extends BaseThingHandler implements NuvoMessageEventLis
                 }
             } catch (NuvoException e) {
                 logger.warn("Command {} from channel {} failed: {}", command, channel, e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Sending command failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Sending command failed");
                 closeConnection();
                 scheduleReconnectJob();
             }
@@ -1177,7 +1178,7 @@ public class NuvoHandler extends BaseThingHandler implements NuvoMessageEventLis
                     }
                     enableNuvonet(true);
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Reconnection failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Reconnection failed");
                     closeConnection();
                 }
             }
@@ -1305,7 +1306,7 @@ public class NuvoHandler extends BaseThingHandler implements NuvoMessageEventLis
                     // the component is not responding even though the connection is still good
                     if ((System.currentTimeMillis() - lastEventReceived) > (POLLING_INTERVAL_SEC * 1.25 * 1000)) {
                         logger.debug("Component not responding to status requests");
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "Component not responding to status requests");
                         closeConnection();
                         scheduleReconnectJob();

@@ -176,9 +176,8 @@ class AirqHandlerTest {
     void malformedLegacyPairGoesOfflineAndRecovers() throws Exception {
         poll("{\"co\": []}");
 
-        requireNonNull(verify(callback)).statusUpdated(thing,
-                new ThingStatusInfo(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "Syntax error while parsing response from device: Failed to parse pair: []"));
+        requireNonNull(verify(callback)).statusUpdated(thing, new ThingStatusInfo(ThingStatus.OFFLINE,
+                ThingStatusDetail.COMMUNICATION_ERROR, "Syntax error while parsing response from device"));
 
         poll("{\"co\": [12.5, 0.25]}");
 

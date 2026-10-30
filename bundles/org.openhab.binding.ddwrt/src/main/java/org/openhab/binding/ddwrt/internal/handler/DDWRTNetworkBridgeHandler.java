@@ -91,7 +91,8 @@ public class DDWRTNetworkBridgeHandler extends BaseBridgeHandler implements Dhcp
         logger.debug("Initializing DDWRT Network Bridge handler '{}' with config = {}.", getThing().getUID(), config);
 
         if (config.hostnames.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-hostnames");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-hostnames");
             return;
         }
 
@@ -131,7 +132,8 @@ public class DDWRTNetworkBridgeHandler extends BaseBridgeHandler implements Dhcp
         } else if (network.getDevices().isEmpty() && !network.hasPendingDevices()) {
             updateStatus(ThingStatus.UNKNOWN);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.no-active-sessions");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.no-active-sessions");
         }
     }
 

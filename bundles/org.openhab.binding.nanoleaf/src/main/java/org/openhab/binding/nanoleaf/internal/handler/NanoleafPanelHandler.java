@@ -85,8 +85,7 @@ public class NanoleafPanelHandler extends BaseThingHandler implements NanoleafPa
         logger.debug("Initializing handler for panel {}", getThing().getUID());
         Bridge controller = getBridge();
         if (controller == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
+            initializePanel(new ThingStatusInfo(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED, ""));
         } else if (ThingStatus.OFFLINE.equals(controller.getStatus())) {
             initializePanel(new ThingStatusInfo(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     "@text/error.nanoleaf.panel.controllerOffline"));
@@ -123,10 +122,12 @@ public class NanoleafPanelHandler extends BaseThingHandler implements NanoleafPa
         } catch (NanoleafUnauthorizedException nae) {
             logger.warn("Authorization for command {} for channelUID {} failed: {}", command, channelUID,
                     nae.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.nanoleaf.controller.invalidToken");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/error.nanoleaf.controller.invalidToken");
         } catch (NanoleafException ne) {
             logger.warn("Handling command {} for channelUID {} failed: {}", command, channelUID, ne.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.nanoleaf.controller.communication");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/error.nanoleaf.controller.communication");
         }
     }
 
@@ -165,12 +166,7 @@ public class NanoleafPanelHandler extends BaseThingHandler implements NanoleafPa
     }
 
     private void initializePanel(ThingStatusInfo panelStatus) {
-        ThingStatus status = panelStatus.getStatus();
-        if (status == ThingStatus.ONLINE || status == ThingStatus.OFFLINE) {
-            updateStatus(status, panelStatus.getStatusDetail());
-        } else {
-            updateStatus(ThingStatus.UNKNOWN);
-        }
+        updateStatus(panelStatus.getStatus(), panelStatus.getStatusDetail());
         updateState(CHANNEL_PANEL_COLOR, currentPanelColor);
         logger.debug("Panel {} status changed to {}-{}", this.getThing().getUID(), panelStatus.getStatus(),
                 panelStatus.getStatusDetail());

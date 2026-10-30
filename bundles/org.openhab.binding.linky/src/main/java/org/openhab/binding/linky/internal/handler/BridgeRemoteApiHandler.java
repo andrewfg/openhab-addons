@@ -83,7 +83,8 @@ public abstract class BridgeRemoteApiHandler extends BridgeRemoteBaseHandler {
 
             registerServlet();
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-mandatory-settings");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.config-error-mandatory-settings");
         }
     }
 

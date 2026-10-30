@@ -111,7 +111,7 @@ public class EpsonProjectorHandler extends BaseThingHandler {
         } else if (THING_TYPE_PROJECTOR_TCP.equals(thing.getThingTypeUID())) {
             device = Optional.of(new EpsonProjectorDevice(config));
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
             return;
         }
 
@@ -456,7 +456,7 @@ public class EpsonProjectorHandler extends BaseThingHandler {
                 isPowerOn = false;
 
                 if (passwordError != null) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, passwordError);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, passwordError);
                     cancelPollingJob();
                 } else {
                     updateStatus(ThingStatus.OFFLINE);

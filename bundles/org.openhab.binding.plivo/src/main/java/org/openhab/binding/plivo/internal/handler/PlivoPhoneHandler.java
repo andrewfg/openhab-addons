@@ -81,7 +81,7 @@ public class PlivoPhoneHandler extends BaseThingHandler {
 
         String number = config.phoneNumber;
         if (number == null || number.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.configuration-error.missing-phone-number");
             return;
         }
@@ -105,7 +105,7 @@ public class PlivoPhoneHandler extends BaseThingHandler {
             initializeTask = scheduler.submit(this::asyncInitialize);
         } else {
             callbackServlet.unregisterHandler(thing.getUID().getAsString());
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -358,19 +358,17 @@ public class PlivoPhoneHandler extends BaseThingHandler {
     }
 
     private void asyncInitialize() {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
         PlivoAccountHandler accountHandler = getAccountHandler();
         if (accountHandler == null) {
-            updateStatus(ThingStatus.UNKNOWN, "@text/offline.bridge-uninitialized.bridge-handler-not-available");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED,
+                    "@text/offline.bridge-uninitialized.bridge-handler-not-available");
             return;
         }
 
         PlivoApiClient client = accountHandler.getApiClient();
         if (client == null) {
-            updateStatus(ThingStatus.UNKNOWN, "@text/offline.bridge-uninitialized.api-client-not-available");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED,
+                    "@text/offline.bridge-uninitialized.api-client-not-available");
             return;
         }
 
@@ -388,13 +386,13 @@ public class PlivoPhoneHandler extends BaseThingHandler {
             }
             ThingStatusDetail detail = e.isConfigurationError() ? ThingStatusDetail.CONFIGURATION_ERROR
                     : ThingStatusDetail.COMMUNICATION_ERROR;
-            updateStatus(detail, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, detail, e.getMessage());
             logger.warn("Could not auto-configure the Plivo application for {}: {}", phoneNumber, e.getMessage());
             return;
         } catch (RuntimeException e) {
             // Guard the scheduler task: an unchecked exception here would be swallowed by the Future
             // and leave the Thing stuck in UNKNOWN with nothing in the log.
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             logger.warn("Unexpected error initializing the Plivo phone Thing for {}", phoneNumber, e);
             return;
         }

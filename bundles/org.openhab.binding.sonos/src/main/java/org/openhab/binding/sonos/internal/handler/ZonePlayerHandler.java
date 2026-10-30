@@ -249,7 +249,8 @@ public class ZonePlayerHandler extends BaseThingHandler implements UpnpIOPartici
             service.registerParticipant(this);
             pollingJob = scheduler.scheduleWithFixedDelay(this::poll, 0, configuration.refresh, TimeUnit.SECONDS);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-udn");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-udn");
             logger.debug("Cannot initalize the zoneplayer. UDN not set.");
         }
     }
@@ -266,7 +267,7 @@ public class ZonePlayerHandler extends BaseThingHandler implements UpnpIOPartici
                 // If not, set the thing state to OFFLINE and wait for the next poll
                 if (!isUpnpDeviceRegistered()) {
                     logger.debug("UPnP device {} not yet registered", getUDN());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "@text/offline.upnp-device-not-registered [\"" + getUDN() + "\"]");
                     synchronized (upnpLock) {
                         subscriptionState = new HashMap<>();
@@ -1214,7 +1215,7 @@ public class ZonePlayerHandler extends BaseThingHandler implements UpnpIOPartici
         if (!updateZoneInfo()) {
             if (!ThingStatus.OFFLINE.equals(getThing().getStatus())) {
                 logger.debug("Sonos player {} is not available in local network", getUDN());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.not-available-on-network [\"" + getUDN() + "\"]");
                 synchronized (upnpLock) {
                     subscriptionState = new HashMap<>();
@@ -3392,7 +3393,7 @@ public class ZonePlayerHandler extends BaseThingHandler implements UpnpIOPartici
             }
         } else {
             logger.debug("UPnP device {} is absent (thing {})", getUDN(), getThing().getUID());
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR);
         }
     }
 

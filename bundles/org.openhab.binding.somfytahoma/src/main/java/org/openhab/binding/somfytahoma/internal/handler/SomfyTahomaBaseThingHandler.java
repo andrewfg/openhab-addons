@@ -88,19 +88,11 @@ public abstract class SomfyTahomaBaseThingHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        initializeThing(bridge.getStatus());
+        initializeThing(bridge != null ? bridge.getStatus() : null);
     }
 
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
         initializeThing(bridgeStatusInfo.getStatus());
     }
 
@@ -119,13 +111,13 @@ public abstract class SomfyTahomaBaseThingHandler extends BaseThingHandler {
                     updateThingStatus(states);
                     updateThingChannels(states);
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, UNAVAILABLE);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, UNAVAILABLE);
                 }
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -175,7 +167,7 @@ public abstract class SomfyTahomaBaseThingHandler extends BaseThingHandler {
 
     private void setUnavailable() {
         if (ThingStatus.OFFLINE != thing.getStatus()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, UNAVAILABLE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, UNAVAILABLE);
         }
     }
 

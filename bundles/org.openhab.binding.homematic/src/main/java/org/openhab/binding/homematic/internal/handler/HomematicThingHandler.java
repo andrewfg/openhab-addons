@@ -103,14 +103,14 @@ public class HomematicThingHandler extends BaseThingHandler {
                     doInitializeInBackground();
                 }
             } catch (HomematicClientException ex) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, ex.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, ex.getMessage());
             } catch (IOException ex) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, ex.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, ex.getMessage());
             } catch (GatewayNotAvailableException ex) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, ex.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, ex.getMessage());
             } catch (Exception ex) {
                 logger.error("{}", ex.getMessage(), ex);
-                updateStatus(ThingStatus.OFFLINE, ex.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, ex.getMessage());
             }
         });
     }
@@ -572,11 +572,7 @@ public class HomematicThingHandler extends BaseThingHandler {
 
         if (oldStatus != newStatus || oldStatusInfo.getStatusDetail() != newDetail
                 || !Objects.equals(oldStatusInfo.getDescription(), newDescription)) {
-            if (newDetail == ThingStatusDetail.NONE) {
-                updateStatus(newStatus, newDescription);
-            } else {
-                updateStatus(newDetail, newDescription);
-            }
+            updateStatus(newStatus, newDetail, newDescription);
         }
         if (oldStatus == ThingStatus.OFFLINE && newStatus == ThingStatus.ONLINE) {
             initialize();
@@ -705,7 +701,7 @@ public class HomematicThingHandler extends BaseThingHandler {
             updateStatus(ThingStatus.REMOVED);
         } else {
             // device removal was initiated on homematic side, thing is not removed
-            updateStatus(ThingStatusDetail.GONE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE);
         }
     }
 

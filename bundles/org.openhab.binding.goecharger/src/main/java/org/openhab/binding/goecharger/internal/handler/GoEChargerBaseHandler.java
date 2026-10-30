@@ -108,7 +108,8 @@ public abstract class GoEChargerBaseHandler extends BaseThingHandler {
         GoEChargerConfiguration config = this.config;
 
         if (config.ip == null && (config.serial == null || config.token == null)) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "either ip or token+serial must be configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "either ip or token+serial must be configured");
             return;
         }
 
@@ -142,7 +143,7 @@ public abstract class GoEChargerBaseHandler extends BaseThingHandler {
         } catch (IllegalArgumentException e) {
             if (isCurrent(generation)) {
                 logger.debug("Invalid configuration getting data: {}", e.toString());
-                updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, e.getMessage());
             }
         } catch (RuntimeException e) {
             // scheduleWithFixedDelay silently stops the periodic execution once an exception escapes the task.

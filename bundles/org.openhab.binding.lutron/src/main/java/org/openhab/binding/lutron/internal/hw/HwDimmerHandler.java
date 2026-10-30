@@ -23,8 +23,6 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This class extends the BaseThingHandler to support HomeWorks Dimmer modules.
@@ -33,8 +31,6 @@ import org.slf4j.LoggerFactory;
  *
  */
 public class HwDimmerHandler extends BaseThingHandler {
-    private final Logger logger = LoggerFactory.getLogger(HwDimmerHandler.class);
-
     private String address;
     private Integer fadeTime = 1;
     private Integer defaultLevel = 100;
@@ -49,15 +45,15 @@ public class HwDimmerHandler extends BaseThingHandler {
 
         address = config.getAddress();
         if (address == null || address.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Address not set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Address not set");
             return;
         }
 
         fadeTime = config.getFadeTime();
         defaultLevel = config.getDefaultLevel();
 
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+        if (getThing().getBridgeUID() == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
             return;
         }
 
@@ -95,13 +91,9 @@ public class HwDimmerHandler extends BaseThingHandler {
     }
 
     private void queryLevel() {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while querying Thing: {}", thing.getUID());
-            return;
-        }
         HwSerialBridgeHandler bridgeHandler = getBridgeHandler();
         if (bridgeHandler == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "No bridge associated");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_MISSING_ERROR, "No bridge associated");
             return;
         }
 
@@ -110,13 +102,9 @@ public class HwDimmerHandler extends BaseThingHandler {
     }
 
     private void outputLevel(Number level) {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while sending command for Thing: {}", thing.getUID());
-            return;
-        }
         HwSerialBridgeHandler bridgeHandler = getBridgeHandler();
         if (bridgeHandler == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "No bridge associated");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_MISSING_ERROR, "No bridge associated");
             return;
         }
 

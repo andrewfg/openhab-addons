@@ -71,18 +71,19 @@ public class FreeboxOsHandler extends BaseBridgeHandler {
             try {
                 session.initialize(config);
                 if (config.appToken.isBlank()) {
-                    updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/info-conf-pending");
+                    updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                            "@text/info-conf-pending");
                     grantingJob = Optional.of(scheduler.schedule(this::processGranting, 2, TimeUnit.SECONDS));
                     return;
                 } else {
-                    updateStatus(ThingStatus.UNKNOWN);
+                    updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE);
                     session.openSession(config.appToken);
                 }
                 updateStatus(ThingStatus.ONLINE);
             } catch (FreeboxException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             } catch (InterruptedException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }));
     }
@@ -100,7 +101,7 @@ public class FreeboxOsHandler extends BaseBridgeHandler {
                 initialize();
             }
         } catch (FreeboxException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         }
     }
 

@@ -59,16 +59,12 @@ public class MinecraftSignHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        this.bridgeHandler = getBridgeHandler(bridge);
+        this.bridgeHandler = getBridgeHandler();
         this.config = getConfigAs(SignConfig.class);
 
-        if (bridgeHandler == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Bridge handler missing");
+        if (getThing().getBridgeUID() == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
+
             return;
         }
 
@@ -79,7 +75,7 @@ public class MinecraftSignHandler extends BaseThingHandler {
     @Override
     public void dispose() {
         super.dispose();
-        if (signSubscription != null && !signSubscription.isUnsubscribed()) {
+        if (!signSubscription.isUnsubscribed()) {
             signSubscription.unsubscribe();
         }
     }
@@ -101,6 +97,16 @@ public class MinecraftSignHandler extends BaseThingHandler {
     private void updateSignState(SignData sign) {
         State activeState = OnOffType.from(sign.getState());
         updateState(MinecraftBindingConstants.CHANNEL_SIGN_ACTIVE, activeState);
+    }
+
+    private synchronized MinecraftServerHandler getBridgeHandler() {
+        Bridge bridge = getBridge();
+        if (bridge == null) {
+            logger.debug("Required bridge not defined for device {}.", getThing().getUID());
+            return null;
+        } else {
+            return getBridgeHandler(bridge);
+        }
     }
 
     private synchronized MinecraftServerHandler getBridgeHandler(Bridge bridge) {

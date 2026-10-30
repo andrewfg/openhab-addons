@@ -113,26 +113,27 @@ public class RenaultHandler extends BaseThingHandler {
 
         // Validate configuration
         if (this.config.myRenaultUsername.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/thing-type.config.renault.car.error.username_empty");
             return;
         }
         if (this.config.myRenaultPassword.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/thing-type.config.renault.car.error.password_empty");
             return;
         }
         if (this.config.locale.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/thing-type.config.renault.car.error.location_empty");
             return;
         }
         if (this.config.vin.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/thing-type.config.renault.car.error.vin_empty");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/thing-type.config.renault.car.error.vin_empty");
             return;
         }
         if (this.config.refreshInterval < 1) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/thing-type.config.renault.car.error.refresh_interval_to_low");
             return;
         }
@@ -307,7 +308,7 @@ public class RenaultHandler extends BaseThingHandler {
                 }, "all");
             } catch (RuntimeException e) {
                 logger.warn("Runtime exception during refresh car", e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
             return car;
         }
@@ -340,7 +341,8 @@ public class RenaultHandler extends BaseThingHandler {
     private void updateStatus(Car car) {
         if (car.getImageURL() == null && car.isDisableHvac() && car.isDisableLocation() && car.isDisableCockpit()
                 && car.isDisableBattery() && car.isDisableLockStatus()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/thing-type.renault.car.error.no_data");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/thing-type.renault.car.error.no_data");
         } else {
             updateStatus(ThingStatus.ONLINE);
         }
@@ -473,7 +475,7 @@ public class RenaultHandler extends BaseThingHandler {
         } catch (RenaultException | ExecutionException | TimeoutException e) {
             logger.warn("{}", logWarnMessage, e);
             if (setOffline) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
         return false;

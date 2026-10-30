@@ -122,7 +122,7 @@ public class SomfyMyLinkBridgeHandler extends BaseBridgeHandler {
             }
         } catch (SomfyMyLinkException e) {
             logger.info("Error handling command: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -150,12 +150,13 @@ public class SomfyMyLinkBridgeHandler extends BaseBridgeHandler {
 
     private boolean validConfiguration(@Nullable SomfyMyLinkConfiguration config) {
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "mylink configuration missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "mylink configuration missing");
             return false;
         }
 
         if (config.ipAddress.isEmpty() || config.systemId.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "mylink address or system id not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "mylink address or system id not specified");
             return false;
         }
 
@@ -184,7 +185,7 @@ public class SomfyMyLinkBridgeHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
         } catch (SomfyMyLinkException | InterruptedException | ExecutionException e) {
             logger.warn("Problem with mylink during heartbeat: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -359,7 +360,7 @@ public class SomfyMyLinkBridgeHandler extends BaseBridgeHandler {
             socket.setSoTimeout(MYLINK_DEFAULT_TIMEOUT);
             return socket;
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             throw e;
         }
     }

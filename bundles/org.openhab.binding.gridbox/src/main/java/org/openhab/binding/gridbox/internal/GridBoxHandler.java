@@ -130,12 +130,14 @@ public class GridBoxHandler extends BaseThingHandler {
         config = getConfigAs(GridBoxConfiguration.class);
         String email = config.email;
         if (email == null || email.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.noemail");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.noemail");
             return;
         }
         String password = config.password;
         if (password == null || password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.nopassword");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.nopassword");
             return;
         }
 
@@ -157,11 +159,13 @@ public class GridBoxHandler extends BaseThingHandler {
             updateScheduledFuture = scheduler.scheduleWithFixedDelay(this::update, 0, config.refreshInterval,
                     TimeUnit.SECONDS);
         } catch (GridBoxApiAuthenticationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.credentialsinvalid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.credentialsinvalid");
         } catch (IOException | InterruptedException e) {
             updateStatusAndTryToReconnect();
         } catch (GridBoxApiException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error.initializeinvalid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error.initializeinvalid");
         }
     }
 
@@ -172,13 +176,14 @@ public class GridBoxHandler extends BaseThingHandler {
             reConnectAttempts = 0;
         } catch (GridBoxApiAuthenticationException e) {
             // maybe the authentication is no longer valid, so try to re-authenticate
-            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING,
                     "@text/offline.configuration-error.authenticationlost");
             stopUpdater();
             config.idToken = null;
             initializeApi();
         } catch (GridBoxApiSystemNotFoundException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.systemidunknown");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING,
+                    "@text/offline.configuration-error.systemidunknown");
             stopUpdater();
             config.systemId = null;
             initializeApi();
@@ -198,10 +203,11 @@ public class GridBoxHandler extends BaseThingHandler {
 
     private void updateStatusAndTryToReconnect() {
         if (reConnectAttempts > MAX_NUMBER_OF_RECONNECT_ATTEMPTS) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/offline.communication-error.connectionfinallylost");
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error.connectionlost");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error.connectionlost");
             scheduler.schedule(this::initialize, getDelayUntilNextConnectionAttempt(), TimeUnit.SECONDS);
         }
     }

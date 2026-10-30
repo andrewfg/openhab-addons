@@ -143,7 +143,7 @@ public class VentaThingHandler extends BaseThingHandler {
 
         String configErrorMessage;
         if ((configErrorMessage = validateConfig()) != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configErrorMessage);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configErrorMessage);
             return;
         }
 
@@ -177,7 +177,7 @@ public class VentaThingHandler extends BaseThingHandler {
             try {
                 localCommunicator.sendActionToDevice(action);
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 return;
             }
             localCommunicator.pollDataFromDevice();
@@ -218,7 +218,8 @@ public class VentaThingHandler extends BaseThingHandler {
          */
         public void stateUpdated(DeviceInfoMessage message) {
             if (messageIsEmpty(message)) {
-                updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "Please allow openHAB to access your device");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                        "Please allow openHAB to access your device");
                 return;
             }
 
@@ -334,7 +335,7 @@ public class VentaThingHandler extends BaseThingHandler {
          * Method to inform the handler about a communication issue
          */
         public void communicationProblem() {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 }

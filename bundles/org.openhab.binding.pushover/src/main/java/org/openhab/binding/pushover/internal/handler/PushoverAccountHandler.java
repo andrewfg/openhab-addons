@@ -70,12 +70,14 @@ public class PushoverAccountHandler extends BaseThingHandler {
         boolean configValid = true;
         final String apikey = config.apikey;
         if (apikey == null || apikey.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, TEXT_OFFLINE_CONF_ERROR_MISSING_APIKEY);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    TEXT_OFFLINE_CONF_ERROR_MISSING_APIKEY);
             configValid = false;
         }
         final String user = config.user;
         if (user == null || user.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, TEXT_OFFLINE_CONF_ERROR_MISSING_USER);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    TEXT_OFFLINE_CONF_ERROR_MISSING_USER);
             configValid = false;
         }
 
@@ -109,7 +111,7 @@ public class PushoverAccountHandler extends BaseThingHandler {
         } catch (CommunicationException e) {
             // do nothing, causing exception is already logged
         } catch (ConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
         }
         return PushoverAccountConfiguration.DEFAULT_SOUNDS;
     }
@@ -151,7 +153,7 @@ public class PushoverAccountHandler extends BaseThingHandler {
             } catch (CommunicationException e) {
                 // do nothing, causing exception is already logged
             } catch (ConfigurationException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
             }
             return false;
         } else {
@@ -167,7 +169,7 @@ public class PushoverAccountHandler extends BaseThingHandler {
             } catch (CommunicationException e) {
                 // do nothing, causing exception is already logged
             } catch (ConfigurationException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
             }
             return "";
         } else {
@@ -183,7 +185,7 @@ public class PushoverAccountHandler extends BaseThingHandler {
             } catch (CommunicationException e) {
                 // do nothing, causing exception is already logged
             } catch (ConfigurationException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
             }
             return false;
         } else {
@@ -197,7 +199,7 @@ public class PushoverAccountHandler extends BaseThingHandler {
             connection.validateUser();
             updateStatus(ThingStatus.ONLINE);
         } catch (CommunicationException | ConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
         }
     }
 }

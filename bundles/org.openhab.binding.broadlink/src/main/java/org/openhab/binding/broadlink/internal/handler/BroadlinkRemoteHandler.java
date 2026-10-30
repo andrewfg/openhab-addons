@@ -30,6 +30,7 @@ import org.openhab.core.storage.StorageService;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.type.ChannelTypeUID;
 import org.openhab.core.types.Command;
@@ -317,14 +318,14 @@ public abstract class BroadlinkRemoteHandler extends BroadlinkBaseThingHandler {
         byte code[] = null;
         BroadlinkMappingService mappingService = this.mappingService;
         if (mappingService == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
             return null;
         }
 
         String value = mappingService.lookupCode(command.toString(), CodeType.IR);
 
         if (value == null || value.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "No entries found for command in map file, or the file is missing.");
             return null;
         }
@@ -340,14 +341,14 @@ public abstract class BroadlinkRemoteHandler extends BroadlinkBaseThingHandler {
 
         BroadlinkMappingService mappingService = this.mappingService;
         if (mappingService == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
             return null;
         }
 
         String value = mappingService.lookupCode(command.toString(), CodeType.RF);
 
         if (value == null || value.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "No entries found for command " + command + " in RF map file, or the file is missing.");
             return null;
         }
@@ -396,7 +397,8 @@ public abstract class BroadlinkRemoteHandler extends BroadlinkBaseThingHandler {
             sendCommand(COMMAND_BYTE_EXIT_RF_FREQ_LEARNING, "exit remote rf frequency learning mode");
             logger.info("No RF frequency found.");
             updateState(BroadlinkBindingConstants.RF_LEARNING_CONTROL_CHANNEL, new StringType("NULL"));
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Cannot locate the appropriate RF frequency.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Cannot locate the appropriate RF frequency.");
             return;
         }
 
@@ -410,7 +412,7 @@ public abstract class BroadlinkRemoteHandler extends BroadlinkBaseThingHandler {
 
         BroadlinkMappingService mappingService = this.mappingService;
         if (mappingService == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
             return;
         }
 
@@ -472,7 +474,7 @@ public abstract class BroadlinkRemoteHandler extends BroadlinkBaseThingHandler {
 
         BroadlinkMappingService mappingService = this.mappingService;
         if (mappingService == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Mapping service not defined.");
             return;
         }
 

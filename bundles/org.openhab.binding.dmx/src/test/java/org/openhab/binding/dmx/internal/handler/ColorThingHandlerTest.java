@@ -93,6 +93,7 @@ public class ColorThingHandlerTest extends AbstractDmxThingTestParent {
 
     @Test
     public void testThingStatusNoBridge() {
+        // check that thing is offline if no bridge found
         ColorThingHandler dimmerHandlerWithoutBridge = new ColorThingHandler(dimmerThing) {
             @Override
             protected @Nullable Bridge getBridge() {

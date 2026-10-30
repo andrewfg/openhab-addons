@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 
 /**
@@ -53,7 +54,7 @@ public interface FreeDeviceIntf extends ApiConsumerIntf {
     default void processReboot(Runnable actualReboot) {
         triggerChannel(getEventChannelUID(), "reboot_requested");
         actualReboot.run();
-        updateStatus(ThingStatusDetail.DUTY_CYCLE, "System rebooting...");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.DUTY_CYCLE, "System rebooting...");
         stopJobs();
         addJob("Initialize", this::initialize, 30, TimeUnit.SECONDS);
     }

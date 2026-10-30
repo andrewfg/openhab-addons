@@ -79,15 +79,17 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
                 config.pollInterval);
         updateStatus(ThingStatus.UNKNOWN);
         if (config.connectionTimeout <= 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Connection timeout can't be negative");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Connection timeout can't be negative");
             return;
         }
         if (config.ftpPort < 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "FTP port can't be negative");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "FTP port can't be negative");
             return;
         }
         if (config.pollInterval <= 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Polling interval can't be null or negative");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Polling interval can't be null or negative");
         }
 
         currentFtpListingFile = new File(OpenHAB.getUserDataFolder() + File.separator + "FolderWatcher" + File.separator
@@ -96,7 +98,7 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
             this.currentFtpListingFile = currentFtpListingFile;
             previousFtpListing = WatcherCommon.initStorage(currentFtpListingFile, config.ftpAddress + config.ftpDir);
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             logger.debug("Can't write file {}, error message {}", currentFtpListingFile, e.getMessage());
             return;
         }
@@ -192,7 +194,8 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
                 if (!FTPReply.isPositiveCompletion(reply)) {
                     logger.debug("FTP server refused connection with reply code {}", reply);
                     ftp.disconnect();
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "FTP server refused connection.");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "FTP server refused connection.");
                     return;
                 }
                 logger.debug("FTP connection established successfully");
@@ -204,14 +207,14 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
                         logger.debug("Error disconneting, lost connection? : {}", e2.getMessage());
                     }
                 }
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 return;
             }
             try {
                 logger.debug("Attempting FTP login");
                 if (!ftp.login(config.ftpUsername, config.ftpPassword)) {
                     logger.debug("FTP login failed: {}", ftp.getReplyString());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, ftp.getReplyString());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, ftp.getReplyString());
                     ftp.logout();
                     return;
                 }
@@ -227,12 +230,13 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
                             config.pollInterval, TimeUnit.SECONDS);
                 } else {
                     logger.debug("FTP connection verification failed");
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "FTP connection verification failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "FTP connection verification failed");
                     ftp.logout();
                 }
             } catch (IOException e) {
                 logger.debug("IOException during FTP login: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         } else {
             logger.debug("FTP client already connected, skipping connection attempt");
@@ -303,7 +307,8 @@ public class FtpFolderWatcherHandler extends BaseThingHandler {
                 previousFtpListing = new ArrayList<>(currentFtpListing);
             } catch (IOException e) {
                 logger.debug("IOException during FTP directory listing: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "FTP connection lost. " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "FTP connection lost. " + e.getMessage());
                 try {
                     ftp.disconnect();
                 } catch (IOException e1) {

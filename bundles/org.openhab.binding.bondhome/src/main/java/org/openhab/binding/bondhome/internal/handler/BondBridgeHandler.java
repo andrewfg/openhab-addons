@@ -100,7 +100,8 @@ public class BondBridgeHandler extends BaseBridgeHandler {
 
     private void initializeThing() {
         if (config.localToken.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.incorrect-local-token");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.incorrect-local-token");
             this.initializer = null;
             return;
         }
@@ -115,7 +116,8 @@ public class BondBridgeHandler extends BaseBridgeHandler {
                 updateConfiguration(c);
                 config = getConfigAs(BondBridgeConfiguration.class);
             } catch (UnknownHostException ignored) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.unknown-host");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.conf-error.unknown-host");
                 this.initializer = null;
                 return;
             }
@@ -123,7 +125,8 @@ public class BondBridgeHandler extends BaseBridgeHandler {
             try {
                 InetAddress.getByName(config.ipAddress);
             } catch (UnknownHostException ignored) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.invalid-host");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.conf-error.invalid-host");
                 this.initializer = null;
                 return;
             }
@@ -270,7 +273,7 @@ public class BondBridgeHandler extends BaseBridgeHandler {
      * if it receives a proper response from the bridge.
      */
     public void setBridgeOffline(ThingStatusDetail detail, String description) {
-        updateStatus(detail, description);
+        updateStatus(ThingStatus.OFFLINE, detail, description);
     }
 
     /**
@@ -308,7 +311,7 @@ public class BondBridgeHandler extends BaseBridgeHandler {
         try {
             myVersion = api.getBridgeVersion();
         } catch (BondException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return;
         }
         // Update all the thing properties based on the result

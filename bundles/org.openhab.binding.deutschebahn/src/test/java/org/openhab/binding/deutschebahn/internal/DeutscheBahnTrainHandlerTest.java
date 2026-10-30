@@ -121,6 +121,7 @@ public class DeutscheBahnTrainHandlerTest {
         final DeutscheBahnTrainHandler handler = createAndInitHandler(callback, thing);
 
         try {
+            verify(callback).statusUpdated(eq(thing), argThat(arg -> arg.getStatus().equals(ThingStatus.UNKNOWN)));
             verify(callback, timeout(1000)).statusUpdated(eq(thing),
                     argThat(arg -> arg.getStatus().equals(ThingStatus.ONLINE)));
 
@@ -175,6 +176,7 @@ public class DeutscheBahnTrainHandlerTest {
         final DeutscheBahnTrainHandler handler = createAndInitHandler(callback, thing);
 
         try {
+            verify(callback).statusUpdated(eq(thing), argThat(arg -> arg.getStatus().equals(ThingStatus.UNKNOWN)));
             verify(callback, timeout(1000)).statusUpdated(eq(thing),
                     argThat(arg -> arg.getStatus().equals(ThingStatus.ONLINE)));
 
@@ -212,14 +214,15 @@ public class DeutscheBahnTrainHandlerTest {
     }
 
     @Test
-    public void testWithoutBridgeLeavesStatusToFramework() {
+    public void testWithoutBridgeStateUpdatesToOffline() {
         final Thing thing = mockThing(1);
         final ThingHandlerCallback callback = mock(ThingHandlerCallback.class);
         final DeutscheBahnTrainHandler handler = createAndInitHandler(callback, thing);
 
         try {
-            verify(callback).getBridge(new ThingUID(DeutscheBahnBindingConstants.TIMETABLE_TYPE, "timetable"));
-            verifyNoMoreInteractions(callback);
+            verify(callback).statusUpdated(eq(thing), argThat(arg -> arg.getStatus().equals(ThingStatus.UNKNOWN)));
+            verify(callback, timeout(1000)).statusUpdated(eq(thing),
+                    argThat(arg -> arg.getStatus().equals(ThingStatus.OFFLINE)));
         } finally {
             handler.dispose();
         }

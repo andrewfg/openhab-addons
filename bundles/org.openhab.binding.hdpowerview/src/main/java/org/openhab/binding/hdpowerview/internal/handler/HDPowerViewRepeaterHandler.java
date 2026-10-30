@@ -73,7 +73,8 @@ public class HDPowerViewRepeaterHandler extends AbstractHubbedThingHandler {
         logger.debug("Initializing repeater handler for repeater {}", repeaterId);
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.invalid-bridge-handler");
             return;
         }
 
@@ -237,7 +238,7 @@ public class HDPowerViewRepeaterHandler extends AbstractHubbedThingHandler {
         } catch (HubMaintenanceException e) {
             // exceptions are logged in HDPowerViewWebTargets
         } catch (HubException e) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
         }
     }
 

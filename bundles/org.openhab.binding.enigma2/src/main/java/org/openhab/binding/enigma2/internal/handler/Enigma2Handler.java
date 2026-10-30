@@ -68,11 +68,13 @@ public class Enigma2Handler extends BaseThingHandler {
     public void initialize() {
         configuration = getConfigAs(Enigma2Configuration.class);
         if (configuration.host.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "host must not be empty");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "host must not be empty");
         } else if (configuration.timeout <= 0 || configuration.timeout > 300) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "timeout must be between 0 and 300 seconds");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "timeout must be between 0 and 300 seconds");
         } else if (configuration.refreshInterval <= 0 || configuration.refreshInterval > 3600) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "refreshInterval must be between 0 and 3600 seconds");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "refreshInterval must be between 0 and 3600 seconds");
         }
         enigma2Client = Optional.of(new Enigma2Client(configuration.host, configuration.user, configuration.password,
                 configuration.timeout));

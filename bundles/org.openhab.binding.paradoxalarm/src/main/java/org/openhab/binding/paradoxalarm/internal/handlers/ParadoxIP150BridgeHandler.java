@@ -120,12 +120,13 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
             scheduler.schedule(() -> doPostOnlineTask(initialCommunicator), 500, TimeUnit.MILLISECONDS);
         } catch (UnknownHostException e) {
             logger.warn("Error while starting socket communication. {}", e.getMessage());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Unknown host. Probably misconfiguration or DNS issue.");
             throw new ParadoxRuntimeException(e);
         } catch (IOException e) {
             logger.warn("Error while starting socket communication. {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error while starting socket communication.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Error while starting socket communication.");
             throw new ParadoxRuntimeException(e);
         }
     }
@@ -139,7 +140,8 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
                 logger.warn(
                         "Initial communicator not coming up online for {} seconds. Probably there is something wrong with communication.",
                         ONLINE_WAIT_TRESHOLD_MILLIS);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error while starting socket communication.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Error while starting socket communication.");
             }
             return;
         }
@@ -188,7 +190,8 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
                 logger.debug("Communicator not yet online. Rescheduling...");
                 return;
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error while starting socket communication.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Error while starting socket communication.");
                 ParadoxRuntimeException exception = new ParadoxRuntimeException(
                         "Communicator didn't go online in defined treshold time. " + ONLINE_WAIT_TRESHOLD_MILLIS
                                 + "sec. You can still try to reset the bridge with command RESET.");
@@ -262,7 +265,7 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
             if (command instanceof StringType) {
                 String commandAsString = command.toFullString();
                 if (commandAsString.equals(RESET_COMMAND)) {
-                    updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                             "Bringing bridge offline due to reinitialization of communicator.");
                     resetCommunicator();
                 } else {
@@ -277,7 +280,7 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
             updateStatus(ThingStatus.ONLINE);
         } else {
             logger.debug("Communicator is null or not online");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "Device is offline");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "Device is offline");
         }
     }
 
@@ -296,24 +299,11 @@ public class ParadoxIP150BridgeHandler extends BaseBridgeHandler
     }
 
     @Override
-    protected void updateStatus(ThingStatus status) {
+    protected void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
         updateStatusChannel();
 
-        super.updateStatus(status);
+        super.updateStatus(status, statusDetail, description);
 
-        updateRefreshSchedule(status);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        updateStatusChannel();
-
-        super.updateStatus(statusDetail, description);
-
-        updateRefreshSchedule(thing.getStatus());
-    }
-
-    private void updateRefreshSchedule(ThingStatus status) {
         if (status.equals(ThingStatus.ONLINE)) {
             if (refreshCacheUpdateSchedule == null || refreshCacheUpdateSchedule.isDone()) {
                 scheduleRefresh();

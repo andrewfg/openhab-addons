@@ -22,6 +22,7 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.UnDefType;
@@ -52,7 +53,7 @@ public class VZoneHandler extends ADThingHandler {
         config = getConfigAs(VZoneConfig.class);
 
         if (config.address < 0 || config.address > 99) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Invalid address setting");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Invalid address setting");
             return;
         }
         logger.debug("Virtual zone handler initializing for address {}", config.address);

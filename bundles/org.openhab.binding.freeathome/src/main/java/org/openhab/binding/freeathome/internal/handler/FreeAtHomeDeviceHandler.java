@@ -126,11 +126,7 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
             @Nullable String description) {
         synchronized (initializeLock) {
             if (isCurrentRun(generation)) {
-                if (detail == ThingStatusDetail.NONE) {
-                    updateStatus(status, description);
-                } else {
-                    updateStatus(detail, description);
-                }
+                updateStatus(status, detail, description);
             }
         }
     }
@@ -207,7 +203,7 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
                 if (pendingJob != null) {
                     pendingJob.cancel(true);
                 }
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         }
     }
@@ -282,12 +278,14 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
             logger.debug("Communication error during refresh command {} - at channel {} - Error string {}",
                     device.getDeviceId(), channelUID.getAsString(), e.getMessage());
 
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
         } catch (FreeAtHomeGeneralException e) {
             logger.debug("General error in the binding - during REFRESH command {} - at channel {} - Error string {}",
                     device.getDeviceId(), channelUID.getAsString(), e.getMessage());
 
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.general-binding-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.general-binding-error");
         }
     }
 
@@ -331,12 +329,14 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
                     "Communication error during set command {} - at channel {} - full command {} - Error string {}",
                     device.getDeviceId(), channelUID.getAsString(), command.toFullString(), e.getMessage());
 
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
         } catch (FreeAtHomeGeneralException e) {
             logger.debug("General error in the binding - during SET command {} - at channel {} - Error string {}",
                     device.getDeviceId(), channelUID.getAsString(), e.getMessage());
 
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.general-binding-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.general-binding-error");
         }
     }
 
@@ -357,7 +357,8 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
         if (freeAtHomeBridge != null) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "@text/conf-error.invalid-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/conf-error.invalid-bridge");
             return;
         }
 
@@ -367,7 +368,8 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
         if (dpg == null) {
             logger.debug("Handle command for device (but invalid datapointgroup) {} - at channel {} - full command {}",
                     device.getDeviceId(), channelUID.getAsString(), command.toFullString());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.invalid-deviceconfig");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.invalid-deviceconfig");
         } else {
             if (command instanceof RefreshType) {
                 handleRefreshCommand(freeAtHomeBridge, dpg, channelUID);
@@ -382,7 +384,7 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
 
     @Override
     public void onDeviceRemoved() {
-        updateStatus(ThingStatusDetail.OFFLINE.GONE);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.GONE);
     }
 
     @Override
@@ -411,7 +413,8 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
         } catch (FreeAtHomeGeneralException e) {
             logger.debug("General error in the binding during onDeviceStateChange");
 
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.general-binding-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.general-binding-error");
         }
     }
 
@@ -435,19 +438,21 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
         }
 
         if (freeAtHomeBridge == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/gen-error.no-bridge-avail");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/gen-error.no-bridge-avail");
             return;
         }
 
         if (dpg == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.datapointgroup-invalid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.datapointgroup-invalid");
             return;
         }
 
         FreeAtHomeDatapoint inputDatapoint = dpg.getInputDatapoint();
 
         if (inputDatapoint == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error.inputdatapoint-invalid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/conf-error.inputdatapoint-invalid");
             return;
         }
 
@@ -469,7 +474,8 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
             logger.debug("Communication error during set command {} - at channel {} - value {} - Error string {}",
                     device.getDeviceId(), channelUID.getAsString(), valueString, e.getMessage());
 
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.not-able-open-httpconnection");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.not-able-open-httpconnection");
         }
     }
 
@@ -642,7 +648,8 @@ public class FreeAtHomeDeviceHandler extends BaseThingHandler implements FreeAtH
                 }
             }
         } catch (FreeAtHomeHttpCommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/comm-error.error-in-sysap-com");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/comm-error.error-in-sysap-com");
         }
 
         mapChannelUID.clear();

@@ -77,7 +77,8 @@ public class OpenUVBridgeHandler extends BaseBridgeHandler {
         keyVerified = false;
         BridgeConfiguration config = getConfigAs(BridgeConfiguration.class);
         if (config.apikey.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-unknown-apikey");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.config-error-unknown-apikey");
             return;
         }
         header.put("x-access-token", config.apikey);
@@ -148,11 +149,7 @@ public class OpenUVBridgeHandler extends BaseBridgeHandler {
                 }
             }
         }
-        if (statusDetail == ThingStatusDetail.NONE) {
-            updateStatus(ThingStatus.OFFLINE, statusMessage);
-        } else {
-            updateStatus(statusDetail, statusMessage);
-        }
+        updateStatus(ThingStatus.OFFLINE, statusDetail, statusMessage);
         return null;
     }
 

@@ -86,7 +86,7 @@ public class Cm11aBridgeHandler extends BaseBridgeHandler implements ReceivedDat
         } catch (NoSuchPortException e) {
             x10Interface = null;
             logger.error("No such port exists on this machine: {}", cm11aConfig.serialPort);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "No such port exists on this machine: " + cm11aConfig.serialPort);
             return;
         }
@@ -112,13 +112,13 @@ public class Cm11aBridgeHandler extends BaseBridgeHandler implements ReceivedDat
      */
     private boolean validateConfig(Cm11aConfig config) {
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "cm11a configuration missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "cm11a configuration missing");
             return false;
         }
 
         String port = config.serialPort;
         if (port == null || port.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "cm11a serialPort not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "cm11a serialPort not specified");
             return false;
         }
 
@@ -242,7 +242,7 @@ public class Cm11aBridgeHandler extends BaseBridgeHandler implements ReceivedDat
     public void changeBridgeStatusToDown(String message) {
         if (getThing().getStatus().equals(ThingStatus.ONLINE)) {
             // Bridge was online but the serial interface is now down
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
             logger.debug("Changed the Bridge status to offline because {}.", message);
         }
     }

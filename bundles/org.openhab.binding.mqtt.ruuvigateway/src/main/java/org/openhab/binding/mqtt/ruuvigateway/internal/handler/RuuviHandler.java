@@ -141,7 +141,8 @@ public class RuuviHandler extends AbstractMQTTThingHandler implements MqttMessag
         Configuration configuration = getThing().getConfiguration();
         String topic = (String) configuration.get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TOPIC);
         if (topic == null || topic.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.missing-topic");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.missing-topic");
             return;
         }
         Object timeout = configuration.get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TIMEOUT);
@@ -208,15 +209,15 @@ public class RuuviHandler extends AbstractMQTTThingHandler implements MqttMessag
         updateStatus(ThingStatus.UNKNOWN);
         return connection.subscribe(topic, this).handle((subscriptionSuccess, subscriptionException) -> {
             if (subscriptionSuccess) {
-                updateStatus(ThingStatus.ONLINE, "@text/online.waiting-initial-data");
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE, "@text/online.waiting-initial-data");
                 heartbeatFuture = scheduler.scheduleWithFixedDelay(this::heartbeat, heartbeatTimeoutMillisecs,
                         heartbeatTimeoutMillisecs, TimeUnit.MILLISECONDS);
             } else {
                 if (subscriptionException == null) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "@text/offline.communication-error.mqtt-subscription-failed");
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "@text/offline.communication-error.mqtt-subscription-failed-details [\""
                                     + subscriptionException.getClass().getSimpleName() + "\", \""
                                     + subscriptionException.getMessage() + "\"]");
@@ -263,7 +264,8 @@ public class RuuviHandler extends AbstractMQTTThingHandler implements MqttMessag
             if (!receivedData.getAndSet(false) && getThing().getStatus() == ThingStatus.ONLINE) {
                 getThing().getChannels().stream().map(Channel::getUID).filter(this::isLinked)
                         .forEach(c -> updateChannelState(c, UnDefType.UNDEF));
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error.timeout");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error.timeout");
             }
         }
     }
@@ -280,7 +282,7 @@ public class RuuviHandler extends AbstractMQTTThingHandler implements MqttMessag
             // Thing status change will be visible in logs with higher log level
             logger.trace("Received invalid data which could not be parsed to any known Ruuvi Tag data formats ({}): {}",
                     e.getMessage(), new String(payload, StandardCharsets.UTF_8));
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/offline.communication-error.parse-error [\"" + e.getMessage() + "\"]");
             return;
         }
@@ -405,13 +407,13 @@ public class RuuviHandler extends AbstractMQTTThingHandler implements MqttMessag
             if (getThing().getStatus() != ThingStatus.ONLINE
                     || (thingStatusDescription != null && !thingStatusDescription.isBlank())) {
                 // Update thing as ONLINE and possibly clear the thing detail status
-                updateStatus(ThingStatus.ONLINE);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
             }
         } else {
             if (logger.isTraceEnabled()) {
                 logger.trace("Received Ruuvi Tag data but no fields could be parsed: {}", HexUtils.bytesToHex(payload));
             }
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/offline.communication-error.parse-error-no-fields");
         }
     }

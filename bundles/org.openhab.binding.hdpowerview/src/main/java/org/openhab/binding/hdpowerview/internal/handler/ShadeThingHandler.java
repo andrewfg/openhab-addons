@@ -204,7 +204,8 @@ public class ShadeThingHandler extends BaseThingHandler {
         Bridge bridge = getBridge();
         BridgeHandler bridgeHandler = bridge != null ? bridge.getHandler() : null;
         if (!(bridgeHandler instanceof GatewayBridgeHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.invalid-bridge-handler");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.invalid-bridge-handler");
             return;
         }
         isInitialized = false;

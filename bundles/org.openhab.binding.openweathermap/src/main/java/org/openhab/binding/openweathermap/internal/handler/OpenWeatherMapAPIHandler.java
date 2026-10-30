@@ -77,19 +77,21 @@ public class OpenWeatherMapAPIHandler extends BaseBridgeHandler {
 
         boolean configValid = true;
         if (config.apikey.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-apikey");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-apikey");
             configValid = false;
         }
         int refreshInterval = config.refreshInterval;
         if (refreshInterval < 1) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-refreshInterval");
             configValid = false;
         }
         String language = config.language;
         if (language != null && !(language = language.trim()).isEmpty()) {
             if (!OpenWeatherMapAPIConfiguration.SUPPORTED_LANGUAGES.contains(language.toLowerCase())) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-not-supported-language");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.conf-error-not-supported-language");
                 configValid = false;
             }
         } else {

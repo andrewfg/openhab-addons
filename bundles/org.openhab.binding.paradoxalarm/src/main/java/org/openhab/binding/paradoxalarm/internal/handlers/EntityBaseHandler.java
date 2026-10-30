@@ -16,7 +16,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.openhab.binding.paradoxalarm.internal.model.ParadoxPanel;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -50,10 +49,6 @@ public abstract class EntityBaseHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         logger.trace("Start initializing. {}", thing.getUID());
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
         updateStatus(ThingStatus.UNKNOWN);
 
         config = getConfigAs(EntityConfiguration.class);
@@ -64,16 +59,8 @@ public abstract class EntityBaseHandler extends BaseThingHandler {
 
     private void initializeDelayed() {
         logger.debug("Start initializeDelayed() in {}", getThing().getUID());
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(bridge.getHandler() instanceof ParadoxIP150BridgeHandler bridgeHandler)) {
-            logger.debug("Bridge handler unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        ParadoxPanel panel = bridgeHandler.getPanel();
+        ParadoxIP150BridgeHandler bridge = (ParadoxIP150BridgeHandler) getBridge().getHandler();
+        ParadoxPanel panel = bridge.getPanel();
         // Asynchronous update not yet done
         if (panel.getPanelInformation() == null) {
             // Retry until reach MAX_WAIT_TIME
@@ -82,13 +69,14 @@ public abstract class EntityBaseHandler extends BaseThingHandler {
                         INITIAL_DELAY_SECONDS);
                 delayedSchedule = scheduler.schedule(this::initializeDelayed, INITIAL_DELAY_SECONDS, TimeUnit.SECONDS);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Panel is not updating the information in "
-                        + MAX_WAIT_TIME_MILLIS + " ms. Giving up. Cannot update entity=" + this + ".");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                        "Panel is not updating the information in " + MAX_WAIT_TIME_MILLIS
+                                + " ms. Giving up. Cannot update entity=" + this + ".");
             }
 
             // Asynchronous update done but panel is not supported
         } else if (!panel.isPanelSupported()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Panel is not supported. Cannot update entity=" + this + ".");
             // All OK
         } else {

@@ -86,7 +86,7 @@ class Camera implements AutoCloseable {
             } catch (Exception e) {
                 logger.debug("Cannot connect to camera!", e);
                 turnOffChannels();
-                thingHandler.updateStatus(COMMUNICATION_ERROR,
+                thingHandler.updateStatus(OFFLINE, COMMUNICATION_ERROR,
                         "@text/printer.handler.init.cannotConnectCamera[\"%s\"]".formatted(e.getLocalizedMessage()));
                 return;
             }

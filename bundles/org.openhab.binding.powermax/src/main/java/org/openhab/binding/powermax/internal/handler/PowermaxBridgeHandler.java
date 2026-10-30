@@ -160,7 +160,7 @@ public class PowermaxBridgeHandler extends BaseBridgeHandler implements Powermax
                 }
             }, 10, JOB_REPEAT, TimeUnit.SECONDS);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, errorMsg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, errorMsg);
         }
     }
 
@@ -321,7 +321,7 @@ public class PowermaxBridgeHandler extends BaseBridgeHandler implements Powermax
             }
         } catch (Exception e) {
             logger.debug("openConnection(): {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             setAllChannelsOffline();
         }
     }
@@ -552,7 +552,7 @@ public class PowermaxBridgeHandler extends BaseBridgeHandler implements Powermax
 
     @Override
     public void onCommunicationFailure(String message) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
         setAllChannelsOffline();
     }
 

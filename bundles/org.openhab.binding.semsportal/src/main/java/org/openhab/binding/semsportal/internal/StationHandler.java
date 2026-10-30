@@ -69,7 +69,7 @@ public class StationHandler extends BaseThingHandler {
 
     private void updateChannelState(ChannelUID channelUID) {
         if (!isPortalOK()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     "Unable to update station info. Check Bridge status for details.");
             return;
         }
@@ -113,7 +113,7 @@ public class StationHandler extends BaseThingHandler {
             try {
                 scheduler.scheduleWithFixedDelay(() -> ensureRecentStatus(), 0, getUpdateInterval(), TimeUnit.MINUTES);
             } catch (Exception e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
                         "Unable to update station info. Check Bridge status for details.");
             }
         });
@@ -129,7 +129,7 @@ public class StationHandler extends BaseThingHandler {
 
     private void updateStation() {
         if (!isPortalOK()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     "Unable to update station info. Check Bridge status for details.");
             return;
         }
@@ -141,13 +141,13 @@ public class StationHandler extends BaseThingHandler {
                 if (localCurrentStatus != null && localCurrentStatus.isOperational()) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatus.OFFLINE, "Station not operational");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, "Station not operational");
                 }
                 updateAllChannels();
             } catch (CommunicationException commEx) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, commEx.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, commEx.getMessage());
             } catch (ConfigurationException confEx) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, confEx.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, confEx.getMessage());
             }
         } else {
             logger.debug("Unable to find portal for thing {}", getThing().getUID());

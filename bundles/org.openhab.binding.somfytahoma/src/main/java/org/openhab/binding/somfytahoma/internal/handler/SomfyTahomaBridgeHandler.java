@@ -250,7 +250,7 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
     public synchronized void login() {
         if (thingConfig.getEmail().isEmpty() || thingConfig.getPassword().isEmpty()) {
             if (!thingConfig.isDevMode() || (thingConfig.isDevMode() && thingConfig.getToken().isEmpty())) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "Can not access device as username and/or password are null");
                 return;
             }
@@ -292,27 +292,29 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
             if (id != null && !UNAUTHORIZED.equals(id)) {
                 eventsId = id;
                 logger.debug("Events id: {}", eventsId);
-                updateStatus(ThingStatus.ONLINE,
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE,
                         isDevModeReady() ? "LAN mode" : cloudFallback ? "Cloud mode fallback" : "Cloud mode");
             } else {
                 logger.debug("Events id error: {}", id);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "unable to register events");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "unable to register events");
             }
         } catch (JsonSyntaxException e) {
             logger.debug("Received invalid data (login)", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data (login)");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data (login)");
         } catch (ExecutionException e) {
             if (isOAuthGrantError(e)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error logging in (check your credentials)");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Error logging in (check your credentials)");
                 setTooManyRequests();
             } else {
                 logger.debug("Cannot get login cookie", e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Cannot get login cookie");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Cannot get login cookie");
             }
         } catch (TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Getting login cookie timeout");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Getting login cookie timeout");
         } catch (InterruptedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Getting login cookie interrupted");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Getting login cookie interrupted");
             Thread.currentThread().interrupt();
         }
     }
@@ -332,10 +334,10 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
         SomfyTahomaLoginResponse data = gson.fromJson(response.getContentAsString(), SomfyTahomaLoginResponse.class);
 
         if (data == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data (login)");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data (login)");
             return false;
         } else if (!data.getErrorCode().isEmpty()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, data.getError());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, data.getError());
             if (data.getError().startsWith(TOO_MANY_REQUESTS)) {
                 setTooManyRequests();
             }
@@ -675,7 +677,8 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
             invalidData = true;
         }
         if (invalidData) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data (execution registered)");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Received invalid data (execution registered)");
         }
     }
 
@@ -1215,10 +1218,10 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
             return classOfT != null ? gson.fromJson(response, classOfT) : null;
         } catch (JsonSyntaxException e) {
             logger.debug("Received data: {} is not JSON", response, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Received invalid data");
         } catch (ExecutionException e) {
             if (isTempBanned(e)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Temporarily banned");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Temporarily banned");
                 setTooManyRequests();
             } else if (isEventListenerTimeout(e)) {
                 logger.debug("Event listener timeout occurred", e);
@@ -1229,20 +1232,21 @@ public class SomfyTahomaBridgeHandler extends BaseBridgeHandler {
                 logger.debug("Local gateway communication error", e);
                 discoverGateway();
                 if (errorsCounter > MAX_ERRORS) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Too many communication errors");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Too many communication errors");
                 }
             } else {
                 logger.debug("Cannot call url: {} with params: {}!", getApiFullUrl(url), urlParameters, e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         } catch (TimeoutException e) {
             errorsCounter++;
             logger.debug("Timeout when calling url: {} with params: {}!", getApiFullUrl(url), urlParameters, e);
             if (errorsCounter > MAX_ERRORS) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Too many timeouts");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Too many timeouts");
             }
         } catch (InterruptedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             Thread.currentThread().interrupt();
         }
         return null;

@@ -35,8 +35,6 @@ import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 
@@ -48,7 +46,6 @@ import com.google.gson.Gson;
  * @author Tim Roberts - Initial contribution
  */
 public class RioControllerHandler extends AbstractBridgeHandler<RioControllerProtocol> implements RioNamedHandler {
-    private final Logger logger = LoggerFactory.getLogger(RioControllerHandler.class);
     /**
      * The controller identifier of this instance (between 1-6)
      */
@@ -134,36 +131,38 @@ public class RioControllerHandler extends AbstractBridgeHandler<RioControllerPro
     public void initialize() {
         final Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Cannot be initialized without a bridge");
             return;
         }
 
         if (bridge.getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
         final ThingHandler handler = bridge.getHandler();
         if (handler == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No handler specified (null) for the bridge!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "No handler specified (null) for the bridge!");
             return;
         }
 
         if (!(handler instanceof RioSystemHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Controller must be attached to a system bridge: " + handler.getClass());
             return;
         }
 
         final RioControllerConfig config = getConfigAs(RioControllerConfig.class);
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
             return;
         }
 
         final int configController = config.getController();
         if (configController < 1 || configController > 8) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Controller must be between 1 and 8: " + configController);
             return;
         }
@@ -172,7 +171,7 @@ public class RioControllerHandler extends AbstractBridgeHandler<RioControllerPro
         // Get the socket session from the
         final SocketSession socketSession = getSocketSession();
         if (socketSession == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No socket session found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR, "No socket session found");
             return;
         }
 
@@ -184,11 +183,7 @@ public class RioControllerHandler extends AbstractBridgeHandler<RioControllerPro
                 new StatefulHandlerCallback(new AbstractRioHandlerCallback() {
                     @Override
                     public void statusChanged(ThingStatus status, ThingStatusDetail detail, String msg) {
-                        if (detail == ThingStatusDetail.NONE) {
-                            updateStatus(status, msg);
-                        } else {
-                            updateStatus(detail, msg);
-                        }
+                        updateStatus(status, detail, msg);
                     }
 
                     @Override

@@ -17,7 +17,6 @@ import static org.openhab.binding.irtrans.internal.IRtransBindingConstants.CHANN
 import org.openhab.binding.irtrans.internal.IRtransBindingConstants.Led;
 import org.openhab.binding.irtrans.internal.IrCommand;
 import org.openhab.core.library.types.StringType;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -49,35 +48,18 @@ public class BlasterHandler extends BaseThingHandler implements TransceiverStatu
 
     @Override
     public void initialize() {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (bridge.getHandler() instanceof EthernetBridgeHandler handler) {
-            handler.registerTransceiverStatusListener(this);
-        }
+        ((EthernetBridgeHandler) getBridge().getHandler()).registerTransceiverStatusListener(this);
     }
 
     @Override
     public void handleRemoval() {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while removing Thing: {}", thing.getUID());
-        } else if (bridge.getHandler() instanceof EthernetBridgeHandler handler) {
-            handler.unregisterTransceiverStatusListener(this);
-        }
+        ((EthernetBridgeHandler) getBridge().getHandler()).unregisterTransceiverStatusListener(this);
         updateStatus(ThingStatus.REMOVED);
     }
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        EthernetBridgeHandler ethernetBridge = (EthernetBridgeHandler) bridge.getHandler();
+        EthernetBridgeHandler ethernetBridge = (EthernetBridgeHandler) getBridge().getHandler();
 
         if (ethernetBridge == null) {
             logger.warn("IRtrans Ethernet bridge handler not found. Cannot handle command without bridge.");

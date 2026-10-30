@@ -70,7 +70,8 @@ public class WemoBridgeHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
         } else {
             logger.debug("Cannot initalize WemoBridgeHandler. UDN not set.");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/config-status.error.missing-udn");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/config-status.error.missing-udn");
         }
     }
 

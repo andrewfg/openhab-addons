@@ -184,21 +184,17 @@ public class NikoHomeControlActionHandler extends NikoHomeControlBaseHandler imp
         }
         deviceId = config.actionId;
 
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        NikoHomeControlBridgeHandler bridgeHandler = (NikoHomeControlBridgeHandler) bridge.getHandler();
+        NikoHomeControlBridgeHandler bridgeHandler = getBridgeHandler();
         if (bridgeHandler == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.configuration-error.invalid-bridge-handler");
             return;
         }
 
         updateStatus(ThingStatus.UNKNOWN);
 
-        if (ThingStatus.ONLINE.equals(bridge.getStatus())) {
+        Bridge bridge = getBridge();
+        if ((bridge != null) && ThingStatus.ONLINE.equals(bridge.getStatus())) {
             // We need to do this in a separate thread because we may have to wait for the
             // communication to become active
             commStartThread = scheduler.submit(this::startCommunication);
@@ -214,20 +210,23 @@ public class NikoHomeControlActionHandler extends NikoHomeControlBaseHandler imp
         }
 
         if (!nhcComm.communicationActive()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error");
             return;
         }
 
         NhcAction nhcAction = nhcComm.getActions().get(deviceId);
         if (nhcAction == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.deviceId");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.deviceId");
             return;
         }
 
         ActionType actionType = nhcAction.getType();
         if (!(ActionType.TRIGGER.equals(actionType) || ActionType.RELAY.equals(actionType)
                 || ActionType.DIMMER.equals(actionType) || ActionType.ROLLERSHUTTER.equals(actionType))) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.actionType");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.actionType");
             return;
         }
 

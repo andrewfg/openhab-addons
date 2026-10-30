@@ -171,7 +171,7 @@ public class VehicleHandler extends BaseThingHandler {
                 throw new IllegalStateException("BridgeHandler is null");
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, STATUS_BRIDGE_MISSING);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, STATUS_BRIDGE_MISSING);
         }
     }
 

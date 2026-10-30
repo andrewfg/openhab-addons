@@ -323,11 +323,12 @@ public class LifxLightHandler extends BaseThingHandler {
                 lightStateChanger.start();
                 startOrStopSignalStrengthUpdates();
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configure a Device ID or Host");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Configure a Device ID or Host");
             }
         } catch (Exception e) {
             logger.debug("{} : Error occurred while initializing handler: {}", logId, e.getMessage(), e);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         } finally {
             lock.unlock();
         }
@@ -830,11 +831,7 @@ public class LifxLightHandler extends BaseThingHandler {
         if (oldStatusInfo == null || !oldStatusInfo.equals(newStatusInfo) || intervalElapsed) {
             statusInfo = newStatusInfo;
             lastStatusInfoUpdate = LocalDateTime.now();
-            if (statusDetail == ThingStatusDetail.NONE) {
-                updateStatus(status);
-            } else {
-                updateStatus(statusDetail);
-            }
+            updateStatus(status, statusDetail);
         }
     }
 }

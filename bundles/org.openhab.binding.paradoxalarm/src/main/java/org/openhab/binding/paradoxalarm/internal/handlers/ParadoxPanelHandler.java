@@ -24,7 +24,6 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.unit.Units;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
 
 /**
@@ -47,11 +46,7 @@ public class ParadoxPanelHandler extends EntityBaseHandler {
 
     @Override
     protected void updateEntity() {
-        Bridge bridgeThing = getBridge();
-        if (bridgeThing == null) {
-            return;
-        }
-        ParadoxIP150BridgeHandler bridge = (ParadoxIP150BridgeHandler) bridgeThing.getHandler();
+        ParadoxIP150BridgeHandler bridge = (ParadoxIP150BridgeHandler) getBridge().getHandler();
         ParadoxPanel panel = bridge.getPanel();
         StringType panelState = panel.isOnline() ? STATE_ONLINE : STATE_OFFLINE;
         updateState(PANEL_STATE_CHANNEL_UID, panelState);

@@ -52,17 +52,17 @@ public class ControllerHandler extends BaseThingHandler {
         ControllerConfiguration config = getConfigAs(ControllerConfiguration.class);
         String host = config.doorbirdHost;
         if (host == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Doorbird host not provided");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Doorbird host not provided");
             return;
         }
         String user = config.userId;
         if (user == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "User ID not provided");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "User ID not provided");
             return;
         }
         String password = config.userPassword;
         if (password == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "User password not provided");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "User password not provided");
             return;
         }
         api.setAuthorization(host, user, password);
@@ -72,7 +72,8 @@ public class ControllerHandler extends BaseThingHandler {
         if (controllerId != null) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Doorbird not configured with a Controller");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Doorbird not configured with a Controller");
         }
     }
 

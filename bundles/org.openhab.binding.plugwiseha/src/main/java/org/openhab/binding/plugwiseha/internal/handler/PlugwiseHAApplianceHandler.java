@@ -87,7 +87,7 @@ public class PlugwiseHAApplianceHandler extends PlugwiseHABaseHandler<Appliance,
         if (thing.getStatus() == INITIALIZING) {
             logger.debug("Initializing Plugwise Home Automation appliance handler with config = {}", config);
             if (!config.isValid()) {
-                updateStatus(CONFIGURATION_ERROR,
+                updateStatus(OFFLINE, CONFIGURATION_ERROR,
                         "Invalid configuration for Plugwise Home Automation appliance handler.");
                 return;
             }
@@ -107,10 +107,10 @@ public class PlugwiseHAApplianceHandler extends PlugwiseHABaseHandler<Appliance,
                         updateStatus(OFFLINE);
                     }
                 } else {
-                    updateStatus(BRIDGE_OFFLINE);
+                    updateStatus(OFFLINE, BRIDGE_OFFLINE);
                 }
             } catch (PlugwiseHAException e) {
-                updateStatus(COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(OFFLINE, COMMUNICATION_ERROR, e.getMessage());
             }
         }
     }

@@ -78,12 +78,12 @@ public class SonnenHandler extends BaseThingHandler {
         logger.debug("Initializing sonnen handler for thing {}", getThing().getUID());
         config = getConfigAs(SonnenConfiguration.class);
         if (config.refreshInterval < 0 || config.refreshInterval > 1000) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Parameter 'refresh Rate' must be in the range 0-1000.");
             return;
         }
         if (config.hostIP.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "IP Address must be configured!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "IP Address must be configured!");
             return;
         }
 
@@ -127,7 +127,7 @@ public class SonnenHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.ONLINE);
             }
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
             return false;
         }
         return error.isEmpty();

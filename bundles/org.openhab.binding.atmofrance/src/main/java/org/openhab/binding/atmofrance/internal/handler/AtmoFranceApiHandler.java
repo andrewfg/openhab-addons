@@ -95,7 +95,7 @@ public class AtmoFranceApiHandler extends BaseBridgeHandler implements HandlerUt
         ConfigurationLevel configLevel = localConfig.check();
 
         if (configLevel != ConfigurationLevel.COMPLETED) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configLevel.message);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configLevel.message);
             return;
         }
         this.config = localConfig;
@@ -120,9 +120,9 @@ public class AtmoFranceApiHandler extends BaseBridgeHandler implements HandlerUt
             schedule("token refresh", this::initiateConnection, TOKEN_VALIDITY);
         } catch (AtmoFranceException e) {
             if (e.getStatusDetail() instanceof ThingStatusDetail statusDetail) {
-                updateStatus(statusDetail, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, statusDetail, e.getMessage());
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 schedule("reconnect", this::initiateConnection, Duration.ofHours(1));
             }
         }
@@ -193,13 +193,8 @@ public class AtmoFranceApiHandler extends BaseBridgeHandler implements HandlerUt
     }
 
     @Override
-    public void updateStatus(ThingStatusDetail statusDetail) {
-        super.updateStatus(statusDetail);
-    }
-
-    @Override
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        super.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
     }
 
     @Override
@@ -232,7 +227,7 @@ public class AtmoFranceApiHandler extends BaseBridgeHandler implements HandlerUt
             if (detail == null) {
                 detail = ThingStatusDetail.COMMUNICATION_ERROR;
             }
-            updateStatus(detail, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, detail, e.getMessage());
         }
         return null;
     }

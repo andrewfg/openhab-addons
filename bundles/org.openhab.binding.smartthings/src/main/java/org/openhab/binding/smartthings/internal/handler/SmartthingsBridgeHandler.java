@@ -74,12 +74,14 @@ public class SmartthingsBridgeHandler extends ConfigStatusBridgeHandler {
 
     private boolean validateConfig(SmartthingsBridgeConfig config) {
         if (config.smartthingsIp.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Smartthings IP address is not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Smartthings IP address is not specified");
             return false;
         }
 
         if (config.smartthingsPort <= 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Smartthings Port is not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Smartthings Port is not specified");
             return false;
         }
 

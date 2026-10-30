@@ -135,7 +135,7 @@ public class AccountHandler extends BaseBridgeHandler implements AccessTokenRefr
         if (apiLocal == null) {
             String configValidReason = validateConfig();
             if (!configValidReason.isBlank()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configValidReason);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configValidReason);
                 return;
             }
             apiLocal = new Websocket(this, httpClient, config, localeProvider, storage);
@@ -498,15 +498,18 @@ public class AccountHandler extends BaseBridgeHandler implements AccessTokenRefr
     }
 
     private void handleAuthError(MercedesMeAuthException e) {
-        updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, STATUS_AUTH_FAILURE + " [\"" + e.getMessage() + "\"]");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                STATUS_AUTH_FAILURE + " [\"" + e.getMessage() + "\"]");
     }
 
     private void handleApiError(MercedesMeApiException e) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, STATUS_API_FAILURE + " [\"" + e.getMessage() + "\"]");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                STATUS_API_FAILURE + " [\"" + e.getMessage() + "\"]");
     }
 
     private void handleBindingError(MercedesMeBindingException e) {
-        updateStatus(ThingStatus.OFFLINE, STATUS_BIDNING_ERROR + " [\"" + e.getMessage() + "\"]");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE,
+                STATUS_BIDNING_ERROR + " [\"" + e.getMessage() + "\"]");
     }
 
     public void handleConnected() {
@@ -514,7 +517,8 @@ public class AccountHandler extends BaseBridgeHandler implements AccessTokenRefr
     }
 
     public void handleWebsocketError(Throwable t) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, STATUS_WEBSOCKET_FAILURE + " [\"" + t.getMessage() + "\"]");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                STATUS_WEBSOCKET_FAILURE + " [\"" + t.getMessage() + "\"]");
     }
 
     /**

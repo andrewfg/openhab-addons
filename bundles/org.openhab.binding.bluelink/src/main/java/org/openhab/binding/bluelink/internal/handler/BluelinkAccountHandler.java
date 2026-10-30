@@ -113,7 +113,8 @@ public class BluelinkAccountHandler extends BaseBridgeHandler {
         try {
             region = Region.valueOf(regionStr);
         } catch (final IllegalArgumentException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/account-handler.initialize.unsupported-region");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/account-handler.initialize.unsupported-region");
             return;
         }
 
@@ -121,7 +122,8 @@ public class BluelinkAccountHandler extends BaseBridgeHandler {
         final String username = config.username;
         final String password = config.password;
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/account-handler.initialize.missing-credentials");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/account-handler.initialize.missing-credentials");
             return;
         }
 
@@ -132,12 +134,13 @@ public class BluelinkAccountHandler extends BaseBridgeHandler {
             try {
                 brand = Brand.valueOf(configuredBrand.toUpperCase(Locale.ROOT));
             } catch (final IllegalArgumentException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/account-handler.initialize.unsupported-brand");
                 return;
             }
         } else if (region != Region.US) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/account-handler.initialize.brand-required");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/account-handler.initialize.brand-required");
             return;
         } else {
             brand = Brand.UNKNOWN;
@@ -178,12 +181,13 @@ public class BluelinkAccountHandler extends BaseBridgeHandler {
                     logger.debug("Bluelink login successful");
                     setOnline(bluelinkApi);
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/account-handler.login.login-failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/account-handler.login.login-failed");
                 }
             });
         } catch (final RetryableRequestException e) {
             updateIfCurrent(generation, () -> {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getStatusDescription());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getStatusDescription());
                 loginTask = scheduler.schedule(this::login, LOGIN_RETRY_DELAY.toSeconds(), TimeUnit.SECONDS);
             });
         } catch (final LoginRejectedException e) {
@@ -192,12 +196,13 @@ public class BluelinkAccountHandler extends BaseBridgeHandler {
                     case CONSENT_REQUIRED, INVALID_CREDENTIALS, REJECTED -> ThingStatusDetail.CONFIGURATION_ERROR;
                     case BLOCKED, SIGNATURE_REJECTED, TIMESTAMP_REJECTED -> ThingStatusDetail.COMMUNICATION_ERROR;
                 };
-                updateStatus(detail, isLegacyRefreshToken(e) ? "@text/account-handler.login.refresh-token"
-                        : e.getStatusDescription());
+                updateStatus(ThingStatus.OFFLINE, detail,
+                        isLegacyRefreshToken(e) ? "@text/account-handler.login.refresh-token"
+                                : e.getStatusDescription());
             });
         } catch (final BluelinkApiException e) {
-            updateIfCurrent(generation,
-                    () -> updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getStatusDescription()));
+            updateIfCurrent(generation, () -> updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    e.getStatusDescription()));
         }
     }
 

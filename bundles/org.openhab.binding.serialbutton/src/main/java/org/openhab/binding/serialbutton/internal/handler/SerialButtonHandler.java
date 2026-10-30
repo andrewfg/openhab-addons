@@ -59,14 +59,14 @@ public class SerialButtonHandler extends BaseThingHandler implements SerialPortE
     public void initialize() {
         String port = (String) getConfig().get(SerialButtonBindingConstants.PARAMETER_CONFIG);
         if (port == null) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "Port must be set!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "Port must be set!");
             return;
         }
 
         // parse ports and if the port is found, initialize the reader
         portId = serialPortManager.getIdentifier(port);
         if (portId == null) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "Port is not known!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "Port is not known!");
             return;
         }
 
@@ -81,11 +81,12 @@ public class SerialButtonHandler extends BaseThingHandler implements SerialPortE
 
             updateStatus(ThingStatus.ONLINE);
         } catch (final IOException ex) {
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "I/O error!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "I/O error!");
         } catch (PortInUseException e) {
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "Port is in use!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "Port is in use!");
         } catch (TooManyListenersException e) {
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "Cannot attach listener to port!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                    "Cannot attach listener to port!");
         }
     }
 

@@ -87,10 +87,11 @@ public class SagerCasterHandler extends BaseThingHandler {
                 defineWindDirectionStateDescriptions();
                 updateStatus(ThingStatus.ONLINE);
             } catch (IllegalArgumentException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Location incorrectly configured");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Location incorrectly configured");
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Location incorrectly configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Location incorrectly configured");
         }
     }
 

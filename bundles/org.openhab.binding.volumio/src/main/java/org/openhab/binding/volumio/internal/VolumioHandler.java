@@ -70,7 +70,7 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Volumio service was not yet initialized, cannot handle command.");
             }
             return;
@@ -165,7 +165,7 @@ public class VolumioHandler extends BaseThingHandler {
                     logger.error("Unknown channel: {}", channelUID.getId());
             }
         } catch (Exception e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -174,7 +174,7 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Volumio service was not yet initialized, cannot handle send system command.");
             }
             return;
@@ -202,7 +202,7 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Volumio service was not yet initialized, cannot handle volume command.");
             }
             return;
@@ -222,7 +222,7 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Volumio service was not yet initialized, cannot handle stop command.");
             }
             return;
@@ -241,7 +241,7 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Volumio service was not yet initialized, cannot handle playback command.");
             }
             return;
@@ -289,7 +289,8 @@ public class VolumioHandler extends BaseThingHandler {
 
         if (volumioLocal == null) {
             if (ThingStatus.ONLINE.equals(getThing().getStatus())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Volumio service was not yet initialized.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Volumio service was not yet initialized.");
             }
             return;
         }
@@ -313,9 +314,11 @@ public class VolumioHandler extends BaseThingHandler {
                 .intValueExact();
 
         if (hostname == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration incomplete, missing hostname");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Configuration incomplete, missing hostname");
         } else if (protocol == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration incomplete, missing protocol");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Configuration incomplete, missing protocol");
         } else {
             logger.debug("Trying to connect to Volumio on {}://{}:{}", protocol, hostname, port);
             try {
@@ -326,7 +329,7 @@ public class VolumioHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.OFFLINE);
                 volumioLocal.connect();
             } catch (Exception e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
     }
@@ -363,7 +366,7 @@ public class VolumioHandler extends BaseThingHandler {
      * the ThingStatus is set to OFFLINE.
      */
     private Emitter.Listener disconnectListener() {
-        return arg0 -> updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+        return arg0 -> updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
     }
 
     /**

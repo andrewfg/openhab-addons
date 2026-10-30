@@ -127,7 +127,8 @@ abstract class DraytonWiserThingHandler<T> extends BaseThingHandler implements D
                 data = api == null ? null : collectData(draytonWiserDTO);
                 refresh();
                 if (data == null) {
-                    updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "No data received");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                            "No data received");
                 } else {
                     if (getThing().getStatus() != ThingStatus.ONLINE) {
                         updateStatus(ThingStatus.ONLINE);
@@ -136,7 +137,7 @@ abstract class DraytonWiserThingHandler<T> extends BaseThingHandler implements D
             }
         } catch (final RuntimeException | DraytonWiserApiException e) {
             logger.debug("Exception occurred during refresh: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -204,7 +205,7 @@ abstract class DraytonWiserThingHandler<T> extends BaseThingHandler implements D
                 updateStatus(ThingStatus.UNKNOWN);
             }
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -212,7 +213,7 @@ abstract class DraytonWiserThingHandler<T> extends BaseThingHandler implements D
         final Bridge bridge = getBridge();
 
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return null;
         } else {
             return (HeatHubHandler) bridge.getHandler();

@@ -98,7 +98,8 @@ public class BsbLanParameterHandler extends BsbLanBaseThingHandler {
         if (data == null) {
             logger.debug("no data available while updating channel '{}' of parameter {}", channelId,
                     parameterConfig.id);
-            updateStatus(ThingStatusDetail.OFFLINE.BRIDGE_OFFLINE, "No data received from BSB-LAN device");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.BRIDGE_OFFLINE,
+                    "No data received from BSB-LAN device");
             return;
         }
 
@@ -106,7 +107,7 @@ public class BsbLanParameterHandler extends BsbLanBaseThingHandler {
         if (parameter == null) {
             logger.debug("parameter {} is not part of response data while updating channel '{}' ", parameterConfig.id,
                     channelId);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     String.format("No data received for parameter %s", parameterConfig.id));
             return;
         }

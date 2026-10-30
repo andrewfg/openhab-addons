@@ -78,7 +78,7 @@ public class LocalFolderWatcherHandler extends BaseThingHandler {
 
         if (!Files.isDirectory(Paths.get(config.localDir))) {
             logger.debug("Local directory is not valid: {}", config.localDir);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Local directory is not valid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Local directory is not valid");
             return;
         }
         try {
@@ -86,7 +86,7 @@ public class LocalFolderWatcherHandler extends BaseThingHandler {
             previousLocalListing = WatcherCommon.initStorage(currentLocalListingFile, config.localDir);
             logger.debug("Loaded {} previous local files from storage", previousLocalListing.size());
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             logger.debug("Can't write file {}: {}", currentLocalListingFile, e.getMessage());
             return;
         }
@@ -98,7 +98,8 @@ public class LocalFolderWatcherHandler extends BaseThingHandler {
                     config.pollIntervalLocal, TimeUnit.SECONDS);
         } else {
             logger.debug("Polling interval invalid: {}", config.pollIntervalLocal);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Polling interval can't be null or negative");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Polling interval can't be null or negative");
             return;
         }
     }

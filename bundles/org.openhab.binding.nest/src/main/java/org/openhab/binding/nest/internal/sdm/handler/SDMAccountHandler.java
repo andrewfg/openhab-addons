@@ -333,7 +333,7 @@ public class SDMAccountHandler extends BaseBridgeHandler {
             if (e instanceof InvalidSDMAccessTokenException || e instanceof InvalidSDMAuthorizationCodeException
                     || e instanceof InvalidPubSubAccessTokenException
                     || e instanceof InvalidPubSubAuthorizationCodeException) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             } else {
                 Throwable cause = e.getCause();
                 String description = Stream
@@ -341,11 +341,11 @@ public class SDMAccountHandler extends BaseBridgeHandler {
                                 cause == null ? "" : Objects.requireNonNullElse(cause.getMessage(), ""))
                         .filter(not(String::isBlank)) //
                         .collect(Collectors.joining(": "));
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, description);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
             }
         } else {
             String description = config.usePubSub() ? "Using periodic refresh and Pub/Sub" : "Using periodic refresh";
-            updateStatus(ThingStatus.ONLINE, description);
+            updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE, description);
         }
     }
 }

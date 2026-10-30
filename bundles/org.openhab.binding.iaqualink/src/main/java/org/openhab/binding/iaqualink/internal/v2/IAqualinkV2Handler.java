@@ -185,7 +185,7 @@ public class IAqualinkV2Handler extends BaseThingHandler implements IAqualinkDev
             Device[] devices = client.getDevices();
 
             if (devices.length == 0) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No registered devices found");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No registered devices found");
                 return;
             }
 
@@ -198,7 +198,8 @@ public class IAqualinkV2Handler extends BaseThingHandler implements IAqualinkDev
                         .orElseGet(() -> devices[0]);
 
                 if (Arrays.stream(devices).noneMatch(d -> d.getSerialNumber().equals(serialNumber))) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No Device for given serialId found");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "No Device for given serialId found");
                     return;
                 }
             } else {
@@ -214,10 +215,10 @@ public class IAqualinkV2Handler extends BaseThingHandler implements IAqualinkDev
             startListening(newDevice);
         } catch (IOException e) {
             logger.debug("Could not connect to service {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         } catch (NotAuthorizedException e) {
             logger.debug("Credentials not valid");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Credentials not valid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Credentials not valid");
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -306,7 +307,7 @@ public class IAqualinkV2Handler extends BaseThingHandler implements IAqualinkDev
     @Override
     public void onDisconnected(String deviceId) {
         logger.error("Disconnected from device {}!", deviceId);
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.COMMUNICATION_ERROR);
     }
 
     /**

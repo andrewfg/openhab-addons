@@ -107,10 +107,6 @@ public class NZWaterAlertsHandler extends BaseThingHandler implements NZWaterAle
 
     @Override
     public void updateBindingStatus(ThingStatus thingStatus, ThingStatusDetail thingStatusDetail, String description) {
-        if (thingStatusDetail == ThingStatusDetail.NONE) {
-            updateStatus(thingStatus, description);
-        } else {
-            updateStatus(thingStatusDetail, description);
-        }
+        updateStatus(thingStatus, thingStatusDetail, description);
     }
 }

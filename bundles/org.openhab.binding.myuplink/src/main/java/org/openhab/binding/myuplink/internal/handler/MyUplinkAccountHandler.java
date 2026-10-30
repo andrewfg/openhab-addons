@@ -68,13 +68,7 @@ public class MyUplinkAccountHandler extends BaseBridgeHandler implements MyUplin
     public MyUplinkAccountHandler(Bridge bridge, HttpClient httpClient) {
         super(bridge);
         this.dataPollingJobReference = new AtomicReference<>(null);
-        this.webInterface = new WebInterface(scheduler, this, httpClient, (status, detail, description) -> {
-            if (detail == ThingStatusDetail.NONE) {
-                super.updateStatus(status, description);
-            } else {
-                super.updateStatus(detail, description);
-            }
-        });
+        this.webInterface = new WebInterface(scheduler, this, httpClient, super::updateStatus);
     }
 
     @Override
@@ -83,12 +77,13 @@ public class MyUplinkAccountHandler extends BaseBridgeHandler implements MyUplin
         MyUplinkConfiguration config = getBridgeConfiguration();
         logger.debug("myUplink Account initialized with configuration: {}", config.toString());
 
-        updateStatus(ThingStatus.UNKNOWN, STATUS_WAITING_FOR_LOGIN);
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, STATUS_WAITING_FOR_LOGIN);
 
         if (config.getClientId().isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, STATUS_CONFIG_ERROR_NO_CLIENT_ID);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, STATUS_CONFIG_ERROR_NO_CLIENT_ID);
         } else if (config.getClientSecret().isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, STATUS_CONFIG_ERROR_NO_CLIENT_SECRET);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    STATUS_CONFIG_ERROR_NO_CLIENT_SECRET);
         } else {
             webInterface.start();
             startPolling();
@@ -129,7 +124,7 @@ public class MyUplinkAccountHandler extends BaseBridgeHandler implements MyUplin
                 super.updateStatus(ThingStatus.ONLINE);
                 break;
             default:
-                super.updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, msg);
+                super.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, msg);
         }
     }
 

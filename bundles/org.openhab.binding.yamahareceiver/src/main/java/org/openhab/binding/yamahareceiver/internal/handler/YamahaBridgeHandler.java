@@ -196,7 +196,7 @@ public class YamahaBridgeHandler extends BaseBridgeHandler
                             id);
             }
         } catch (IOException | ReceivedMessageParseException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -369,7 +369,7 @@ public class YamahaBridgeHandler extends BaseBridgeHandler
         Optional<String> host = bridgeConfig.getHostWithPort();
         if (host.isEmpty()) {
             String msg = "Host or port not set. Double check your thing settings.";
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, msg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, msg);
             logger.warn(msg);
             return;
         }
@@ -390,7 +390,8 @@ public class YamahaBridgeHandler extends BaseBridgeHandler
 
     @Override
     public void onConnectionCreated(@Nullable AbstractConnection connection) {
-        updateStatus(ThingStatus.UNKNOWN);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                "Waiting for connection with Yamaha device");
 
         this.connection = connection;
         this.systemControl = null;
@@ -442,7 +443,7 @@ public class YamahaBridgeHandler extends BaseBridgeHandler
         logger.debug(
                 "Communication error. Either the Yamaha thing configuration is invalid or the device is offline. Details: {}",
                 description);
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, description);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
     }
 
     @Override

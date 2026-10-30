@@ -238,7 +238,7 @@ public class GrafikEyeHandler extends BaseThingHandler {
     @Override
     public void thingUpdated(Thing thing) {
         cancelPolling();
-        updateStatus(ThingStatus.UNKNOWN);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING);
         this.thing = thing;
         internalInitialize();
     }
@@ -253,7 +253,7 @@ public class GrafikEyeHandler extends BaseThingHandler {
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
             internalInitialize();
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -265,29 +265,26 @@ public class GrafikEyeHandler extends BaseThingHandler {
         config = getConfigAs(GrafikEyeConfig.class);
 
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
             return;
         }
 
         final String configErr = config.validate();
         if (configErr != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configErr);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configErr);
             return;
         }
 
         final Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(bridge.getHandler() instanceof PrgBridgeHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "GrafikEye must have a parent PRG Bridge");
+        if (bridge == null || !(bridge.getHandler() instanceof PrgBridgeHandler)) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "GrafikEye must have a parent PRG Bridge");
             return;
         }
 
         final ThingHandler handler = bridge.getHandler();
         if (handler.getThing().getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 

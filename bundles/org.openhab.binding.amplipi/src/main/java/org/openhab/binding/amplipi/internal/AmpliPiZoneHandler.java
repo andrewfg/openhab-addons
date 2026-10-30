@@ -92,7 +92,7 @@ public class AmpliPiZoneHandler extends BaseThingHandler implements AmpliPiStatu
             if (bridge.getStatus() == ThingStatus.ONLINE) {
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
             throw new IllegalStateException("Bridge must not be null here!");
@@ -188,7 +188,8 @@ public class AmpliPiZoneHandler extends BaseThingHandler implements AmpliPiStatu
                     updateStatus(ThingStatus.ONLINE);
                 }
             } catch (InterruptedException | TimeoutException | ExecutionException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "AmpliPi request failed: " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "AmpliPi request failed: " + e.getMessage());
             }
         }
     }

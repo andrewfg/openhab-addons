@@ -27,6 +27,7 @@ import org.openhab.binding.ephemeris.internal.configuration.FileConfiguration;
 import org.openhab.core.ephemeris.EphemerisManager;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 
 /**
@@ -47,13 +48,15 @@ public class CustomHandler extends JollydayHandler {
         String fileName = getConfigAs(FileConfiguration.class).fileName;
 
         if (fileName.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "'fileName' can not be blank or empty");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "'fileName' can not be blank or empty");
             return;
         }
 
         File file = new File(BINDING_DATA_PATH, fileName);
         if (!file.exists()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Missing file: %s".formatted(file.getAbsolutePath()));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Missing file: %s".formatted(file.getAbsolutePath()));
             return;
         }
 

@@ -59,12 +59,9 @@ public abstract class UniFiBaseThingHandler<E, C> extends BaseThingHandler {
     @SuppressWarnings("unchecked")
     public final void initialize() {
         final Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(bridge.getHandler() instanceof UniFiControllerBridgeHandler bridgeHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.thing.offline.configuration_error");
+        if (bridge == null || !(bridge.getHandler() instanceof UniFiControllerBridgeHandler bridgeHandler)) {
+            updateStatus(OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/error.thing.offline.configuration_error");
             return;
         }
         // mgb: derive the config class from the generic type
@@ -75,7 +72,7 @@ public abstract class UniFiBaseThingHandler<E, C> extends BaseThingHandler {
         if (initialize(config)) {
             coordinator = NetworkRefreshCoordinator.attach(bridgeHandler, this);
             if (bridge.getStatus() == OFFLINE) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/error.thing.offline.bridge_offline");
+                updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/error.thing.offline.bridge_offline");
                 return;
             } else {
                 updateStatus(UNKNOWN);
@@ -153,11 +150,11 @@ public abstract class UniFiBaseThingHandler<E, C> extends BaseThingHandler {
         Throwable err = c.getLastError();
         if (err != null) {
             if (err instanceof UniFiInvalidCredentialsException) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, err.getMessage());
+                updateStatus(OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, err.getMessage());
             } else if (err instanceof UniFiCommunicationException) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, err.getMessage());
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, err.getMessage());
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, err.getMessage());
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, err.getMessage());
             }
             return;
         }

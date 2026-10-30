@@ -307,7 +307,7 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
                     retryAction.run();
                 }
             }, delaySeconds, TimeUnit.SECONDS);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     i18nText("thing-status.rachio.thing.local-throttle", operation, delaySeconds));
             return delaySeconds;
         }
@@ -334,7 +334,8 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
                     retryAction.run();
                 }
             }, delaySeconds, TimeUnit.SECONDS);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, INITIALIZATION_THROTTLE_STATUS_MESSAGE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    INITIALIZATION_THROTTLE_STATUS_MESSAGE);
             return delaySeconds;
         }
     }
@@ -368,12 +369,12 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
                     scheduleHandlerTask(generation, this::onBridgeOnline);
                 }
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
             cancelHandlerLifecycleTasks(false);
             cancelLocalThrottleRetry();
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 

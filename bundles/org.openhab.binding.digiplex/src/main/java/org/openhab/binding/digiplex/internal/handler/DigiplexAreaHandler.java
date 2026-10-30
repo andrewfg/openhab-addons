@@ -45,8 +45,6 @@ import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The {@link DigiplexAreaHandler} is responsible for handling commands, which are
@@ -56,7 +54,6 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class DigiplexAreaHandler extends BaseThingHandler {
-    private final Logger logger = LoggerFactory.getLogger(DigiplexAreaHandler.class);
 
     private @Nullable DigiplexAreaConfiguration config;
     private @Nullable DigiplexBridgeHandler bridgeHandler;
@@ -160,7 +157,7 @@ public class DigiplexAreaHandler extends BaseThingHandler {
         config = getConfigAs(DigiplexAreaConfiguration.class);
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
         bridgeHandler = (DigiplexBridgeHandler) bridge.getHandler();
@@ -204,12 +201,7 @@ public class DigiplexAreaHandler extends BaseThingHandler {
     @Override
     public void bridgeStatusChanged(ThingStatusInfo thingStatusInfo) {
         if (thingStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            ThingStatusDetail detail = thingStatusInfo.getStatusDetail();
-            if (detail == ThingStatusDetail.NONE) {
-                updateStatus(ThingStatus.OFFLINE);
-            } else {
-                updateStatus(detail);
-            }
+            updateStatus(ThingStatus.OFFLINE, thingStatusInfo.getStatusDetail());
         } else if (thingStatusInfo.getStatus() == ThingStatus.ONLINE) {
             updateStatus(ThingStatus.ONLINE);
             sendStatusUpdateRequest();

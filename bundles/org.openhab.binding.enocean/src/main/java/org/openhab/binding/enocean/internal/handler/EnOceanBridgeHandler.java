@@ -163,7 +163,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
 
     @Override
     public void initialize() {
-        updateStatus(ThingStatus.UNKNOWN);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING, "trying to connect to gateway...");
 
         connectorTask = scheduler.scheduleWithFixedDelay(new Runnable() {
             @Override
@@ -199,14 +199,15 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
 
             localTransceiver = transceiver;
             if (localTransceiver == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Failed to initialize EnOceanTransceiver");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Failed to initialize EnOceanTransceiver");
                 return;
             }
 
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING, "opening serial port...");
             localTransceiver.initialize();
 
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING, "starting rx thread...");
             localTransceiver.startReceiving(scheduler);
             logger.info("EnOceanSerialTransceiver RX thread up and running");
 
@@ -214,7 +215,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                 if (!c.rs485BaseId.isEmpty()) {
                     baseId = HexUtils.hexToBytes(c.rs485BaseId);
                     if (baseId.length != 4) {
-                        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                                 "RS485 BaseId has the wrong format. It is expected to be an 8 digit hex code, for example 01000000");
                     }
                 } else {
@@ -224,7 +225,8 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                 updateProperty(PROPERTY_BASE_ID, HexUtils.bytesToHex(baseId));
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatus.UNKNOWN);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                        "trying to get bridge base id...");
 
                 logger.debug("request base id");
                 localTransceiver.sendBasePacket(ESP3PacketFactory.CO_RD_IDBASE,
@@ -244,7 +246,8 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                                     }
                                     updateStatus(ThingStatus.ONLINE);
                                 } else {
-                                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Could not get BaseId");
+                                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                                            "Could not get BaseId");
                                 }
                             }
                         });
@@ -286,11 +289,11 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                         }
                     });
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Port could not be found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Port could not be found");
         } catch (PortInUseException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Port already in use");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Port already in use");
         } catch (Exception e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Port could not be initialized");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Port could not be initialized");
             return;
         }
     }
@@ -388,7 +391,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
             }
             localTransceiver.sendBasePacket(message, responseListener);
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -437,7 +440,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                             }
                         });
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Smack packet could not be send: " + e.getMessage());
             }
         }
@@ -456,7 +459,8 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
             localTransceiver.sendBasePacket(ESP3PacketFactory.SA_WR_LEARNMODE(false), null);
             refreshProperties();
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Smack packet could not be send: " + e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Smack packet could not be send: " + e.getMessage());
         }
     }
 
@@ -486,7 +490,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
                             });
                 }
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Smack packet could not be send: " + e.getMessage());
             }
         }
@@ -499,7 +503,7 @@ public class EnOceanBridgeHandler extends ConfigStatusBridgeHandler implements T
             localTransceiver.shutDown();
             transceiver = null;
         }
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, exception.getMessage());
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, exception.getMessage());
     }
 
     public boolean sendTeachOuts() {

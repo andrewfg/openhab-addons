@@ -83,7 +83,8 @@ public abstract class OpenWebNetThingHandler extends BaseThingHandler {
 
                 final String configDeviceWhere = (String) getConfig().get(CONFIG_PROPERTY_WHERE);
                 if (configDeviceWhere == null) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-where");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "@text/offline.conf-error-where");
                 } else {
                     Where w;
                     try {
@@ -93,7 +94,8 @@ public abstract class OpenWebNetThingHandler extends BaseThingHandler {
                             w = new WhereZigBee(configDeviceWhere);
                         }
                     } catch (IllegalArgumentException ia) {
-                        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-where");
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                                "@text/offline.conf-error-where");
                         return;
                     }
                     deviceWhere = w;
@@ -104,20 +106,21 @@ public abstract class OpenWebNetThingHandler extends BaseThingHandler {
                     updateProperties(properties);
                     brH.registerDevice(oid, this);
                     logger.debug("associated thing to bridge with ownId={}", ownId);
-                    updateStatus(ThingStatus.UNKNOWN, "@text/unknown.waiting-state");
+                    updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/unknown.waiting-state");
                 }
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-bridge");
         }
     }
 
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
-            updateStatus(ThingStatus.UNKNOWN, "@text/unknown.waiting-state");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/unknown.waiting-state");
         } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.bridge-offline");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.bridge-offline");
         }
     }
 
@@ -213,7 +216,7 @@ public abstract class OpenWebNetThingHandler extends BaseThingHandler {
         Where w = deviceWhere;
         if (w == null) {
             logger.warn("Could not requestChannelState(): deviceWhere is null for thing {}", thing.getUID());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-where");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-where");
             return;
         }
         // set a schedule to put device OFFLINE if no answer is received after
@@ -221,7 +224,8 @@ public abstract class OpenWebNetThingHandler extends BaseThingHandler {
         requestChannelStateTimeout = scheduler.schedule(() -> {
             if (thing.getStatus().equals(ThingStatus.UNKNOWN)) {
                 logger.debug("requestChannelState() TIMEOUT for thing {}", thing.getUID());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-state");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error-state");
             }
         }, THING_STATE_REQ_TIMEOUT_SEC, TimeUnit.SECONDS);
     }

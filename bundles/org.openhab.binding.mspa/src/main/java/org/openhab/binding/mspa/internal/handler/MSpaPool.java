@@ -161,11 +161,13 @@ public class MSpaPool extends BaseThingHandler {
     public void initialize() {
         config = getConfigAs(MSpaPoolConfiguration.class);
         if (config.deviceId.isBlank() || config.productId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/status.mspa.pool.config-parameter-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/status.mspa.pool.config-parameter-missing");
             return;
         }
         if (config.refreshInterval < 5) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/status.mspa.pool.refresh-too-low");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/status.mspa.pool.refresh-too-low");
             return;
         }
 
@@ -181,13 +183,16 @@ public class MSpaPool extends BaseThingHandler {
                             TimeUnit.SECONDS);
                     setCommandOptions();
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/status.mspa.invalid-token");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/status.mspa.invalid-token");
                 }
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/status.mspa.pool.wrong-bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/status.mspa.pool.wrong-bridge");
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/status.mspa.pool.no-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/status.mspa.pool.no-bridge");
         }
     }
 
@@ -239,7 +244,7 @@ public class MSpaPool extends BaseThingHandler {
         }
         Optional<JSONArray> deviceListOpt = acc.getDeviceList();
         if (deviceListOpt.isEmpty()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/status.mspa.pool.request-failed [\"" + "@text/status.mspa.pool-no-devices" + "\"]");
             return false;
         } else {
@@ -261,7 +266,7 @@ public class MSpaPool extends BaseThingHandler {
                                 if (online) {
                                     updateStatus(ThingStatus.ONLINE);
                                 } else {
-                                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                             "@text/status.mspa.pool.offline");
                                 }
                                 return online;
@@ -270,7 +275,7 @@ public class MSpaPool extends BaseThingHandler {
                     }
                 }
             }
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/status.mspa.pool-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/status.mspa.pool-missing");
             return false;
         }
     }

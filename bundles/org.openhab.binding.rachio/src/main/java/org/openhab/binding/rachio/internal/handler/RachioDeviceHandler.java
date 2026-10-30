@@ -107,7 +107,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         String configuredDeviceId = getThingConfigurationString(PROPERTY_DEV_ID);
         try {
             if (!initializeCloudHandler()) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                         i18nText("thing-status.rachio.device.bridge-not-initialized"));
                 return;
             }
@@ -117,7 +117,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             if (d == null || handler == null) {
                 String errorMessage = buildDeviceResolutionError(configuredDeviceId);
                 logger.debug("{}: {}", thingId, errorMessage);
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         buildDeviceResolutionStatusDetail(configuredDeviceId));
                 return;
             }
@@ -135,7 +135,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             String errorMessage = message != null ? message : e.getClass().getSimpleName();
             logger.warn("{}: Unexpected error while initializing Rachio controller", thingId, e);
             if (isHandlerLifecycleCurrent(generation)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         i18nText("thing-status.rachio.device.initialization-failed", errorMessage));
             }
         }
@@ -158,7 +158,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             }
             if (!isBridgeOnline()) {
                 logger.debug("{}: Rachio Bridge is offline!", thingId);
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 return;
             }
             goOnline(generation);
@@ -179,7 +179,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             String errorMessage) {
         logger.debug("{}: Rachio controller initialization failed: {}", thingId, errorMessage);
         if (isCurrentDeviceContext(generation, handler, d)) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     i18nText("thing-status.rachio.device.initialization-failed", errorMessage));
         }
     }
@@ -358,7 +358,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         } finally {
             if (!errorMessage.isEmpty()) {
                 logger.debug("{}: Rachio controller command failed: {}", thingId, errorMessage);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         i18nText("thing-status.rachio.device.command-failed", errorMessage));
             }
         }
@@ -450,7 +450,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         RachioDevice previousDevice = dev;
         if (!rebindToCurrentBridgeModel("cloud catalogue refresh")) {
             dev = null;
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, i18nText("thing-status.rachio.device.not-in-poll"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    i18nText("thing-status.rachio.device.not-in-poll"));
         } else if (!isSameInstance(previousDevice, dev)) {
             updateProperties();
             postChannelData();

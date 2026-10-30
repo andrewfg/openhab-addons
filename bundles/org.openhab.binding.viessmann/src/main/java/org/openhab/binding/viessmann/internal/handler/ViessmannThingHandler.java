@@ -55,11 +55,12 @@ public abstract class ViessmannThingHandler extends BaseThingHandler {
         logger.trace("Initializing device state");
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-bridge");
         } else if (bridge.getStatus() == ThingStatus.ONLINE) {
             initChannelState();
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -91,16 +92,12 @@ public abstract class ViessmannThingHandler extends BaseThingHandler {
                 && getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.BRIDGE_OFFLINE) {
             initDeviceState();
         } else if (bridgeStatus == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
     public void updateThingStatus(ThingStatus status, ThingStatusDetail statusDetail, String statusMessage) {
-        if (statusDetail == ThingStatusDetail.NONE) {
-            updateStatus(status, statusMessage);
-        } else {
-            updateStatus(statusDetail, statusMessage);
-        }
+        updateStatus(status, statusDetail, statusMessage);
     }
 
     public void setChannelStateDescription(ChannelUID channelUid, List<StateOption> stateOptions) {

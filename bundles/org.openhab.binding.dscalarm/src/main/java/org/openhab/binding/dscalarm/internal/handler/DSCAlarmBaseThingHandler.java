@@ -84,11 +84,7 @@ public abstract class DSCAlarmBaseThingHandler extends BaseThingHandler {
         getConfiguration(dscAlarmThingType);
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        initializeThingHandler(bridge.getStatus());
+        initializeThingHandler(bridge != null ? bridge.getStatus() : null);
         this.setThingHandlerInitialized(true);
     }
 
@@ -125,12 +121,12 @@ public abstract class DSCAlarmBaseThingHandler extends BaseThingHandler {
 
                 logger.debug("initializeThingHandler(): Thing Handler Initialized - {}", thing.getUID());
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 logger.debug("initializeThingHandler(): Thing '{}' is set to OFFLINE because bridge is OFFLINE",
                         thing.getUID());
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             logger.debug("initializeThingHandler(): Thing '{}' is set to OFFLINE because bridge is uninitialized",
                     thing.getUID());
         }

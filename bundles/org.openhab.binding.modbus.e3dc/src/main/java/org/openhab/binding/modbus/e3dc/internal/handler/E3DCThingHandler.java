@@ -236,19 +236,21 @@ public class E3DCThingHandler extends BaseBridgeHandler {
         ModbusEndpointThingHandler slaveEndpointThingHandler = getEndpointThingHandler();
         if (slaveEndpointThingHandler == null) {
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, String.format("Bridge '%s' is offline", label));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                    String.format("Bridge '%s' is offline", label));
             return null;
         }
         try {
             slaveId = slaveEndpointThingHandler.getSlaveId();
             comms = slaveEndpointThingHandler.getCommunicationInterface();
         } catch (EndpointNotInitializedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, String.format("Slave Endpoint not initialized"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    String.format("Slave Endpoint not initialized"));
             return null;
         }
         if (comms == null) {
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     String.format("Bridge '%s' not completely initialized", label));
             return null;
         } else {
@@ -460,14 +462,14 @@ public class E3DCThingHandler extends BaseBridgeHandler {
                 if (infoRead == ReadStatus.READ_SUCCESS) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, INFO_DATA_READ_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, INFO_DATA_READ_ERROR);
                 }
             } else {
                 // either info or data read failed - update status with details
                 if (infoRead == ReadStatus.READ_FAILED) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, INFO_READ_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, INFO_READ_ERROR);
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, DATA_READ_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, DATA_READ_ERROR);
                 }
             }
         } // else - one status isn't received yet - wait until both Modbus polls returns either success or error

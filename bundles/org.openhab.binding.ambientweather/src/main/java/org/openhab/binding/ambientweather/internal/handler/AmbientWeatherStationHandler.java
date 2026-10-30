@@ -30,7 +30,6 @@ import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -74,22 +73,20 @@ public class AmbientWeatherStationHandler extends BaseThingHandler {
     public void initialize() {
         macAddress = getConfigAs(StationConfig.class).macAddress;
         logger.debug("Station {}: Initializing station handler for MAC {}", station, macAddress);
-
-        if (!(this.getBridge() instanceof Bridge bridge)) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-
         try {
             ProcessorFactory.getProcessor(thing).setChannelGroupId();
             ProcessorFactory.getProcessor(thing).setNumberOfSensors();
         } catch (ProcessorNotFoundException e) {
             logger.warn("Station {}: Unable to set channel group Id and/or number of sensors: {}", station,
                     e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR, e.getMessage());
             return;
         }
-        updateStatus(ThingStatus.ONLINE);
+        Thing bridge = getBridge();
+        if (bridge != null) {
+            logger.debug("Station {}: Set station status to match bridge status: {}", station, bridge.getStatus());
+            updateStatus(bridge.getStatus());
+        }
     }
 
     @Override
@@ -104,7 +101,7 @@ public class AmbientWeatherStationHandler extends BaseThingHandler {
         ThingStatus bridgeStatus = bridgeStatusInfo.getStatus();
         logger.debug("Station {}: Detected bridge status changed to '{}', Update my status", station, bridgeStatus);
         if (bridgeStatus == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else if (bridgeStatus == ThingStatus.ONLINE) {
             updateStatus(ThingStatus.ONLINE);
         }

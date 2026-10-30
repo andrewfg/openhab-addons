@@ -91,19 +91,11 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
     public void initialize() {
         logger.debug("Initializing Hue group handler.");
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        initializeThing(bridge.getStatus());
+        initializeThing((bridge == null) ? null : bridge.getStatus());
     }
 
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
         logger.debug("bridgeStatusChanged {}", bridgeStatusInfo);
         initializeThing(bridgeStatusInfo.getStatus());
     }
@@ -123,13 +115,14 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                 if (bridgeStatus == ThingStatus.ONLINE) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 }
             } else {
-                updateStatus(ThingStatus.UNKNOWN);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-group-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-group-id");
         }
     }
 
@@ -188,7 +181,8 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
         FullGroup group = bridgeHandler.getGroupById(groupId);
         if (group == null) {
             logger.debug("Hue group not known on bridge. Cannot handle command.");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-wrong-group-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-wrong-group-id");
             return;
         }
 
@@ -439,12 +433,12 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
 
     @Override
     public void onGroupRemoved() {
-        updateStatus(ThingStatus.OFFLINE, "@text/offline.group-removed");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.group-removed");
     }
 
     @Override
     public void onGroupGone() {
-        updateStatus(ThingStatusDetail.GONE, "@text/offline.group-removed");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "@text/offline.group-removed");
     }
 
     /**

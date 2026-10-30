@@ -57,11 +57,7 @@ public class ZWayZWaveDeviceHandler extends ZWayDeviceHandler {
                 logger.debug("Change Z-Way Z-Wave device status to bridge status: {}", statusInfo);
 
                 // Set thing status to bridge status
-                if (statusInfo.getStatusDetail() == ThingStatusDetail.NONE) {
-                    updateStatus(statusInfo.getStatus(), statusInfo.getDescription());
-                } else {
-                    updateStatus(statusInfo.getStatusDetail(), statusInfo.getDescription());
-                }
+                updateStatus(statusInfo.getStatus(), statusInfo.getStatusDetail(), statusInfo.getDescription());
 
                 // Add all available channels
                 logger.debug("Add all available channels");
@@ -98,7 +94,7 @@ public class ZWayZWaveDeviceHandler extends ZWayDeviceHandler {
                                 }
                             }
                         } else {
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
                                     "Z-Way physical device with node id " + mConfig.getNodeId() + " not found.");
                         }
 
@@ -128,15 +124,17 @@ public class ZWayZWaveDeviceHandler extends ZWayDeviceHandler {
                             logger.error("Unexpected error");
                         }
                         if (getThing().getStatus() == ThingStatus.ONLINE) {
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
                                     "Error occurred when adding device as channel.");
                         }
                     }
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Devices not loaded");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                            "Devices not loaded");
                 }
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Z-Way bridge handler not found or not ONLINE.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                        "Z-Way bridge handler not found or not ONLINE.");
             }
         }
     }
@@ -149,22 +147,38 @@ public class ZWayZWaveDeviceHandler extends ZWayDeviceHandler {
     public void initialize() {
         logger.debug("Initializing Z-Way device handler ...");
 
-        // Configuration - thing status update with an error message
-        mConfig = getConfigAs(ZWayZWaveDeviceConfiguration.class);
+        // Set thing status to a valid status
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                "Checking configuration and bridge...");
 
-        if (mConfig.getNodeId() == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
-                    "Z-Wave device couldn't create, because the node id is missing.");
-            return;
+        // Configuration - thing status update with an error message
+        mConfig = loadAndCheckConfiguration();
+
+        if (mConfig != null) {
+            logger.debug("Configuration complete: {}", mConfig);
+
+            // Start an extra thread to check the connection, because it takes sometimes more
+            // than 5000 milliseconds and the handler will suspend (ThingStatus.UNINITIALIZED).
+            scheduler.schedule(new Initializer(), 2, TimeUnit.SECONDS);
+        } else {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Z-Way node id required!");
         }
-        updateStatus(ThingStatus.UNKNOWN);
-        // Start an extra thread to check the connection, because it takes sometimes more
-        // than 5000 milliseconds and the handler will suspend (ThingStatus.UNINITIALIZED).
-        scheduler.schedule(new Initializer(), 2, TimeUnit.SECONDS);
     }
 
     private void completeInitialization() {
         super.initialize(); // starts polling job and register all linked items
+    }
+
+    private ZWayZWaveDeviceConfiguration loadAndCheckConfiguration() {
+        ZWayZWaveDeviceConfiguration config = getConfigAs(ZWayZWaveDeviceConfiguration.class);
+
+        if (config.getNodeId() == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Z-Wave device couldn't create, because the node id is missing.");
+            return null;
+        }
+
+        return config;
     }
 
     @Override

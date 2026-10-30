@@ -378,7 +378,7 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
         }
 
         if (configError != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configError);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configError);
         } else {
             for (RotelSource src : model.getSources()) {
                 // Consider custom input labels
@@ -1002,7 +1002,8 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
                 }
             } catch (RotelException e) {
                 logger.debug("Command {} from channel {} failed: {}", command, channel, e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-sending-command");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error-sending-command");
                 closeConnection();
                 scheduleReconnectJob();
             } catch (InterruptedException e) {
@@ -1405,7 +1406,8 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
             switch (key) {
                 case KEY_ERROR:
                     logger.debug("Reading feedback message failed");
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-reading-thread");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.comm-error-reading-thread");
                     closeConnection();
                     break;
                 case KEY_LINE1:
@@ -2168,7 +2170,8 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
                     }
                 } catch (RotelException e) {
                     logger.debug("Init sequence failed: {}", e.getMessage());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-init-sequence");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.comm-error-init-sequence");
                     closeConnection();
                 } catch (InterruptedException e) {
                     logger.debug("Init sequence interrupted: {}", e.getMessage());
@@ -2197,7 +2200,7 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
                     }
                 } catch (RotelException e) {
                     logger.debug("Init sequence zone {} failed: {}", numZone, e.getMessage());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             String.format("@text/offline.comm-error-init-sequence-zone [\"%d\"]", numZone));
                     closeConnection();
                 } catch (InterruptedException e) {
@@ -2232,7 +2235,7 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
                     selectZone(model.getNumberOfZones(), model.getZoneSelectCmd());
                 } catch (RotelException e) {
                     logger.debug("Check power zones sequence failed: {}", e.getMessage());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "@text/offline.comm-error-check-power-zones-sequence");
                     closeConnection();
                 } catch (InterruptedException e) {
@@ -2286,7 +2289,7 @@ public class RotelHandler extends BaseThingHandler implements RotelMessageEventL
                     for (int zone = 1; zone <= model.getNumberOfZones(); zone++) {
                         handlePowerOffZone(zone);
                     }
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
                 } else {
                     updateStatus(ThingStatus.ONLINE);
                 }

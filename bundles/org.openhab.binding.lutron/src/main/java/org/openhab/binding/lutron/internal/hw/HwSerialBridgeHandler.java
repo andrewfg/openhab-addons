@@ -84,7 +84,7 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
         }
 
         if (serialPortName == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Serial port not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Serial port not specified");
             return;
         }
 
@@ -102,7 +102,7 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
     private void openConnection() {
         SerialPortIdentifier portIdentifier = serialPortManager.getIdentifier(serialPortName);
         if (portIdentifier == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Invalid port: " + serialPortName);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Invalid port: " + serialPortName);
             return;
         }
 
@@ -135,11 +135,12 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
                 startUpdateProcessorTimeJob();
             }
         } catch (PortInUseException portInUseException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Port in use: " + serialPortName);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Port in use: " + serialPortName);
         } catch (UnsupportedCommOperationException | IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Communication error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Communication error");
         } catch (TooManyListenersException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Too many listeners to serial port.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Too many listeners to serial port.");
         }
     }
 
@@ -159,7 +160,7 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
         String timeString = date.format(timeFormat);
         logger.debug("Updating HomeWorks processor date and time to {} {}", dateString, timeString);
 
-        if (getThing().getStatus() != ThingStatus.ONLINE) {
+        if (!this.getBridge().getStatus().equals(ThingStatus.ONLINE)) {
             logger.warn("HomeWorks Bridge is offline and cannot update time on HomeWorks processor.");
             if (updateTimeJob != null) {
                 updateTimeJob.cancel(false);
@@ -235,7 +236,7 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
                 }
             } catch (IOException e) {
                 logger.debug("Error reading from serial port: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error reading from port");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Error reading from port");
             }
         }
     }
@@ -247,7 +248,7 @@ public class HwSerialBridgeHandler extends BaseBridgeHandler implements SerialPo
             serialOutput.flush();
         } catch (IOException e) {
             logger.debug("Error writing to serial port: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error writing to port.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Error writing to port.");
         }
     }
 

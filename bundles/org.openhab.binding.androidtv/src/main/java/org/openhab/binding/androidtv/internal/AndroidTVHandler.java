@@ -184,7 +184,7 @@ public class AndroidTVHandler extends BaseThingHandler {
 
         if (!currentThingStatus.equals(statusMessage) || (currentThingFailed != failed)) {
             if (failed) {
-                updateStatus(ThingStatus.OFFLINE, statusMessage);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, statusMessage);
             } else {
                 updateStatus(ThingStatus.ONLINE);
             }
@@ -196,7 +196,7 @@ public class AndroidTVHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        updateStatus(ThingStatus.OFFLINE, "@text/offline.protocols-starting");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.protocols-starting");
 
         GoogleTVConfiguration googletvConfig = getConfigAs(GoogleTVConfiguration.class);
         String ipAddress = googletvConfig.ipAddress;
@@ -204,7 +204,8 @@ public class AndroidTVHandler extends BaseThingHandler {
 
         if (THING_TYPE_GOOGLETV.equals(thingTypeUID) || gtvEnabled) {
             if (ipAddress.isBlank()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.googletv-address-not-specified");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.googletv-address-not-specified");
                 return;
             }
 
@@ -216,7 +217,8 @@ public class AndroidTVHandler extends BaseThingHandler {
             ipAddress = shieldtvConfig.ipAddress;
 
             if (ipAddress.isBlank()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.shieldtv-address-not-specified");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.shieldtv-address-not-specified");
                 return;
             }
 
@@ -228,7 +230,8 @@ public class AndroidTVHandler extends BaseThingHandler {
             ipAddress = philipstvConfig.ipAddress;
 
             if (ipAddress.isBlank()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.philipstv-address-not-specified");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.philipstv-address-not-specified");
                 return;
             }
 

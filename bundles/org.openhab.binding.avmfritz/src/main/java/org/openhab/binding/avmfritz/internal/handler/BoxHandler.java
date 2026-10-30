@@ -24,6 +24,7 @@ import org.openhab.binding.avmfritz.internal.callmonitor.CallMonitor;
 import org.openhab.binding.avmfritz.internal.config.AVMFritzBoxConfiguration;
 import org.openhab.binding.avmfritz.internal.hardware.FritzAhaWebInterface;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.State;
 
@@ -71,7 +72,7 @@ public class BoxHandler extends AVMFritzBaseBridgeHandler {
                 startPolling();
             } else {
                 if (!callChannelsLinked()) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                             "The 'password' parameter must be configured to use the AHA features.");
                 }
             }

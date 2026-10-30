@@ -76,7 +76,7 @@ public class EnergeniePWMHandler extends BaseThingHandler {
             updateStatus(ThingStatus.ONLINE);
             onUpdate();
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Can not access device , IP-Address or password not set");
         }
     }
@@ -111,12 +111,13 @@ public class EnergeniePWMHandler extends BaseThingHandler {
                     HttpUtil.executeUrl("POST", url, HTTP_TIMEOUT_MILLISECONDS);
                     logger.trace("logout from ip {}", host);
                 } catch (IOException e) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "failed to logout: " + e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "failed to logout: " + e.getMessage());
                 }
             }
         } catch (IOException e) {
             logger.debug("energenie: failed to login to {} with ip {}", thing.getUID(), host, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

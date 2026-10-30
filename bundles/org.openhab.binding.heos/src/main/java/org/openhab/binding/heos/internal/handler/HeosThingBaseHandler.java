@@ -109,11 +109,12 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
                 bridgeHandler = localBridgeHandler;
                 channelHandlerFactory = localBridgeHandler.getChannelHandlerFactory();
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 return;
             }
         } else {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            logger.warn("No Bridge set within child handler");
+            updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
@@ -126,7 +127,7 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
                 scheduleImmediatelyHandleDynamicStatesSignedIn();
             }
         } catch (HeosNotConnectedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 
@@ -140,7 +141,7 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
         failureCount++;
 
         if (failureCount > FAILURE_COUNT_LIMIT) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Failed to handle command: " + e.getMessage());
+            updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Failed to handle command: " + e.getMessage());
         }
     }
 
@@ -212,11 +213,11 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
         if (ThingStatus.OFFLINE.equals(bridgeStatusInfo.getStatus())) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else if (ThingStatus.ONLINE.equals(bridgeStatusInfo.getStatus())) {
             updateStatus(ThingStatus.ONLINE);
         } else if (ThingStatus.UNINITIALIZED.equals(bridgeStatusInfo.getStatus())) {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -263,7 +264,7 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
      * @param eventObject containing information about the even which was sent to us by the HEOS device
      */
     protected void handleThingStateUpdate(HeosEventObject eventObject) {
-        updateStatus(ONLINE, "Receiving events");
+        updateStatus(ONLINE, ThingStatusDetail.NONE, "Receiving events");
 
         HeosEvent command = eventObject.command;
 
@@ -305,7 +306,7 @@ public abstract class HeosThingBaseHandler extends BaseThingHandler implements H
                 break;
 
             case PLAYER_PLAYBACK_ERROR:
-                updateStatus(UNKNOWN, eventObject.getAttribute(ERROR));
+                updateStatus(UNKNOWN, ThingStatusDetail.NONE, eventObject.getAttribute(ERROR));
                 break;
 
             case PLAYER_QUEUE_CHANGED:

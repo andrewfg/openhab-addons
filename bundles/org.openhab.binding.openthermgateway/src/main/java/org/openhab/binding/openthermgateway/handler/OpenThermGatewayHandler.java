@@ -174,7 +174,7 @@ public class OpenThermGatewayHandler extends BaseBridgeHandler implements OpenTh
                     break;
                 case DISCONNECTED:
                     if (!disposing) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                         autoReconnect();
                     }
                 default:

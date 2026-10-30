@@ -80,20 +80,21 @@ public class SinopeGatewayHandler extends ConfigStatusBridgeHandler {
             SinopeConfig config = getConfigAs(SinopeConfig.class);
             refreshInterval = config.refresh;
             if (config.hostname == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Gateway hostname must be set");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Gateway hostname must be set");
             } else if (config.port == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Gateway port must be set");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Gateway port must be set");
             } else if (config.gatewayId == null || SinopeConfig.convert(config.gatewayId) == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Gateway Id must be set");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Gateway Id must be set");
             } else if (config.apiKey == null || SinopeConfig.convert(config.apiKey) == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Api Key must be set");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Api Key must be set");
             } else if (connectToBridge()) {
                 schedulePoll();
                 updateStatus(ThingStatus.ONLINE);
                 return;
             }
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     "Can't connect to gateway. Please make sure that another instance is not connected.");
         }
     }
@@ -299,7 +300,7 @@ public class SinopeGatewayHandler extends ConfigStatusBridgeHandler {
 
     public void setCommunicationError(boolean hasError) {
         if (hasError) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             clientSocket = null;
         } else {
             updateStatus(ThingStatus.ONLINE);

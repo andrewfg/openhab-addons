@@ -123,7 +123,8 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
 
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-bridge");
             return;
         }
 
@@ -131,7 +132,8 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
             authorizationProvider = accountHandler.getAuthorizationProvider();
             accountHandler.registerAuthorizationListener(this);
         } else {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "@text/offline.conf-error.missing-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-bridge");
             return;
         }
 
@@ -153,7 +155,7 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
                 && getThing().getStatusInfo().getStatus() == ThingStatus.OFFLINE) {
             updateStatus(ThingStatus.UNKNOWN);
         } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -231,8 +233,8 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
         } catch (IndegoAuthenticationException e) {
             // Ignore, will be handled by bridge
         } catch (IndegoTimeoutException e) {
-            lastOperatingDataStatus = ThingStatus.OFFLINE;
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.unreachable");
+            updateStatus(lastOperatingDataStatus = ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error.unreachable");
         } catch (IndegoInvalidCommandException e) {
             logger.warn("Invalid command: {}", e.getMessage());
             if (e.hasErrorCode()) {
@@ -316,10 +318,10 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
         } catch (IndegoAuthenticationException e) {
             // Ignore, will be handled by bridge
         } catch (IndegoTimeoutException e) {
-            lastOperatingDataStatus = ThingStatus.OFFLINE;
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.unreachable");
+            updateStatus(lastOperatingDataStatus = ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error.unreachable");
         } catch (IndegoException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -368,7 +370,8 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
             updateStatus(ThingStatus.ONLINE);
         } else if (lastOperatingDataStatus == ThingStatus.OFFLINE) {
             // Update description to reflect why thing is still offline.
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.unreachable");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error.unreachable");
         }
 
         rescheduleStatePollAccordingToState(deviceStatus);
@@ -437,7 +440,7 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
         } catch (IndegoAuthenticationException e) {
             // Ignore, will be handled by bridge
         } catch (IndegoException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -454,7 +457,7 @@ public class BoschIndegoHandler extends BaseThingHandler implements Authorizatio
         } catch (IndegoAuthenticationException e) {
             // Ignore, will be handled by bridge
         } catch (IndegoException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

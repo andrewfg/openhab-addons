@@ -81,7 +81,7 @@ public class SbusRgbwHandler extends AbstractSbusHandler {
             }
         }
         if (switchChannelCount > 1) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/error.rgbw.too-many-switches [\"" + getThing().getUID().toString() + "\"]");
             return;
         }
@@ -91,7 +91,8 @@ public class SbusRgbwHandler extends AbstractSbusHandler {
     protected void pollDevice() {
         final SbusService adapter = super.sbusAdapter;
         if (adapter == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.device.adapter-not-initialized");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/error.device.adapter-not-initialized");
             return;
         }
 
@@ -144,7 +145,8 @@ public class SbusRgbwHandler extends AbstractSbusHandler {
 
             updateStatus(ThingStatus.ONLINE);
         } catch (IllegalStateException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.device.communication");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/error.device.communication");
             logger.warn("Error polling RGBW device {}: {}", getThing().getUID(), e.getMessage());
         }
     }
@@ -153,7 +155,8 @@ public class SbusRgbwHandler extends AbstractSbusHandler {
     public void handleCommand(ChannelUID channelUID, Command command) {
         final SbusService adapter = super.sbusAdapter;
         if (adapter == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.device.adapter-not-initialized");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/error.device.adapter-not-initialized");
             return;
         }
 
@@ -211,7 +214,7 @@ public class SbusRgbwHandler extends AbstractSbusHandler {
                 }
             }
         } catch (Exception e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.device.send-command");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.device.send-command");
         }
     }
 

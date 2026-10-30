@@ -435,7 +435,7 @@ public class YamahaMusiccastHandler extends BaseThingHandler {
                         TimeUnit.SECONDS);
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "No host found");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "No host found");
             }
         }
     }

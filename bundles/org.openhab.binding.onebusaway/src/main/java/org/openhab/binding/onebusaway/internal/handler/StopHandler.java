@@ -149,18 +149,17 @@ public class StopHandler extends BaseBridgeHandler {
     }
 
     private ApiHandler getApiHandler() {
-        Bridge bridge = getBridge();
-        return bridge == null ? null : (ApiHandler) bridge.getHandler();
+        return (ApiHandler) getBridge().getHandler();
     }
 
     private StopConfiguration loadAndCheckConfiguration() {
         StopConfiguration config = getConfigAs(StopConfiguration.class);
         if (config.getInterval() == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "interval is not set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "interval is not set");
             return null;
         }
         if (config.getStopId() == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "stopId is not set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "stopId is not set");
             return null;
         }
         return config;
@@ -185,18 +184,19 @@ public class StopHandler extends BaseBridgeHandler {
                 uri = new URI(url);
             } catch (URISyntaxException e) {
                 logger.error("Unable to parse {} as a URI.", url);
-                updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "stopId or apiKey is set to a bogus value");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                        "stopId or apiKey is set to a bogus value");
                 return false;
             }
             ContentResponse response;
             try {
                 response = httpClient.newRequest(uri).send();
             } catch (InterruptedException | TimeoutException | ExecutionException e) {
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
                 return false;
             }
             if (response.getStatus() != HttpStatus.OK_200) {
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
                         String.format("While fetching stop data: %d: %s", response.getStatus(), response.getReason()));
                 return false;
             }
@@ -223,7 +223,7 @@ public class StopHandler extends BaseBridgeHandler {
             return true;
         } catch (Exception e) {
             logger.debug("Exception refreshing route data", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return false;
         } finally {
             fetchInProgress.set(false);

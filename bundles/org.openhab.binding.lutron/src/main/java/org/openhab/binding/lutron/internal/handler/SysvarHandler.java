@@ -63,7 +63,7 @@ public class SysvarHandler extends LutronHandler {
         SysvarConfig config = getConfigAs(SysvarConfig.class);
         this.config = config;
         if (config.integrationId <= 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No integrationId configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No integrationId configured");
         } else {
             integrationId = config.integrationId;
             logger.debug("Initializing Sysvar handler for integration ID {}", integrationId);
@@ -76,13 +76,13 @@ public class SysvarHandler extends LutronHandler {
         logger.debug("Initializing handler state for sysvar id {}", integrationId);
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
         } else if (bridge.getStatus() == ThingStatus.ONLINE) {
-            updateStatus(ThingStatus.UNKNOWN, "Awaiting initial response");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "Awaiting initial response");
             querySysvar(SysvarCommand.ACTION_GETSETSYSVAR);
             // handleUpdate() will set thing status to online when response arrives
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 

@@ -135,7 +135,7 @@ public class AccountHandler extends BaseBridgeHandler {
                     this.getThing().getUID(), e.getMessage());
 
             logger.debug(errorMsg, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, errorMsg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, errorMsg);
         }
     }
 

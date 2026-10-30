@@ -102,7 +102,7 @@ public class MiIoCloudThingHandler extends BaseThingHandler implements CloudLogi
         validateAndGenerateClientId();
         setupCloudConnector();
         loginFuture = scheduler.schedule(this::connectorLogin, 1, TimeUnit.SECONDS);
-        updateStatus(ThingStatus.OFFLINE, "@text/offline.cloud-initiating");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.cloud-initiating");
         updateState(CHANNEL_LOGIN_IMAGE, HOURGLASS_IMAGE);
         updateState(CHANNEL_TWOFA, UnDefType.NULL);
         updateState(CHANNEL_TRIGGER_LOGIN, OnOffType.OFF);
@@ -249,20 +249,24 @@ public class MiIoCloudThingHandler extends BaseThingHandler implements CloudLogi
         } else if (loginState == CloudLoginState.AWAITING_2FA) {
             logger.info("Two-factor authentication required. Please submit the 2FA code via the '{}' channel.",
                     CHANNEL_TWOFA);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-awaiting-2fa");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-awaiting-2fa");
         } else if (loginState == CloudLoginState.AWAITING_CAPTCHA) {
             logger.info(
                     "Captcha is required. Check the '{}' channel image and submit the response via the '{}' channel.",
                     CHANNEL_LOGIN_IMAGE, CHANNEL_CAPTCHA_RESPONSE);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-awaiting-captcha");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-awaiting-captcha");
         } else if (loginState == CloudLoginState.AWAITING_QRLOGIN) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-awaiting-qr");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-awaiting-qr");
         } else if (loginState == CloudLoginState.ACCESS_DENIED) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-access-denied");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-access-denied");
         } else if (loginState == CloudLoginState.CAPTCHA_FAILED) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-captcha-failed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-captcha-failed");
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.cloud-comm-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.cloud-comm-error");
         }
     }
 
@@ -315,7 +319,7 @@ public class MiIoCloudThingHandler extends BaseThingHandler implements CloudLogi
         // Stop any in-progress connector and reset the login state
         cloudConnector.resetLogin();
 
-        updateStatus(ThingStatus.OFFLINE, "@text/offline.cloud-retrigger");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.cloud-retrigger");
         updateState(CHANNEL_LOGIN_IMAGE, HOURGLASS_IMAGE);
         updateState(CHANNEL_TWOFA, UnDefType.NULL);
 

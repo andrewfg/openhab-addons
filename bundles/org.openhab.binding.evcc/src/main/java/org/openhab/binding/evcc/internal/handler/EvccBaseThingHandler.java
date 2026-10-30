@@ -123,21 +123,17 @@ public abstract class EvccBaseThingHandler extends BaseThingHandler implements E
     /**
      * Initialize the Thing handler.
      *
-     * Sets status to UNKNOWN and stores the bridge handler when available.
+     * Sets status to UNKNOWN and attempts to locate and store the bridge handler.
+     * If bridge is not available or not an EvccBridgeHandler, sets status to OFFLINE.
      */
     @Override
     public void initialize() {
         disposed = false;
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
         updateStatus(ThingStatus.UNKNOWN);
-        if (bridge.getHandler() instanceof EvccBridgeHandler handler) {
+        if (getBridge() instanceof Bridge bridge && bridge.getHandler() instanceof EvccBridgeHandler handler) {
             bridgeHandler = handler;
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -528,7 +524,7 @@ public abstract class EvccBaseThingHandler extends BaseThingHandler implements E
         Optional.ofNullable(bridgeHandler).ifPresent(handler -> {
             HttpMethod httpMethod = HttpMethod.valueOf(method);
             handler.requestQueue.enqueueRequest(url, httpMethod, payload, this::checkResponse,
-                    error -> updateStatus(ThingStatusDetail.COMMUNICATION_ERROR));
+                    error -> updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR));
         });
     }
 
@@ -558,20 +554,20 @@ public abstract class EvccBaseThingHandler extends BaseThingHandler implements E
         try {
             if (!completion.await(6, TimeUnit.SECONDS)) {
                 logger.debug("Timed out reading evcc API response from {}", url);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 return null;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.debug("Interrupted while reading evcc API response from {}", url, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             return null;
         }
 
         Exception error = errorRef.get();
         if (error != null) {
             logger.debug("Failed to read evcc API response from {}", url, error);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             return null;
         }
         return responseBody.get();
@@ -588,13 +584,10 @@ public abstract class EvccBaseThingHandler extends BaseThingHandler implements E
                     if (json.has("error")) {
                         logger.debug("Sending command was unsuccessful, got this error:\n {}",
                                 json.get("error").getAsString());
-                        ThingStatus status = getThing().getStatus();
-                        updateStatus(status == ThingStatus.ONLINE || status == ThingStatus.OFFLINE ? status
-                                : ThingStatus.UNKNOWN, json.get("error").getAsString());
+                        updateStatus(getThing().getStatus(), ThingStatusDetail.COMMUNICATION_ERROR,
+                                json.get("error").getAsString());
                     } else {
-                        ThingStatus status = getThing().getStatus();
-                        updateStatus(status == ThingStatus.ONLINE || status == ThingStatus.OFFLINE ? status
-                                : ThingStatus.UNKNOWN);
+                        updateStatus(getThing().getStatus(), ThingStatusDetail.COMMUNICATION_ERROR);
                         logger.warn("evcc API error: HTTP {}", response.getStatus());
                     }
                 });
@@ -612,10 +605,10 @@ public abstract class EvccBaseThingHandler extends BaseThingHandler implements E
     public void bridgeStatusChanged(ThingStatusInfo statusInfo) {
         switch (statusInfo.getStatus()) {
             case OFFLINE:
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 break;
             case UNINITIALIZED:
-                updateStatus(ThingStatus.UNKNOWN);
+                updateStatus(ThingStatus.UNINITIALIZED, ThingStatusDetail.BRIDGE_UNINITIALIZED);
                 break;
             case ONLINE:
                 Bridge bridge = getBridge();

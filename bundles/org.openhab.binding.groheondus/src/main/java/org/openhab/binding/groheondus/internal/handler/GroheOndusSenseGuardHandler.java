@@ -38,6 +38,7 @@ import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -153,7 +154,7 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
             return null;
         }
         if (commandOptional.get().getType() != Appliance.TYPE) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.notsenseguard");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.notsenseguard");
             return null;
         }
         return OnOffType.from(((ApplianceCommand) commandOptional.get()).getCommand().getValveOpen());
@@ -162,13 +163,13 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
     @Override
     protected Data getLastDataPoint(Appliance appliance) {
         if (getOndusService() == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/error.noservice");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/error.noservice");
             return new Data();
         }
 
         ApplianceData applianceData = getApplianceData(appliance);
         if (applianceData == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.empty.response");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.empty.response");
             return new Data();
         }
         Data data = applianceData.getData();
@@ -191,12 +192,14 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
             BaseApplianceData applianceData = service.applianceData(appliance, from, to).orElse(null);
             if (applianceData != null) {
                 if (applianceData.getType() != Appliance.TYPE) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.notsenseguard");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "@text/error.notsenseguard");
                     return null;
                 }
                 return (ApplianceData) applianceData;
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/error.failedtoloaddata");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/error.failedtoloaddata");
             }
         } catch (IOException e) {
             logger.debug("Could not load appliance data for {}", thing.getUID(), e);

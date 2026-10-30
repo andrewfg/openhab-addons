@@ -127,7 +127,7 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
         }
         Bridge bridge = getBridge();
         if (bridge == null || bridge.getStatusInfo().getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
         ConnectionState connectionState = device.getConnectionState();
@@ -159,7 +159,7 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
             } else {
                 logger.debug("ERROR:  Controller reset needed.  Connecting to device {} failed {} times", address,
                         errorConnectCounter);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Connecting to device failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Connecting to device failed");
             }
         } else {
             logger.debug("Connection request accepted for device {}", address);
@@ -176,7 +176,8 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
             } else {
                 logger.debug("ERROR:  Controller reset needed.  Disconnect from device {} failed {} times", address,
                         errorDisconnectCounter);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Disconnect from device failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Disconnect from device failed");
             }
         } else {
             logger.debug("Disconnected from device {}", address);
@@ -208,7 +209,8 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
                                 logger.debug(
                                         "ERROR:  Controller reset needed.  Read data from device {} failed {} times",
                                         address, errorReadCounter);
-                                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Read data from device failed");
+                                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                                        "Read data from device failed");
                             }
                             disconnect();
                         }
@@ -225,7 +227,8 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
                 } else {
                     logger.debug("ERROR:  Controller reset needed.  Unhandled serviceState {} on device {}",
                             serviceState, address);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Service discovery for device failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Service discovery for device failed");
                 }
                 break;
         }
@@ -239,14 +242,15 @@ public abstract class AbstractAirthingsHandler extends BeaconBluetoothHandler {
         try {
             Bridge bridge = getBridge();
             if (bridge == null || bridge.getStatusInfo().getStatus() != ThingStatus.ONLINE) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 return;
             }
             if (error != null || data == null) {
                 errorReadCounter++;
                 logger.debug("Read data from device {} failed {} times", address, errorReadCounter);
                 if (errorReadCounter >= 6) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Read data from device failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Read data from device failed");
                 }
                 return;
             }

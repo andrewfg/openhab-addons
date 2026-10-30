@@ -167,15 +167,18 @@ public class EmeraldAccountHandler extends BaseBridgeHandler {
         EmeraldAccountConfiguration localConfig = config;
 
         if (localConfig == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.missing-conf");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-conf");
             return false;
         }
         if (localConfig.email.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.missing-email");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-email");
             return false;
         }
         if (localConfig.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.missing-password");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-password");
             return false;
         }
         return true;
@@ -276,7 +279,8 @@ public class EmeraldAccountHandler extends BaseBridgeHandler {
                         ? String.valueOf(onConnectionFailureReturn.getErrorCode())
                         : "Unknown";
                 logger.debug("AWS CRT MQTT Connection failed. Error Code: {}", error);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.mqtt-conn-failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error.mqtt-conn-failed");
 
                 scheduleReconnect(generation);
             }
@@ -290,7 +294,8 @@ public class EmeraldAccountHandler extends BaseBridgeHandler {
                 String error = (onDisconnectionReturn != null) ? String.valueOf(onDisconnectionReturn.getErrorCode())
                         : "Unknown";
                 logger.warn("AWS CRT MQTT Disconnected. Error Code: {}", error);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.mqtt-disconnected");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error.mqtt-disconnected");
 
                 scheduleReconnect(generation);
             }
@@ -516,10 +521,10 @@ public class EmeraldAccountHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
         } catch (EmeraldAuthenticationException e) {
             logger.debug("Unexpected authentication error connecting to Emerald API", e);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         } catch (EmeraldCommunicationException e) {
             logger.debug("Unexpected error connecting to Emerald API", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

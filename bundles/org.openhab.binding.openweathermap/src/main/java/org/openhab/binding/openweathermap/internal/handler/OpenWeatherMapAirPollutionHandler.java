@@ -33,6 +33,7 @@ import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.types.State;
@@ -79,7 +80,7 @@ public class OpenWeatherMapAirPollutionHandler extends AbstractOpenWeatherMapHan
         boolean configValid = true;
         int newForecastHours = config.forecastHours;
         if (newForecastHours < 0 || newForecastHours > 120) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-air-pollution-number-of-hours");
             configValid = false;
         }

@@ -56,10 +56,10 @@ public class SomfyTahomaGatewayHandler extends SomfyTahomaBaseThingHandler {
                 refresh(STATUS);
                 refresh(SCENARIOS);
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 

@@ -96,7 +96,8 @@ public class SiemensHvacBridgeThingHandler extends BaseBridgeHandler {
         baseUrl = lcConfig.baseUrl;
 
         if (baseUrl.isEmpty()) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "@text/offline.error-gateway-init");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.error-gateway-init");
             return;
         }
 
@@ -110,7 +111,7 @@ public class SiemensHvacBridgeThingHandler extends BaseBridgeHandler {
 
         config = lcConfig;
 
-        updateStatus(ThingStatus.UNKNOWN, "@text/offline.waiting-bridge-initialization");
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/offline.waiting-bridge-initialization");
 
         // Will read metadata in background to not block initialize for a long period !
         scheduler.schedule(this::initializeCode, 1, TimeUnit.SECONDS);
@@ -165,7 +166,8 @@ public class SiemensHvacBridgeThingHandler extends BaseBridgeHandler {
             String text = translationProvider.getText(bundleContext.getBundle(), "offline.error-gateway-init",
                     "DefaultValue", local);
 
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, MessageFormat.format(text, ex.getMessage()));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    MessageFormat.format(text, ex.getMessage()));
         }
     }
 
@@ -174,13 +176,8 @@ public class SiemensHvacBridgeThingHandler extends BaseBridgeHandler {
     }
 
     @Override
-    public void updateStatus(ThingStatus status, @Nullable String description) {
-        super.updateStatus(status, description);
-    }
-
-    @Override
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        super.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
     }
 
     public boolean registerDiscoveryListener(SiemensHvacDeviceDiscoveryService listener) {

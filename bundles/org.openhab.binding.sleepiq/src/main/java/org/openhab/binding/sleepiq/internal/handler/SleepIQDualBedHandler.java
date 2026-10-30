@@ -83,17 +83,19 @@ public class SleepIQDualBedHandler extends BaseThingHandler implements BedStatus
     public void initialize() {
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "No cloud service bridge has been configured");
             return;
         }
         ThingHandler handler = bridge.getHandler();
         if (!(handler instanceof SleepIQCloudHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Incorrect bridge thing found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Incorrect bridge thing found");
             return;
         }
         String localBedId = getConfigAs(SleepIQBedConfiguration.class).bedId;
         if (localBedId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Bed id not found in configuration");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Bed id not found in configuration");
             return;
         }
         bedId = localBedId;
@@ -105,7 +107,7 @@ public class SleepIQDualBedHandler extends BaseThingHandler implements BedStatus
         cloudHandler.registerBedStatusListener(this);
 
         if (ThingStatus.ONLINE != bridge.getStatus()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else {
             updateStatus(ThingStatus.ONLINE);
             scheduler.execute(() -> {
@@ -436,7 +438,8 @@ public class SleepIQDualBedHandler extends BaseThingHandler implements BedStatus
         if (cloudHandler != null) {
             Bed bed = cloudHandler.getBed(bedId);
             if (bed == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No bed found with ID " + bedId);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "No bed found with ID " + bedId);
                 return;
             }
             updateProperties(cloudHandler.updateProperties(bed, editProperties()));

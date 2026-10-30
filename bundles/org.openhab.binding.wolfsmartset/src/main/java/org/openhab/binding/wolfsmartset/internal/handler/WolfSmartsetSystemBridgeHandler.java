@@ -108,7 +108,7 @@ public class WolfSmartsetSystemBridgeHandler extends BaseBridgeHandler {
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -181,11 +181,13 @@ public class WolfSmartsetSystemBridgeHandler extends BaseBridgeHandler {
     public void updateSystemState(@Nullable GetSystemStateListDTO systemState) {
         if (systemState != null) {
             if (systemState.getIsSystemDeleted()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "System has been deleted");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "System has been deleted");
             } else if (systemState.getIsSystemShareDeleted()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "System share has been removed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "System share has been removed");
             } else if (systemState.getIsSystemShareRejected()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "System share has been rejected");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "System share has been rejected");
             }
         }
     }
@@ -232,7 +234,8 @@ public class WolfSmartsetSystemBridgeHandler extends BaseBridgeHandler {
 
             updateUnitsConfiguration(systemDescription);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Unable to retrieve configuration");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Unable to retrieve configuration");
         }
     }
 

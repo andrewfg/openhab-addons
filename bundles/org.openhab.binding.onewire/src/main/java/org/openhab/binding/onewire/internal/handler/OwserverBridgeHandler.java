@@ -375,7 +375,7 @@ public class OwserverBridgeHandler extends BaseBridgeHandler {
         switch (connectionState) {
             case FAILED:
                 refreshable = false;
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 scheduler.schedule(() -> {
                     synchronized (owserverConnection) {
                         owserverConnection.start();
@@ -388,7 +388,7 @@ public class OwserverBridgeHandler extends BaseBridgeHandler {
             case OPENED:
             case CLOSED:
                 refreshable = true;
-                updateStatus(ThingStatus.ONLINE);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
                 break;
         }
     }

@@ -138,7 +138,8 @@ public class AtagOneHandler extends BaseThingHandler {
 
         config = getConfigAs(AtagOneConfiguration.class);
         if (config.hostname.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.hostname-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.hostname-missing");
             return;
         }
         updateStatus(ThingStatus.UNKNOWN);
@@ -1103,16 +1104,18 @@ public class AtagOneHandler extends BaseThingHandler {
                     startPollJob(0, myGeneration);
                     break;
                 case 1:
-                    updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/offline.conf-pending.press-accept");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                            "@text/offline.conf-pending.press-accept");
                     pairingJob = scheduler.schedule(() -> doPair(client, clientId, myGeneration), PAIRING_RETRY_S,
                             TimeUnit.SECONDS);
                     break;
                 case 3:
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.pairing-denied");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "@text/offline.conf-error.pairing-denied");
                     break;
                 default:
                     logger.warn("Unexpected acc_status={} during pairing", accStatus);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "Unexpected pairing response (acc_status=" + accStatus + ")");
             }
         } catch (AtagOneCommunicationException e) {
@@ -1120,7 +1123,7 @@ public class AtagOneHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Pairing error: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             pairingJob = scheduler.schedule(() -> doPair(client, clientId, myGeneration), PAIRING_RETRY_S,
                     TimeUnit.SECONDS);
         }
@@ -1350,7 +1353,7 @@ public class AtagOneHandler extends BaseThingHandler {
             }
             return;
         }
-        updateStatus(detail, reason);
+        updateStatus(ThingStatus.OFFLINE, detail, reason);
     }
 
     void updateNextScheduleChannels(double[][][] entries, ZonedDateTime now) {

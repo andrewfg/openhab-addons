@@ -114,10 +114,10 @@ public class ElectroluxApplianceBridgeHandler extends BaseBridgeHandler implemen
         refreshTimeInSeconds = config.refresh;
 
         if (config.apiKey.isBlank() || config.refreshToken.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     getLocalizedText("error.electroluxappliance.bridge.missing-configuration-data"));
         } else if (refreshTimeInSeconds < 10) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     getLocalizedText("error.electroluxappliance.bridge.refresh-too-short", 10));
         } else {
             try {
@@ -127,7 +127,7 @@ public class ElectroluxApplianceBridgeHandler extends BaseBridgeHandler implemen
                     startAutomaticRefresh();
                 });
             } catch (RuntimeException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
     }
@@ -179,7 +179,7 @@ public class ElectroluxApplianceBridgeHandler extends BaseBridgeHandler implemen
                 isCommunicationError = false;
                 return true;
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 isCommunicationError = true;
             }
         }

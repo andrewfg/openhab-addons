@@ -49,12 +49,12 @@ public interface HandlerUtils {
                 if (bridgeHandler.getClass() == clazz) {
                     return (T) bridgeHandler;
                 }
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/incorrect-bridge");
             }
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, null);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "");
         }
         return null;
     }
@@ -75,7 +75,7 @@ public interface HandlerUtils {
         getJobs().clear();
     }
 
-    void updateStatus(ThingStatusDetail statusDetail, @Nullable String description);
+    void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description);
 
     @Nullable
     Bridge getBridge();

@@ -84,7 +84,7 @@ public class AwattarBestPriceHandler extends BaseThingHandler {
         AwattarBestPriceConfiguration config = getConfigAs(AwattarBestPriceConfiguration.class);
 
         if (config.length >= config.rangeDuration) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.length.value");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.length.value");
             return;
         }
 
@@ -127,7 +127,7 @@ public class AwattarBestPriceHandler extends BaseThingHandler {
         Bridge bridge = getBridge();
 
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.bridge.missing");
             updateState(channelUID, state);
             return;
         }

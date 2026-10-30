@@ -119,7 +119,8 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
             clearPolling(pollAlarmsFuture);
 
             if (!(login())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Unable to Login to Hayward's server");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Unable to Login to Hayward's server");
                 clearPolling(pollTelemetryFuture);
                 clearPolling(pollAlarmsFuture);
                 commFailureCount = 50;
@@ -128,7 +129,8 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
             }
 
             if (!(getSiteList())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Unable to getMSP from Hayward's server");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Unable to getMSP from Hayward's server");
                 clearPolling(pollTelemetryFuture);
                 clearPolling(pollAlarmsFuture);
                 commFailureCount = 50;
@@ -137,7 +139,7 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
             }
 
             if (!(mspConfigUnits())) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Unable to getMSPConfigUnits from Hayward's server");
                 clearPolling(pollTelemetryFuture);
                 clearPolling(pollAlarmsFuture);
@@ -148,7 +150,8 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
 
             if (logger.isTraceEnabled()) {
                 if (!(getApiDef())) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Unable to getApiDef from Hayward's server");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Unable to getApiDef from Hayward's server");
                     clearPolling(pollTelemetryFuture);
                     clearPolling(pollAlarmsFuture);
                     commFailureCount = 50;
@@ -171,7 +174,8 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
                 initAlarmPolling(1);
             }
         } catch (HaywardException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "scheduledInitialize exception: " + e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                    "scheduledInitialize exception: " + e.getMessage());
             clearPolling(pollTelemetryFuture);
             clearPolling(pollAlarmsFuture);
             commFailureCount = 50;
@@ -477,13 +481,13 @@ public class HaywardBridgeHandler extends BaseBridgeHandler {
                     return "";
                 }
             } catch (ExecutionException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Unable to resolve host.  Check Hayward hostname and your internet connection. "
                                 + e.getMessage());
                 return "";
             } catch (TimeoutException e) {
                 if (retry >= 2) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "Connection Timeout.  Check Hayward hostname and your internet connection. "
                                     + e.getMessage());
                     return "";

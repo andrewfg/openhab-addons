@@ -333,11 +333,11 @@ public class ThirdGenerationHandler extends BaseThingHandler {
     }
 
     private void setOffline(ThingStatusDetail detail, String message) {
-        updateStatus(detail, message);
+        updateStatus(ThingStatus.OFFLINE, detail, message);
     }
 
     private void setOffline(ThingStatusDetail detail) {
-        updateStatus(detail);
+        updateStatus(ThingStatus.OFFLINE, detail);
     }
 
     private @Nullable JsonObject getJsonObjectOrOffline(ContentResponse response) {

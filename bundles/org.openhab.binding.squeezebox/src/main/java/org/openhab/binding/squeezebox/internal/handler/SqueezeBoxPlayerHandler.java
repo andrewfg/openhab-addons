@@ -146,7 +146,8 @@ public class SqueezeBoxPlayerHandler extends BaseThingHandler implements Squeeze
     public void initialize() {
         mac = getConfig().as(SqueezeBoxPlayerConfig.class).mac;
         if (mac.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.mac-not-set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.mac-not-set");
             return;
         }
         timeCounter();
@@ -171,14 +172,15 @@ public class SqueezeBoxPlayerHandler extends BaseThingHandler implements Squeeze
             ThingStatus bridgeStatus = bridge.getStatus();
 
             if (bridgeStatus == ThingStatus.OFFLINE) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             } else if (!this.connected) {
                 updateStatus(ThingStatus.OFFLINE);
             } else if (bridgeStatus == ThingStatus.ONLINE && getThing().getStatus() != ThingStatus.ONLINE) {
                 updateStatus(ThingStatus.ONLINE);
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.bridge-not-found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.bridge-not-found");
         }
     }
 

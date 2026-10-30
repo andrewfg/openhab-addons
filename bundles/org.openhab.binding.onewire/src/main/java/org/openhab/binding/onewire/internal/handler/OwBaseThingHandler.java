@@ -117,7 +117,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
         Map<String, String> properties = thing.getProperties();
 
         if (getBridge() == null) {
-            logger.debug("Bridge unavailable while configuring Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "bridge missing");
             return false;
         }
         sensors.clear();
@@ -127,11 +127,11 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
             try {
                 this.sensorId = new SensorId(id);
             } catch (IllegalArgumentException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "sensor id format mismatch");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "sensor id format mismatch");
                 return false;
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "sensor id missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "sensor id missing");
             return false;
         }
 
@@ -147,7 +147,8 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
 
         sensorType = OwSensorType.valueOf(properties.get(PROPERTY_MODELID));
         if (!supportedSensorTypes.contains(sensorType)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "sensor type not supported by this thing type");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "sensor type not supported by this thing type");
             return false;
         }
 
@@ -178,7 +179,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
         try {
             sensors.get(0).configureChannels();
         } catch (OwException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             return;
         }
 
@@ -187,7 +188,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
         }
 
         validConfig = true;
-        updateStatus(ThingStatus.UNKNOWN);
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE);
     }
 
     /**
@@ -229,7 +230,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
             }
         } catch (OwException e) {
             logger.debug("{}: refresh exception {}", this.thing.getUID(), e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "refresh exception");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "refresh exception");
         }
     }
 
@@ -245,7 +246,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
                 updateState(CHANNEL_PRESENT, OnOffType.ON);
             }
         } else if (OnOffType.OFF.equals(presentState)) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "slave missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "slave missing");
             if (showPresence) {
                 updateState(CHANNEL_PRESENT, OnOffType.OFF);
             }
@@ -278,10 +279,10 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
             if (validConfig) {
                 updatePresenceStatus(UnDefType.UNDEF);
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
             }
         } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -298,7 +299,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
     protected void updateSensorProperties() {
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "bridge not found");
             return;
         }
 
@@ -312,7 +313,7 @@ public abstract class OwBaseThingHandler extends BaseThingHandler {
             return;
         }
 
-        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "required properties missing");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "required properties missing");
         bridgeHandler.scheduleForPropertiesUpdate(thing);
     }
 

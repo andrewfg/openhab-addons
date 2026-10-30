@@ -27,6 +27,7 @@ import org.openhab.binding.hue.internal.handler.HueSensorHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.types.Command;
@@ -61,7 +62,8 @@ public class PresenceHandler extends HueSensorHandler {
         final FullSensor sensor = lastFullSensor;
         if (sensor == null) {
             logger.debug("Hue sensor not known on bridge. Cannot handle command.");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-wrong-sensor-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-wrong-sensor-id");
             return;
         }
 

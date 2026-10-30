@@ -28,6 +28,7 @@ import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.SIUnits;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
@@ -56,14 +57,15 @@ public class DDWRTDeviceThingHandler extends DDWRTBaseHandler<DDWRTBaseDevice, D
     protected boolean initialize(DDWRTDeviceConfiguration config) {
         this.config = config;
         if (isBlank(config.hostname)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-hostname");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-hostname");
             return false;
         }
 
         // Try to find or create the device in the network
         DDWRTNetwork net = getNetwork();
         if (net == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.bridge-not-ready");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.bridge-not-ready");
             return false;
         }
 
@@ -72,7 +74,8 @@ public class DDWRTDeviceThingHandler extends DDWRTBaseHandler<DDWRTBaseDevice, D
             logger.debug("Device not found in network, attempting to add hostname: {}", config.hostname);
             d = net.addOrUpdateDevice(config);
             if (d == null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-connect");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error-connect");
                 return false;
             }
             logger.debug("Successfully added device to network: {} (MAC: {})", config.hostname, d.getMac());

@@ -138,7 +138,7 @@ public abstract class UnifiProtectAbstractDeviceHandler<T extends UniFiProtectMo
             return;
         }
         if (status == ThingStatus.OFFLINE) {
-            updateStatus(detail, "@text/offline.device-disconnected");
+            updateStatus(ThingStatus.OFFLINE, detail, "@text/offline.device-disconnected");
         } else {
             updateStatus(status);
         }
@@ -184,8 +184,8 @@ public abstract class UnifiProtectAbstractDeviceHandler<T extends UniFiProtectMo
     }
 
     @Override
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        super.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
     }
 
     @Override
@@ -195,7 +195,7 @@ public abstract class UnifiProtectAbstractDeviceHandler<T extends UniFiProtectMo
     }
 
     public void markGone() {
-        updateStatus(ThingStatusDetail.GONE, "@text/offline.gone");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "@text/offline.gone");
     }
 
     protected void refreshState(String channelId) {

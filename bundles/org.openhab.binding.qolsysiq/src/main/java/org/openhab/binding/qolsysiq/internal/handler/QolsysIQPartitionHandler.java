@@ -103,7 +103,7 @@ public class QolsysIQPartitionHandler extends BaseBridgeHandler implements Qolsy
         if (bridgeStatusInfo.getStatus() != ThingStatus.ONLINE) {
             cancelExitDelayJob();
             cancelErrorDelayJob();
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else {
             initializePartition();
         }
@@ -248,15 +248,11 @@ public class QolsysIQPartitionHandler extends BaseBridgeHandler implements Qolsy
     }
 
     private void initializePartition() {
-        if (getBridge() == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
         QolsysIQPanelHandler panel = panelHandler();
         if (panel == null) {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         } else if (panel.getThing().getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else {
             updateStatus(ThingStatus.UNKNOWN);
             scheduler.execute(() -> {

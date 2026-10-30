@@ -89,20 +89,21 @@ public class LuxomBridgeHandler extends BaseBridgeHandler {
             reconnectInterval = (config.reconnectInterval > 0) ? config.reconnectInterval
                     : DEFAULT_RECONNECT_INTERVAL_IN_MINUTES;
 
-            updateStatus(ThingStatus.UNKNOWN, "@text/status.connecting");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/status.connecting");
             scheduler.submit(this::connect); // start the async connect task
         }
     }
 
     private boolean validConfiguration(@Nullable LuxomBridgeConfig config) {
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/bridge-configuration-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/bridge-configuration-missing");
 
             return false;
         }
 
         if (config.ipAddress == null || config.ipAddress.trim().isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/bridge-address-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/bridge-address-missing");
 
             return false;
         }
@@ -127,7 +128,7 @@ public class LuxomBridgeHandler extends BaseBridgeHandler {
         try {
             communication.startCommunication();
         } catch (Exception e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             disconnect();
             scheduleConnectRetry(reconnectInterval); // Possibly a temporary problem. Try again later.
         }
@@ -159,7 +160,7 @@ public class LuxomBridgeHandler extends BaseBridgeHandler {
                     }
                 } catch (IOException e) {
                     logger.warn("Communication error while sending, will try to reconnect. Error: {}", e.getMessage());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
 
                     reconnect();
 
@@ -203,7 +204,7 @@ public class LuxomBridgeHandler extends BaseBridgeHandler {
             logger.debug("Connection problem, attempting to reconnect to the bridge");
         }
 
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         disconnect();
         connect();
     }

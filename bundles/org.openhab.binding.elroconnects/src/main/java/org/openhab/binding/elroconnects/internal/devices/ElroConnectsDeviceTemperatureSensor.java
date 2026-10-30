@@ -24,6 +24,7 @@ import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +76,7 @@ public class ElroConnectsDeviceTemperatureSensor extends ElroConnectsDevice {
                 handler.updateState(TEMPERATURE, UnDefType.UNDEF);
                 handler.updateState(HUMIDITY, UnDefType.UNDEF);
                 String msg = String.format("@text/offline.device-fault [ \"%d\" ]", deviceId);
-                handler.updateStatus(ThingStatus.ONLINE, msg);
+                handler.updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE, msg);
                 break;
             default:
                 handler.updateState(SIGNAL_STRENGTH, new DecimalType(signalStrength));

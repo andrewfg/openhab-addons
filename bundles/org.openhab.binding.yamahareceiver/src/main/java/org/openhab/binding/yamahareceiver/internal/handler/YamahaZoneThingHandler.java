@@ -172,11 +172,7 @@ public class YamahaZoneThingHandler extends BaseThingHandler
         logger.trace("Initialize {} with zone '{}'", getThing().getLabel(), zoneConfig.getZoneValue());
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        initializeThing(bridge.getStatus());
+        initializeThing(bridge != null ? bridge.getStatus() : null);
     }
 
     protected @Nullable YamahaBridgeHandler getBridgeHandler() {
@@ -209,33 +205,28 @@ public class YamahaZoneThingHandler extends BaseThingHandler
     }
 
     private void initializeThing(@Nullable ThingStatus bridgeStatus) {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        YamahaBridgeHandler bridgeHandler = (YamahaBridgeHandler) bridge.getHandler();
+        YamahaBridgeHandler bridgeHandler = getBridgeHandler();
         if (bridgeHandler != null && bridgeStatus != null) {
             if (bridgeStatus == ThingStatus.ONLINE) {
                 if (zoneConfig.getZone() == null) {
                     String msg = String.format(
                             "Zone not set or invalid zone name used: '%s'. It needs to be on of: '%s'",
                             zoneConfig.getZoneValue(), Arrays.toString(Zone.values()));
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, msg);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, msg);
                     logger.info("{}", msg);
                 } else {
                     if (zoneControl == null) {
                         YamahaBridgeHandler brHandler = getBridgeHandler();
                         if (brHandler == null) {
                             logger.warn("Bridge handler not initialized, cannot initialize zone");
-                            updateStatus(ThingStatus.UNKNOWN);
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
                             return;
                         }
 
                         var protocolFactory = getProtocolFactory();
                         if (protocolFactory == null) {
                             logger.warn("Protocol factory not initialized, cannot initialize zone");
-                            updateStatus(ThingStatus.UNKNOWN);
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
                             return;
                         }
 
@@ -250,12 +241,12 @@ public class YamahaZoneThingHandler extends BaseThingHandler
                     updateStatus(ThingStatus.ONLINE);
                 }
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 zoneControl = null;
                 zoneAvailableInputs = null;
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -507,7 +498,7 @@ public class YamahaZoneThingHandler extends BaseThingHandler
                     logger.warn("Channel {} not supported!", id);
             }
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         } catch (ReceivedMessageParseException e) {
             // Some AVRs send unexpected responses. We log parser exceptions therefore.
             logger.debug("Parse error!", e);
@@ -829,7 +820,7 @@ public class YamahaZoneThingHandler extends BaseThingHandler
                 stateUpdatable.update();
             } catch (IOException e) {
                 logger.debug("State update error. Changing thing to offline", e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             } catch (ReceivedMessageParseException e) {
                 String message = e.getMessage();
                 updateProperty(PROPERTY_LAST_PARSE_ERROR, message != null ? message : "");

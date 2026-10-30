@@ -45,7 +45,7 @@ public class EleroTransmitterStickHandler extends BaseBridgeHandler implements B
 
             @Override
             public void connectionDropped(Exception e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             }
         });
     }

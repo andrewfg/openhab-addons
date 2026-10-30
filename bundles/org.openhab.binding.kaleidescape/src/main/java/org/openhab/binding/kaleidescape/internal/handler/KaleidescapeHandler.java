@@ -150,7 +150,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
         }
 
         if (configError != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configError);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configError);
             return;
         }
 
@@ -173,7 +173,8 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
         } else if (port != null) {
             connector = new KaleidescapeIpConnector(host, port, uid);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Either Serial port or Host & Port must be specifed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Either Serial port or Host & Port must be specifed");
             return;
         }
 
@@ -301,7 +302,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
                 }
             } catch (KaleidescapeException e) {
                 logger.debug("Command {} from channel {} failed: {}", command, channel, e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Sending command failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Sending command failed");
                 closeConnection();
                 scheduleReconnectJob();
             }
@@ -346,7 +347,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
         // check if we are in standby
         if (STANDBY_MSG.equals(evt.getKey())) {
             if (!ThingStatusDetail.BRIDGE_OFFLINE.equals(thing.getStatusInfo().getStatusDetail())) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, STANDBY_MSG);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.BRIDGE_OFFLINE, STANDBY_MSG);
             }
             return;
         }
@@ -361,7 +362,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
 
             if (ThingStatusDetail.BRIDGE_OFFLINE.equals(thing.getStatusInfo().getStatusDetail())) {
                 // no longer in standby, update the status
-                updateStatus(ThingStatus.ONLINE);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
             }
         } catch (IllegalArgumentException e) {
             logger.debug("Unhandled message: key {} = {}", evt.getKey(), evt.getValue());
@@ -436,7 +437,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
                         error = "Reconnection failed";
                     }
                     if (!error.equals(EMPTY)) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
                         return;
                     }
                     updateStatus(ThingStatus.ONLINE);
@@ -479,7 +480,7 @@ public class KaleidescapeHandler extends BaseThingHandler implements Kaleidescap
                     // the component is not responding even though the connection is still good
                     if ((System.currentTimeMillis() - lastEventReceived) > (POLLING_INTERVAL_S * 1.25 * 1000)) {
                         logger.debug("Component not responding to status requests");
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "Component not responding to status requests");
                         closeConnection();
                         scheduleReconnectJob();

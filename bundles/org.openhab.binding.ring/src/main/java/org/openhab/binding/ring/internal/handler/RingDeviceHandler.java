@@ -71,7 +71,8 @@ public abstract class RingDeviceHandler extends AbstractRingHandler {
             linkDevice(deviceClass);
             updateStatus(ThingStatus.ONLINE);
         } catch (IllegalDeviceClassException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Device with id '" + config.id + "' of wrong type");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Device with id '" + config.id + "' of wrong type");
         }
 
         if (this.refreshJob == null) {

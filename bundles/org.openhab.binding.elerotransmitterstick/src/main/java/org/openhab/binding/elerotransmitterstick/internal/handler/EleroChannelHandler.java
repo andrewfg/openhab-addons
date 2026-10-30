@@ -52,22 +52,13 @@ public class EleroChannelHandler extends BaseThingHandler implements StatusListe
 
     @Override
     public void initialize() {
-        var parentBridge = getBridge();
-        if (parentBridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(parentBridge.getHandler() instanceof EleroTransmitterStickHandler handler)) {
-            logger.debug("Bridge handler unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        bridge = handler;
+        bridge = (EleroTransmitterStickHandler) getBridge().getHandler();
 
         channelId = getConfig().as(EleroChannelConfig.class).channelId;
         bridge.addStatusListener(channelId, this);
 
         if (bridge.getThing().getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else {
             updateStatus(ThingStatus.UNKNOWN);
         }
@@ -85,7 +76,7 @@ public class EleroChannelHandler extends BaseThingHandler implements StatusListe
         if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
             logger.debug("Bridge for Elero channel handler for thing {} ({}) changed status to {}",
                     getThing().getLabel(), getThing().getUID(), bridgeStatusInfo.getStatus().toString());
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else {
             updateStatus(ThingStatus.UNKNOWN);
         }

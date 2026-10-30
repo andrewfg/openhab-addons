@@ -43,7 +43,6 @@ import org.openhab.core.library.types.PointType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.ImperialUnits;
 import org.openhab.core.library.unit.Units;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
@@ -99,7 +98,8 @@ public class BluelinkVehicleHandler extends BaseThingHandler implements VehicleS
         final BluelinkVehicleConfiguration config = getConfigAs(BluelinkVehicleConfiguration.class);
         final String vin = config.vin;
         if (vin == null || vin.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/vehicle-handler.initialize.vin-required");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/vehicle-handler.initialize.vin-required");
             return;
         }
 
@@ -126,26 +126,27 @@ public class BluelinkVehicleHandler extends BaseThingHandler implements VehicleS
     }
 
     private void loadVehicle(final String vin) {
-        if (!(getBridge() instanceof Bridge bridge
-                && bridge.getHandler() instanceof BluelinkAccountHandler bridgeHandler)) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+        final var bridgeHnd = getBridgeHandler();
+        if (bridgeHnd == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             return;
         }
 
         try {
-            bridgeHandler.getVehicles().stream().filter(v -> vin.equals(v.vin())).findFirst().ifPresentOrElse(v -> {
+            bridgeHnd.getVehicles().stream().filter(v -> vin.equals(v.vin())).findFirst().ifPresentOrElse(v -> {
                 this.vehicle = v;
                 updateProperty(PROPERTY_MODEL, v.model());
                 updateProperty(PROPERTY_ENGINE_TYPE, v.engineType().name());
                 createDynamicChannels();
                 updateStatus(ThingStatus.ONLINE);
-            }, () -> updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            }, () -> updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/vehicle-handler.initialize.vehicle-not-found")
 
             );
         } catch (final BluelinkApiException e) {
             logger.debug("error loading vehicle: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/vehicle-handler.initialize.vehicle-data-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/vehicle-handler.initialize.vehicle-data-error");
         }
     }
 
@@ -364,7 +365,7 @@ public class BluelinkVehicleHandler extends BaseThingHandler implements VehicleS
             }
         } catch (final BluelinkApiException e) {
             logger.debug("Failed to refresh {}vehicle status: {}", forceRefresh ? "forced " : "", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getStatusDescription());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getStatusDescription());
         } finally {
             lock.unlock();
         }

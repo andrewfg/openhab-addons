@@ -65,7 +65,7 @@ public abstract class DatabaseBridgeHandler extends BaseBridgeHandler {
                 logger.trace("Succesfully connected to database {}", getThing().getUID());
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Connect to database failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Connect to database failed");
                 if (retryConnectionAttemptFuture == null) {
                     scheduleRetryConnectionAttempt();
                 }
@@ -99,9 +99,10 @@ public abstract class DatabaseBridgeHandler extends BaseBridgeHandler {
         updateStatus(ThingStatus.UNKNOWN);
         completable.thenAccept(result -> {
             if (result) {
-                updateStatus(ThingStatusDetail.GONE, "Successfully disconnected to database");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "Successfully disconnected to database");
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Disconnect to database failed");
+                updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Disconnect to database failed");
             }
         });
     }

@@ -164,7 +164,7 @@ public class HueBridgeHandlerOSGiTest extends AbstractHueOSGiTestParent {
 
         assertNull(bridge.getConfiguration().get(USER_NAME));
         waitForAssert(() -> assertEquals(ThingStatus.OFFLINE, bridge.getStatus()));
-        assertEquals(ThingStatusDetail.AUTHORIZATION_PENDING, bridge.getStatusInfo().getStatusDetail());
+        assertEquals(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, bridge.getStatusInfo().getStatusDetail());
     }
 
     @Test

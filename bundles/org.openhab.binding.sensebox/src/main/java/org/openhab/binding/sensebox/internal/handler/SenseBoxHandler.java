@@ -106,7 +106,7 @@ public class SenseBoxHandler extends BaseThingHandler {
             updateStatus(ThingStatus.UNKNOWN);
             startAutomaticRefresh();
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, offlineReason);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, offlineReason);
         }
         logger.debug("Thing {} initialized {}", getThing().getUID(), getThing().getStatus());
     }
@@ -120,7 +120,7 @@ public class SenseBoxHandler extends BaseThingHandler {
 
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         } else {
             logger.debug("Unsupported command {}! Supported commands: REFRESH", command);
@@ -147,7 +147,7 @@ public class SenseBoxHandler extends BaseThingHandler {
             publishChannels();
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 

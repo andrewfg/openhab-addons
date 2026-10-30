@@ -102,14 +102,14 @@ public class IntesisBoxHandler extends BaseThingHandler implements IntesisBoxCha
                     intesisLocalApi.sendLimitsQuery();
                     intesisLocalApi.sendAlive();
                 } catch (IOException e) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                     return;
                 }
                 updateStatus(ThingStatus.ONLINE);
             });
             pollingTask = scheduler.scheduleWithFixedDelay(this::polling, 3, config.pollingInterval, TimeUnit.SECONDS);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No IP address specified)");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No IP address specified)");
         }
     }
 
@@ -137,7 +137,7 @@ public class IntesisBoxHandler extends BaseThingHandler implements IntesisBoxCha
                 try {
                     api.openConnection();
                 } catch (IOException e) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 }
             }
             api.sendAlive();
@@ -262,7 +262,8 @@ public class IntesisBoxHandler extends BaseThingHandler implements IntesisBoxCha
             case "ERRSTATUS":
                 updateState(CHANNEL_ID_ERRORSTATUS, new StringType(value));
                 if ("ERR".equals(value)) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "device reported an error");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "device reported an error");
                 }
                 break;
         }
@@ -363,7 +364,7 @@ public class IntesisBoxHandler extends BaseThingHandler implements IntesisBoxCha
     @Override
     public void connectionStatusChanged(ThingStatus status, @Nullable String message) {
         if (message != null) {
-            this.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+            this.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
         }
         this.updateStatus(status);
     }

@@ -136,20 +136,22 @@ public class McdBridgeHandler extends BaseBridgeHandler {
                                     break;
                                 } // else go to default
                             case 400:
-                                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "wrong credentials");
+                                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                                        "wrong credentials");
                                 break;
                             case 0:
-                                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                         "please check your internet connection");
                                 break;
                             default:
-                                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Login was not successful");
+                                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                                        "Login was not successful");
                         }
                         triggerEvent();
                     }
                 });
             } catch (Exception e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
     }

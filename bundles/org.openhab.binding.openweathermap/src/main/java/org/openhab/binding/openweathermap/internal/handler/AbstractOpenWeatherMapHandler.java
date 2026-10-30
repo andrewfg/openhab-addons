@@ -80,7 +80,8 @@ public abstract class AbstractOpenWeatherMapHandler extends BaseThingHandler {
         OpenWeatherMapLocationConfiguration config = getConfigAs(OpenWeatherMapLocationConfiguration.class);
 
         if (config.location == null || config.location.trim().isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-location");
             return;
         }
 
@@ -88,7 +89,8 @@ public abstract class AbstractOpenWeatherMapHandler extends BaseThingHandler {
             location = new PointType(config.location);
         } catch (IllegalArgumentException e) {
             logger.warn("Error parsing 'location' parameter: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-parsing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-parsing-location");
             return;
         }
 
@@ -108,10 +110,10 @@ public abstract class AbstractOpenWeatherMapHandler extends BaseThingHandler {
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
         if (ThingStatus.ONLINE.equals(bridgeStatusInfo.getStatus())
                 && ThingStatusDetail.BRIDGE_OFFLINE.equals(getThing().getStatusInfo().getStatusDetail())) {
-            updateStatus(ThingStatus.ONLINE);
+            updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
         } else if (ThingStatus.OFFLINE.equals(bridgeStatusInfo.getStatus())
                 && !ThingStatus.OFFLINE.equals(getThing().getStatus())) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -127,9 +129,9 @@ public abstract class AbstractOpenWeatherMapHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.ONLINE);
             }
         } catch (CommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getRawMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getRawMessage());
         } catch (ConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
         }
     }
 

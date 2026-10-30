@@ -328,7 +328,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         Ed25519PublicKeyParameters accessoryKey = keyStore.getAccessoryKey(uniqueId);
         if (accessoryKey == null) {
             logger.debug("{} no stored pairing credentials", thing.getUID());
-            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/error.not-paired");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.not-paired");
             return false;
         }
 
@@ -365,14 +365,11 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             return false;
         } catch (NoSuchAlgorithmException | NoSuchProviderException | IllegalAccessException
                 | InvalidCipherTextException | IOException | TimeoutException | ExecutionException
-                | IllegalStateException | SecurityException e) {
+                | IllegalStateException e) {
             logger.debug("{} restored pairing was not verified", thing.getUID(), e);
             sessionUpgradeInProgress.set(false);
             scheduleConnectionAttempt();
-            updateStatus(
-                    e instanceof InvalidCipherTextException || e instanceof SecurityException
-                            ? ThingStatusDetail.AUTHORIZATION_PENDING
-                            : ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return false;
         }
@@ -470,7 +467,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     private @Nullable String checkedIpAddress() {
         Object obj = getConfig().get(CONFIG_IP_ADDRESS);
         if (obj == null || !(obj instanceof String ipAddress) || !IPV4_PATTERN.matcher(ipAddress).matches()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-ip-address");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-ip-address");
             return null;
         }
         return ipAddress;
@@ -478,7 +475,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
 
     private @Nullable String checkedUniqueId() {
         if (!(getConfig().get(CONFIG_UNIQUE_ID) instanceof String uniqueId) || uniqueId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.missing-unique-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.missing-unique-id");
             return null;
         }
         return uniqueId;
@@ -487,7 +484,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     private @Nullable String checkedHostName() {
         Object obj = getConfig().get(CONFIG_HTTP_HOST_HEADER);
         if (obj == null || !(obj instanceof String hostName)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-host-name");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-host-name");
             return null;
         }
         if (!hostName.isBlank() && !HOST_PATTERN.matcher(hostName).matches()) {
@@ -499,7 +496,8 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     private @Nullable Long checkedAccessoryId() {
         accessoryId = getAccessoryId();
         if (accessoryId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.invalid-accessory-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/error.invalid-accessory-id");
             return null;
         }
         return accessoryId;
@@ -515,7 +513,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             }
             return ipTransport;
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     THING_STATUS_FMT.formatted("error.failed-to-connect", e.getMessage()));
         }
         return null;
@@ -575,10 +573,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         } catch (Exception e) {
             // catch all; log all exceptions
             logger.debug("{} pairing / verification failed '{}'", thing.getUID(), e.getMessage(), e);
-            updateStatus(
-                    e instanceof InvalidCipherTextException || e instanceof SecurityException
-                            ? ThingStatusDetail.AUTHORIZATION_PENDING
-                            : ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return ACTION_RESULT_ERROR_FORMAT.formatted("pairing error");
         }
@@ -624,7 +619,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
     public String unpair() {
         String result = unpairInner();
         if (result.startsWith(ACTION_RESULT_OK)) {
-            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/error.not-paired");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.not-paired");
         }
         return result;
     }
@@ -996,7 +991,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             }
         }
         String description = THING_STATUS_FMT.formatted("error." + i18nSuffix.replace(' ', '-'), message);
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, description);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
         scheduleConnectionAttempt();
     }
 

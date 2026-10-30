@@ -128,7 +128,8 @@ public class TACmiCoEBridgeHandler extends BaseBridgeHandler {
                     if (isInterrupted()) {
                         return;
                     }
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error processing data: " + e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Error processing data: " + e.getMessage());
                 } catch (RuntimeException e) {
                     // we catch runtime exceptions here to prevent the receiving thread to stop accidentally if
                     // something like an IllegalStateException or NumberFormatExceptions are thrown. This indicates a
@@ -160,7 +161,7 @@ public class TACmiCoEBridgeHandler extends BaseBridgeHandler {
             this.coeSocket = coeSocket;
         } catch (final SocketException e) {
             // logged by framework via updateStatus
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Failed to create UDP-Socket for C.M.I. CoE bridge. Reason: " + e.getMessage());
             return;
         }

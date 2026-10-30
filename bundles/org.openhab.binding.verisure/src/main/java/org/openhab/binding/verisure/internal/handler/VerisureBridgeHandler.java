@@ -102,10 +102,12 @@ public class VerisureBridgeHandler extends BaseBridgeHandler {
 
         this.pinCode = config.pin;
         if (config.username.isBlank() || config.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration of username and password is mandatory");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Configuration of username and password is mandatory");
 
         } else if (config.refresh < 10) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Refresh time is lower than min value of 10!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Refresh time is lower than min value of 10!");
         } else {
             authstring = "j_username=" + config.username;
             scheduler.execute(() -> {
@@ -117,7 +119,7 @@ public class VerisureBridgeHandler extends BaseBridgeHandler {
                 updateStatus(ThingStatus.UNKNOWN);
                 if (session != null) {
                     if (!session.initialize(authstring, pinCode, config.username, config.password)) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "Failed to login to Verisure, please check your account settings! Is MFA activated?");
                     }
                 }
@@ -166,7 +168,7 @@ public class VerisureBridgeHandler extends BaseBridgeHandler {
             if (session.refresh()) {
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         }
     }

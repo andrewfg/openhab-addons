@@ -185,8 +185,8 @@ public abstract class AbstractPlugwiseThingHandler extends BaseThingHandler impl
 
     protected void sendConfigurationUpdateCommands() {
         lastConfigurationUpdateSend = LocalDateTime.now();
-        if (thing.getStatus() == ONLINE && getThingStatusDetail() != thing.getStatusInfo().getStatusDetail()) {
-            updateReadyStatus();
+        if (getThingStatusDetail() != thing.getStatusInfo().getStatusDetail()) {
+            updateStatus(thing.getStatus(), getThingStatusDetail());
         }
     }
 
@@ -216,14 +216,14 @@ public abstract class AbstractPlugwiseThingHandler extends BaseThingHandler impl
         ThingStatus bridgeStatus = bridge != null ? bridge.getStatus() : null;
         if (bridge == null) {
             removeMessageListener();
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
         } else if (bridgeStatus == ONLINE && thing.getStatus() != ONLINE) {
             stickHandler = (PlugwiseStickHandler) bridge.getHandler();
             addMessageListener();
-            updateStatus(OFFLINE);
+            updateStatus(OFFLINE, getThingStatusDetail());
         } else if (bridgeStatus == OFFLINE) {
             removeMessageListener();
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         } else if (bridgeStatus == UNKNOWN) {
             removeMessageListener();
             updateStatus(UNKNOWN);
@@ -241,7 +241,7 @@ public abstract class AbstractPlugwiseThingHandler extends BaseThingHandler impl
             updateState(CHANNEL_LAST_SEEN, PlugwiseUtils.newDateTimeType(lastSeen));
         }
         if (thing.getStatus() == OFFLINE) {
-            updateReadyStatus();
+            updateStatus(ONLINE, getThingStatusDetail());
         }
     }
 
@@ -252,7 +252,7 @@ public abstract class AbstractPlugwiseThingHandler extends BaseThingHandler impl
             ping();
             unansweredPings++;
         } else if (status == ONLINE && unansweredPings >= MAX_UNANSWERED_PINGS) {
-            updateStatus(OFFLINE);
+            updateStatus(OFFLINE, getThingStatusDetail());
             unansweredPings = 0;
         } else if (status == OFFLINE) {
             ping();
@@ -272,50 +272,16 @@ public abstract class AbstractPlugwiseThingHandler extends BaseThingHandler impl
     protected void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
         ThingStatus oldStatus = thing.getStatus();
         super.updateStatus(status, statusDetail, description);
-        statusChanged(oldStatus);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatus status) {
-        ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(status);
-        statusChanged(oldStatus);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatus status, @Nullable String description) {
-        ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(status, description);
-        statusChanged(oldStatus);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatusDetail detail, @Nullable String description) {
-        ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(detail, description);
-        statusChanged(oldStatus);
-    }
-
-    protected void statusChanged(ThingStatus oldStatus) {
-        ThingStatus newStatus = thing.getStatus();
 
         updateTask(onlineStateUpdateTask);
-        if (oldStatus != ONLINE && newStatus == ONLINE && isConfigurationPending()) {
+        if (oldStatus != ONLINE && status == ONLINE && isConfigurationPending()) {
             sendConfigurationUpdateCommands();
         }
     }
 
     protected void updateStatusOnDetailChange() {
-        if (thing.getStatus() == ONLINE && thing.getStatusInfo().getStatusDetail() != getThingStatusDetail()) {
-            updateReadyStatus();
-        }
-    }
-
-    private void updateReadyStatus() {
-        if (isConfigurationPending()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_PENDING);
-        } else {
-            updateStatus(ONLINE);
+        if (thing.getStatusInfo().getStatusDetail() != getThingStatusDetail()) {
+            updateStatus(thing.getStatus(), getThingStatusDetail());
         }
     }
 

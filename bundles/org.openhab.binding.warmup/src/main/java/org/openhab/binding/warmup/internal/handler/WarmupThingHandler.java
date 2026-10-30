@@ -24,13 +24,12 @@ import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The {@link WarmupThingHandler} is a super class for Things related to the Bridge consolidating logic.
@@ -39,7 +38,6 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class WarmupThingHandler extends BaseThingHandler {
-    private final Logger logger = LoggerFactory.getLogger(WarmupThingHandler.class);
 
     public WarmupThingHandler(Thing thing) {
         super(thing);
@@ -74,7 +72,7 @@ public class WarmupThingHandler extends BaseThingHandler {
         final Bridge bridge = getBridge();
 
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return null;
         } else {
             return (MyWarmupAccountHandler) bridge.getHandler();

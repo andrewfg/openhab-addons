@@ -417,32 +417,29 @@ public class EmbyDeviceHandler extends BaseThingHandler implements EmbyEventList
 
     @Override
     public void initialize() {
+        updateStatus(ThingStatus.UNKNOWN);
         scheduler.execute(() -> {
-            Bridge bridge = getBridge();
-            if (bridge == null) {
-                logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-                return;
-            }
-            updateStatus(ThingStatus.UNKNOWN);
             try {
                 this.config = validateConfiguration();
 
-                if (!(bridge.getHandler() instanceof EmbyBridgeHandler bridgeHandler)) {
-                    updateStatus(CONFIGURATION_ERROR, "@text/thing.status.device.noBridge");
+                if (!(getBridge() instanceof Bridge bridge)
+                        || !(bridge.getHandler() instanceof EmbyBridgeHandler bridgeHandler)) {
+                    updateStatus(ThingStatus.OFFLINE, CONFIGURATION_ERROR, "@text/thing.status.device.noBridge");
                     return;
                 }
                 this.bridgeHandler = bridgeHandler;
 
                 if (bridge.getStatus() == OFFLINE) {
-                    updateStatus(BRIDGE_OFFLINE, "@text/thing.status.device.bridgeOffline");
+                    updateStatus(OFFLINE, BRIDGE_OFFLINE, "@text/thing.status.device.bridgeOffline");
                     return;
                 }
 
                 updateStatus(ThingStatus.ONLINE);
             } catch (ConfigValidationException e) {
-                updateStatus(CONFIGURATION_ERROR, "@text/thing.status.device.configInValid " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, CONFIGURATION_ERROR,
+                        "@text/thing.status.device.configInValid " + e.getMessage());
             } catch (Exception e) {
-                updateStatus(COMMUNICATION_ERROR, "@text/thing.status.device.initalizationFalied");
+                updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR, "@text/thing.status.device.initalizationFalied");
                 logger.error("Initialization failed: {}", e.getMessage());
             }
         });
@@ -453,7 +450,7 @@ public class EmbyDeviceHandler extends BaseThingHandler implements EmbyEventList
         if (connected) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, COMMUNICATION_ERROR);
         }
     }
 

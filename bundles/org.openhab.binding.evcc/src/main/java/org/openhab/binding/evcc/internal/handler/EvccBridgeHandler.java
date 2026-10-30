@@ -195,7 +195,7 @@ public class EvccBridgeHandler extends BaseBridgeHandler {
         if (disposed) {
             return;
         }
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "WebSocket disconnected");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "WebSocket disconnected");
         logger.info("EVCC WebSocket disconnected");
     }
 

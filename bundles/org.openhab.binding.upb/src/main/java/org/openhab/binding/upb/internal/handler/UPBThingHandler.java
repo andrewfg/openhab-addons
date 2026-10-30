@@ -76,12 +76,12 @@ public class UPBThingHandler extends BaseThingHandler {
             // use value from binding config
             final Byte defaultNetworkId = this.defaultNetworkId;
             if (defaultNetworkId == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "missing network ID");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "missing network ID");
                 return;
             }
             networkId = defaultNetworkId.byteValue();
         } else if (val.compareTo(BigDecimal.ZERO) < 0 || val.compareTo(BigDecimal.valueOf(255)) > 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "invalid network ID");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "invalid network ID");
             return;
         } else {
             networkId = val.byteValue();
@@ -89,18 +89,18 @@ public class UPBThingHandler extends BaseThingHandler {
 
         final BigDecimal cfgUnitId = (BigDecimal) getConfig().get(Constants.CONFIGURATION_UNIT_ID);
         if (cfgUnitId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "missing unit ID");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "missing unit ID");
             return;
         }
         unitId = cfgUnitId.intValue();
         if (unitId < 1 || unitId > 250) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "invalid unit ID");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "invalid unit ID");
             return;
         }
 
         final Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, Constants.OFFLINE_CTLR_OFFLINE);
             return;
         }
         bridgeStatusChanged(bridge.getStatusInfo());
@@ -111,7 +111,7 @@ public class UPBThingHandler extends BaseThingHandler {
         logger.debug("DEV {}: Controller status is {}", unitId, bridgeStatusInfo.getStatus());
 
         if (bridgeStatusInfo.getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, Constants.OFFLINE_CTLR_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, Constants.OFFLINE_CTLR_OFFLINE);
             return;
         }
 
@@ -222,7 +222,7 @@ public class UPBThingHandler extends BaseThingHandler {
     private void updateDeviceStatus(final PIMHandler bridgeHandler) {
         final UPBDevice device = bridgeHandler.getDevice(getNetworkId(), getUnitId());
         if (device == null) {
-            updateStatus(ThingStatus.OFFLINE, Constants.OFFLINE_NODE_NOTFOUND);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, Constants.OFFLINE_NODE_NOTFOUND);
         } else {
             switch (device.getState()) {
                 case INITIALIZING:
@@ -231,7 +231,8 @@ public class UPBThingHandler extends BaseThingHandler {
                     break;
                 case DEAD:
                 case FAILED:
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, Constants.OFFLINE_NODE_DEAD);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            Constants.OFFLINE_NODE_DEAD);
                     break;
             }
         }
@@ -249,7 +250,7 @@ public class UPBThingHandler extends BaseThingHandler {
     private void updateStatus(final CmdStatus result) {
         switch (result) {
             case WRITE_FAILED:
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, Constants.OFFLINE_NODE_DEAD);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, Constants.OFFLINE_NODE_DEAD);
                 break;
 
             case ACK:

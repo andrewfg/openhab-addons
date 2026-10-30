@@ -127,7 +127,8 @@ public class PirateWeatherWeatherAndForecastHandler extends BaseThingHandler {
         PirateWeatherWeatherAndForecastConfiguration config = getConfigAs(
                 PirateWeatherWeatherAndForecastConfiguration.class);
         if (config.location.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-location");
             return;
         }
 
@@ -135,26 +136,27 @@ public class PirateWeatherWeatherAndForecastHandler extends BaseThingHandler {
             location = new PointType(config.location);
         } catch (IllegalArgumentException e) {
             logger.warn("Error parsing 'location' parameter: {}", e.getMessage());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-parsing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-parsing-location");
             location = null;
             return;
         }
 
         int newForecastHours = config.forecastHours;
         if (newForecastHours < 0 || newForecastHours > 48) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-number-of-hours");
             return;
         }
         int newForecastDays = config.forecastDays;
         if (newForecastDays < 0 || newForecastDays > 8) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-number-of-days");
             return;
         }
         int newNumberOfAlerts = config.numberOfAlerts;
         if (newNumberOfAlerts < 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-not-supported-number-of-alerts");
             return;
         }
@@ -172,7 +174,7 @@ public class PirateWeatherWeatherAndForecastHandler extends BaseThingHandler {
         if (bridge != null && ThingStatus.ONLINE.equals(bridge.getStatus())) {
             updateStatus(ThingStatus.UNKNOWN);
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -305,7 +307,7 @@ public class PirateWeatherWeatherAndForecastHandler extends BaseThingHandler {
         ThingHandler handler = bridge != null ? bridge.getHandler() : null;
 
         if (!(handler instanceof PirateWeatherAPIHandler apiHandler)) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
@@ -316,9 +318,9 @@ public class PirateWeatherWeatherAndForecastHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.ONLINE);
             }
         } catch (PirateWeatherCommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } catch (PirateWeatherConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
         }
     }
 

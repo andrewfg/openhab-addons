@@ -108,7 +108,7 @@ public class MecMeterHandler extends BaseThingHandler {
         String configCheck = config.isValid();
 
         if (configCheck != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, configCheck);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, configCheck);
             return;
         }
         updateStatus(ThingStatus.UNKNOWN);
@@ -182,7 +182,7 @@ public class MecMeterHandler extends BaseThingHandler {
         if (resultOk) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, errorMsg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, errorMsg);
         }
 
         return resultOk ? result : null;

@@ -344,10 +344,10 @@ public class ChromecastStatusUpdater {
     }
 
     public void updateStatus(ThingStatus status) {
-        callback.updateStatus(status);
+        updateStatus(status, ThingStatusDetail.NONE, null);
     }
 
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        callback.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        callback.updateStatus(status, statusDetail, description);
     }
 }

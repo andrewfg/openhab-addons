@@ -39,14 +39,6 @@ public interface DeviceHandlerCallback {
      * Updates the status of the thing.
      *
      * @param status the status
-     * @param description the description of the status
-     */
-    void updateStatus(ThingStatus status, @Nullable String description);
-
-    /**
-     * Updates the status and detail of the thing.
-     *
-     * @param status the status
      * @param statusDetail the detail of the status
      */
     void updateStatus(ThingStatus status, ThingStatusDetail statusDetail);
@@ -54,17 +46,11 @@ public interface DeviceHandlerCallback {
     /**
      * Updates the status of the thing.
      *
-     * @param statusDetail the detail of the status
-     */
-    void updateStatus(ThingStatusDetail statusDetail);
-
-    /**
-     * Updates the status of the thing, deriving it from the detail.
-     *
+     * @param status the status
      * @param statusDetail the detail of the status
      * @param description the description of the status
      */
-    void updateStatus(ThingStatusDetail statusDetail, @Nullable String description);
+    void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description);
 
     /**
      *

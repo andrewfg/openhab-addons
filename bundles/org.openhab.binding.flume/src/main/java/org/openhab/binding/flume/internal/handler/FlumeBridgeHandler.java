@@ -128,7 +128,8 @@ public class FlumeBridgeHandler extends BaseBridgeHandler {
 
         if (config.clientId.isBlank() | config.clientSecret.isBlank() || config.password.isBlank()
                 || config.username.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-configuration-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-configuration-error");
             return;
         }
 
@@ -147,7 +148,8 @@ public class FlumeBridgeHandler extends BaseBridgeHandler {
         }
 
         if (!refreshDevices(true)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.cloud-configuration-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.cloud-configuration-error");
             return;
         }
 
@@ -228,24 +230,26 @@ public class FlumeBridgeHandler extends BaseBridgeHandler {
     public void handleApiException(Exception e) {
         if (e instanceof FlumeApiException flumeApiException) {
             if (flumeApiException.isConfigurationIssue()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, flumeApiException.getLocalizedMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                        flumeApiException.getLocalizedMessage());
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, flumeApiException.getLocalizedMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                        flumeApiException.getLocalizedMessage());
             }
         } else if (e instanceof IOException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } else if (e instanceof InterruptedIOException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } else if (e instanceof InterruptedException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } else if (e instanceof TimeoutException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } else if (e instanceof ExecutionException) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } else {
             // capture in log since this is an unexpected exception
             logger.warn("Unhandled Exception", e);
-            updateStatus(ThingStatus.OFFLINE, e.toString());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, e.toString());
         }
     }
 

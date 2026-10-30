@@ -74,7 +74,8 @@ public class TransitBridgeHandler extends BaseBridgeHandler {
         config = getConfigAs(TransitBridgeConfiguration.class);
 
         if (config.apiKey.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-api-key");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-api-key");
             return;
         }
 
@@ -100,10 +101,10 @@ public class TransitBridgeHandler extends BaseBridgeHandler {
                 updateStatus(ThingStatus.ONLINE);
             } else if (statusCode == HttpStatus.UNAUTHORIZED_401 || statusCode == HttpStatus.FORBIDDEN_403) {
                 // invalid API key: no retry, the user has to fix the configuration
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.comm-error-auth-failed [\"" + statusCode + "\"]");
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.comm-error-unexpected-response [\"" + statusCode + "\"]");
                 long delay = statusCode == HttpStatus.TOO_MANY_REQUESTS_429 ? getRetryAfterSeconds(response)
                         : config.retryAfterSeconds;
@@ -112,11 +113,13 @@ public class TransitBridgeHandler extends BaseBridgeHandler {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-timeout");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error-timeout");
             scheduleVerification(config.retryAfterSeconds);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, cause != null ? cause.getMessage() : e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    cause != null ? cause.getMessage() : e.getMessage());
             scheduleVerification(config.retryAfterSeconds);
         }
     }

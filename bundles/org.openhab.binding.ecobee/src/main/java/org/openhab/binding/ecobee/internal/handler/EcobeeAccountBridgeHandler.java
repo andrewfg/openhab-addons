@@ -113,8 +113,8 @@ public class EcobeeAccountBridgeHandler extends BaseBridgeHandler {
 
         api = new EcobeeApi(this, apiKey, apiTimeout, oAuthFactory, httpClient);
 
-        updateStatus(ThingStatus.UNKNOWN);
         scheduleRefreshJob();
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING, "Checking authorization");
     }
 
     @Override
@@ -167,11 +167,7 @@ public class EcobeeAccountBridgeHandler extends BaseBridgeHandler {
     }
 
     public void updateBridgeStatus(ThingStatus status, ThingStatusDetail statusDetail, String statusMessage) {
-        if (statusDetail == ThingStatusDetail.NONE) {
-            updateStatus(status, statusMessage);
-        } else {
-            updateStatus(statusDetail, statusMessage);
-        }
+        updateStatus(status, statusDetail, statusMessage);
     }
 
     public boolean performThermostatFunction(FunctionRequest request) {

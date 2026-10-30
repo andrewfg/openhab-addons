@@ -142,7 +142,8 @@ public class ZoneHandler extends BaseThingHandler {
             Zone zone = getZone();
             if (null == zone) {
                 logger.debug("Could not find Zone with id {} for channel {}", id, channelUID);
-                updateStatus(ThingStatusDetail.GONE, messages.getText("message.zone.notfound", id, channelUID));
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE,
+                        messages.getText("message.zone.notfound", id, channelUID));
             } else {
                 onUpdate(zone);
                 Bridge noboHub = getBridge();

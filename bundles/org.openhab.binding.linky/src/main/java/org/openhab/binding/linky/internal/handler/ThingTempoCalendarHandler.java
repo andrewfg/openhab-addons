@@ -105,6 +105,11 @@ public class ThingTempoCalendarHandler extends ThingBaseRemoteHandler {
         pollingJob = scheduler.schedule(this::pollingCode, 5, TimeUnit.SECONDS);
     }
 
+    @Override
+    protected void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
+    }
+
     public boolean supportNewApiFormat() throws LinkyException {
         Bridge bridge = getBridge();
         if (bridge == null) {
@@ -160,7 +165,7 @@ public class ThingTempoCalendarHandler extends ThingBaseRemoteHandler {
                         REFRESH_INTERVAL_IN_MIN, TimeUnit.MINUTES);
             }
         } catch (LinkyException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -245,7 +250,7 @@ public class ThingTempoCalendarHandler extends ThingBaseRemoteHandler {
                 return result;
             } catch (LinkyException e) {
                 logger.debug("Exception when getting tempo data: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
         }
         return null;

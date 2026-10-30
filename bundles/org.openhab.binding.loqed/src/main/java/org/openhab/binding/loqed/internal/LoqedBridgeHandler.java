@@ -62,7 +62,8 @@ public class LoqedBridgeHandler extends BaseBridgeHandler implements LoqedBridge
     public void initialize() {
         LoqedConfiguration config = getConfigAs(LoqedConfiguration.class);
         if (config.apiToken.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/thing-status.loqed.account.token-empty");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/thing-status.loqed.account.token-empty");
             return;
         }
 
@@ -122,12 +123,13 @@ public class LoqedBridgeHandler extends BaseBridgeHandler implements LoqedBridge
                     .map(LoqedLockHandler.class::cast).forEach(handler -> handler.updateFromBridge(refreshedLocks));
         } catch (LoqedAuthenticationException e) {
             if (client.equals(apiClient)) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/thing-status.loqed.account.token-rejected");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/thing-status.loqed.account.token-rejected");
                 logger.debug("LOQED rejected the personal access token", e);
             }
         } catch (LoqedApiException e) {
             if (client.equals(apiClient)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/thing-status.loqed.account.communication-error");
                 logger.debug("Could not refresh LOQED locks", e);
             }

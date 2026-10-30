@@ -77,12 +77,7 @@ public class ZmMonitorHandler extends BaseThingHandler {
         imageRefreshIntervalSeconds = config.imageRefreshInterval;
         Integer value = config.alarmDuration;
         alarmDuration = value != null ? value : DEFAULT_ALARM_DURATION_SECONDS;
-        var bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        bridgeHandler = (ZmBridgeHandler) bridge.getHandler();
+        bridgeHandler = (ZmBridgeHandler) getBridge().getHandler();
         monitorStatusCache.clear();
         updateStatus(ThingStatus.ONLINE);
         startImageRefreshJob();

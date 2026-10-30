@@ -18,6 +18,7 @@ import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -62,7 +63,7 @@ public class CBusTriggerHandler extends CBusGroupHandler {
                     }
                 } catch (CGateException e) {
                     logger.debug("Failed to send trigger command {} to {}", command, group, e);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Communication Error");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Communication Error");
                 }
             }
         }

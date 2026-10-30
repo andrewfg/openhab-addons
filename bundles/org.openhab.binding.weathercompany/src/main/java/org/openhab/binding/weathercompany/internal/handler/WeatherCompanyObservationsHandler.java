@@ -145,7 +145,8 @@ public class WeatherCompanyObservationsHandler extends WeatherCompanyAbstractHan
             updatePwsObservations(pwsObservations);
         } catch (JsonSyntaxException e) {
             logger.debug("Handler: Error parsing pws observations response object: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error-parsing-pws-forecast");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error-parsing-pws-forecast");
             return;
         }
     }

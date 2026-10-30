@@ -210,7 +210,8 @@ public abstract class VeSyncBaseDeviceHandler extends BaseThingHandler {
             this.updateProperties(newProps);
             removeChannels();
             if (!isDeviceSupported()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Device Model or Type not supported by this thing");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Device Model or Type not supported by this thing");
             }
         }
     }
@@ -335,14 +336,9 @@ public abstract class VeSyncBaseDeviceHandler extends BaseThingHandler {
 
     private void intializeDeviceForUse() {
         // Sanity check basic setup
-        Bridge bridgeRef = getBridge();
-        if (bridgeRef == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        final VeSyncBridgeHandler bridge = (VeSyncBridgeHandler) bridgeRef.getHandler();
+        final VeSyncBridgeHandler bridge = (VeSyncBridgeHandler) getBridgeHandler();
         if (bridge == null) {
-            logger.debug("Bridge handler unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED, "Missing bridge for API link");
             return;
         } else {
             updateStatus(ThingStatus.UNKNOWN);
@@ -468,7 +464,8 @@ public abstract class VeSyncBaseDeviceHandler extends BaseThingHandler {
             logger.debug("Auth exception {}", e.getMessage());
             return EMPTY_STRING;
         } catch (final DeviceUnknownException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Check configuration details - " + e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Check configuration details - " + e.getMessage());
             // In case the name is updated server side - request the scan rate is increased
             requestBridgeFreqScanMetadataIfReq();
             return EMPTY_STRING;
@@ -507,7 +504,8 @@ public abstract class VeSyncBaseDeviceHandler extends BaseThingHandler {
             logger.debug("Auth exception {}", e.getMessage());
             return EMPTY_STRING;
         } catch (final DeviceUnknownException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Check configuration details - " + e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Check configuration details - " + e.getMessage());
             // In case the name is updated server side - request the scan rate is increased
             requestBridgeFreqScanMetadataIfReq();
             return EMPTY_STRING;

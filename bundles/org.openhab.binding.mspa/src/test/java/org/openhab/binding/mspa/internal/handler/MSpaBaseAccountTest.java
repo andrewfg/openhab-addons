@@ -82,11 +82,6 @@ public class MSpaBaseAccountTest {
         }
 
         @Override
-        protected void updateStatus(ThingStatusDetail statusDetail, @Nullable String message) {
-            updateStatus(ThingStatus.OFFLINE, statusDetail, message);
-        }
-
-        @Override
         public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String message) {
             this.lastStatus = status;
             this.lastDetail = statusDetail;

@@ -182,14 +182,16 @@ public class MieleBridgeHandlerTest extends OpenHabOsgiTest {
     }
 
     @Test
-    public void testThingStatusIsUnknownWhenTokensAreNotPassedViaInitialConfiguration() throws Exception {
+    public void testThingStatusIsSetToOfflineWithDetailConfigurationPendingAndDescriptionWhenTokensAreNotPassedViaInitialConfiguration()
+            throws Exception {
         when(getOAuthClientServiceMock().getAccessTokenResponse()).thenReturn(null);
 
         // when:
         getHandler().initialize();
 
         // then:
-        assertThingStatusIs(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, null);
+        assertThingStatusIs(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                MieleCloudBindingConstants.I18NKeys.BRIDGE_STATUS_DESCRIPTION_ACCESS_TOKEN_NOT_CONFIGURED);
     }
 
     @Test

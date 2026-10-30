@@ -81,7 +81,8 @@ public class BuienradarHandler extends BaseThingHandler {
 
         boolean configValid = true;
         if (config.location == null || config.location.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-location");
             configValid = false;
         }
 
@@ -89,7 +90,8 @@ public class BuienradarHandler extends BaseThingHandler {
             location = new PointType(config.location);
         } catch (IllegalArgumentException e) {
             location = null;
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-parsing-location");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-parsing-location");
             configValid = false;
         }
 
@@ -119,7 +121,7 @@ public class BuienradarHandler extends BaseThingHandler {
         }
         if (tries <= 0) {
             // We are out of tries, stop retrying.
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             return;
         }
         try {
@@ -162,7 +164,7 @@ public class BuienradarHandler extends BaseThingHandler {
             updateStatus(ThingStatus.ONLINE);
         } catch (IOException e) {
             logger.warn("Cannot retrieve predictions", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.ONLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     String.format("Could not reach buienradar: %s", e.getMessage()));
         }
     }

@@ -69,7 +69,8 @@ public class TeslaPowerwallHandler extends BaseThingHandler {
         config = getConfigAs(TeslaPowerwallConfiguration.class);
         logger.debug("config.hostname = {}, refresh = {}", config.hostname, config.refresh);
         if (config.hostname.isBlank() || config.email.isBlank() || config.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.missing-config-key");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.missing-config-key");
             return;
         } else {
             updateStatus(ThingStatus.UNKNOWN);
@@ -115,11 +116,11 @@ public class TeslaPowerwallHandler extends BaseThingHandler {
             updateStatus(ThingStatus.ONLINE);
         } catch (TeslaPowerwallAuthenticationException e) {
             logger.debug("Unexpected authentication error connecting to Tesla Powerwall", e);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             return;
         } catch (TeslaPowerwallCommunicationException e) {
             logger.debug("Unexpected error connecting to Tesla Powerwall", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return;
         }
 

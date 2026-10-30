@@ -327,7 +327,7 @@ public class SenecHomeHandler extends BaseThingHandler {
                 logger.trace("Faulty response: {}", response.toString());
             }
             logger.warn("Error refreshing source '{}'", getThing().getUID(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Could not connect to Senec web interface:" + e.getMessage());
         }
 

@@ -119,11 +119,11 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
         if (parentHandler == null) {
             Bridge parentBridge = getBridge();
             if (parentBridge != null) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             } else {
                 Object storedHost = getThing().getConfiguration().get("host");
                 String hint = storedHost != null ? " (previously configured host: " + storedHost + ")" : "";
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.requires-unifi-controller-bridge" + hint);
             }
             return;
@@ -195,7 +195,8 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
     private synchronized void connect() {
         UniFiControllerBridgeHandler parentHandler = getParentHandler();
         if (parentHandler == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.requires-unifi-controller-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.requires-unifi-controller-bridge");
             return;
         }
 
@@ -266,7 +267,8 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
             logger.debug("Failed to open notifications WebSocket", e);
             switch (e.getAuthState()) {
                 case REJECTED:
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.auth-failed");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "@text/offline.auth-failed");
                     break;
                 case THROTTLED:
                     setOfflineAndReconnect("@text/offline.login-throttled", true);
@@ -294,7 +296,7 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
         }
         cancelPolling();
         String msg = message != null ? message : "Unknown error";
-        updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, msg);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, msg);
 
         int delay;
         if (throttled) {
@@ -400,7 +402,7 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
                         dh.updateState(UnifiAccessBindingConstants.CHANNEL_DEVICE_ONLINE,
                                 online ? OnOffType.ON : OnOffType.OFF);
                         if (!online) {
-                            dh.updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                            dh.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
                                     "@text/offline.device-offline");
                         } else if (dh.getThing().getStatus() != ThingStatus.ONLINE) {
                             dh.setOnline();
@@ -430,7 +432,7 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
         } catch (UnifiAccessApiException e) {
             logger.debug("Polling error: {}", e.getMessage());
             if (e.getAuthState() == AuthState.REJECTED) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.auth-failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.auth-failed");
                 cancelPolling();
             } else if (e.getAuthState() == AuthState.THROTTLED) {
                 setOfflineAndReconnect("@text/offline.login-throttled", true);
@@ -456,7 +458,8 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
                 // Compare detail too, so a stale GONE or no hub message is corrected
                 if (info.getStatus() != ThingStatus.OFFLINE
                         || info.getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
-                    dh.updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.hub-offline");
+                    dh.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.hub-offline");
                 }
             } else if (Boolean.TRUE.equals(hub.isOnline)) {
                 if (info.getStatus() != ThingStatus.ONLINE) {
@@ -476,7 +479,7 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
             logger.debug("Door {} has devices but no resolvable hub; leaving status unchanged", door.id);
         } else if (info.getStatusDetail() != ThingStatusDetail.CONFIGURATION_ERROR) {
             // No devices and no state at all so the door can't report anything or take commands
-            dh.updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.no-hub");
+            dh.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.no-hub");
         }
     }
 
@@ -509,7 +512,7 @@ public class UnifiAccessBridgeHandler extends BaseBridgeHandler {
                 continue;
             }
             logger.debug("Device {} not present on controller, marking {} gone", handler.deviceId, child.getUID());
-            handler.updateStatus(ThingStatusDetail.GONE, "@text/offline.access-gone");
+            handler.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE, "@text/offline.access-gone");
         }
     }
 

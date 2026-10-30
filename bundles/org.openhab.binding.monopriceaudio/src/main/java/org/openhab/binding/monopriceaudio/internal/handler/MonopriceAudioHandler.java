@@ -128,11 +128,13 @@ public class MonopriceAudioHandler extends BaseThingHandler implements Monoprice
         // Check configuration settings
         if (serialPort != null && host == null && port == null) {
             if (serialPort.toLowerCase().startsWith("rfc2217")) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-rfc2217");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.configuration-error-rfc2217");
                 return;
             }
         } else if (serialPort != null && (host != null || port != null)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-conflict");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error-conflict");
             return;
         }
 
@@ -141,7 +143,8 @@ public class MonopriceAudioHandler extends BaseThingHandler implements Monoprice
         } else if (host != null && (port != null && port > ZERO)) {
             connector = new MonopriceAudioIpConnector(host, port, uid, amp);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error-missing");
             return;
         }
 
@@ -429,7 +432,8 @@ public class MonopriceAudioHandler extends BaseThingHandler implements Monoprice
                 }
             } catch (MonopriceAudioException e) {
                 logger.debug("Command {} from channel {} failed: {}", command, channel, e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error-failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.communication-error-failed");
                 closeConnection();
                 scheduleReconnectJob();
             }
@@ -533,7 +537,7 @@ public class MonopriceAudioHandler extends BaseThingHandler implements Monoprice
                     }
                     if (error != null) {
                         closeConnection();
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
                     }
                 }
             }
@@ -585,7 +589,7 @@ public class MonopriceAudioHandler extends BaseThingHandler implements Monoprice
                     // is either switched off or not responding even though the connection is still good
                     if ((System.currentTimeMillis() - lastPollingUpdate) > (pollingInterval * 2.25 * 1000)) {
                         logger.debug("Amplifier not responding to status requests");
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "@text/offline.communication-error-polling");
                         closeConnection();
                         scheduleReconnectJob();

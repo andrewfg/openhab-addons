@@ -96,14 +96,15 @@ public class YIOremoteDockHandler extends BaseThingHandler implements WebsocketI
         String host = config.host.trim();
 
         if (host.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-no-host");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-no-host");
             return;
         }
 
         try {
             dockUri = new URI("ws", null, host, DOCK_PORT, null, null, null);
         } catch (URISyntaxException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/offline.conf-error-invalid-host [\"" + host + "\"]");
             return;
         }
@@ -218,7 +219,7 @@ public class YIOremoteDockHandler extends BaseThingHandler implements WebsocketI
     private void connectionLost(String statusDescription) {
         closeWebsocket();
         connectionState = ConnectionState.DISCONNECTED;
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, statusDescription);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, statusDescription);
     }
 
     private void closeWebsocket() {
@@ -335,7 +336,7 @@ public class YIOremoteDockHandler extends BaseThingHandler implements WebsocketI
         closeWebsocket();
         // no reconnect until the configuration is changed
         connectionState = ConnectionState.AUTHENTICATION_FAILED;
-        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                 "@text/offline.conf-error-authentication-failed [\"" + Objects.requireNonNullElse(reason, "") + "\"]");
     }
 

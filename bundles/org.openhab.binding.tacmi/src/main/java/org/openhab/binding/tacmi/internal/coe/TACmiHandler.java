@@ -91,14 +91,15 @@ public class TACmiHandler extends BaseThingHandler {
         final TACmiConfiguration config = getConfigAs(TACmiConfiguration.class);
 
         if (config.host == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No host configured!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No host configured!");
             return;
         }
         try {
             cmiAddress = InetAddress.getByName(config.host);
         } catch (final UnknownHostException e1) {
             // message logged by framework via updateStatus
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Failed to get IP of CMI for '" + config.host + "'");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Failed to get IP of CMI for '" + config.host + "'");
             return;
         }
 
@@ -166,13 +167,9 @@ public class TACmiHandler extends BaseThingHandler {
         }
 
         final Bridge br = getBridge();
-        if (br == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        final TACmiCoEBridgeHandler bridge = (TACmiCoEBridgeHandler) br.getHandler();
+        final TACmiCoEBridgeHandler bridge = br == null ? null : (TACmiCoEBridgeHandler) br.getHandler();
         if (bridge == null) {
-            logger.debug("Bridge handler unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "No Bridge configured!");
             return;
         }
         bridge.registerCMI(this);
@@ -392,7 +389,8 @@ public class TACmiHandler extends BaseThingHandler {
         final long refTs = System.currentTimeMillis();
         if (refTs - this.lastMessageRecvTS > 900000 && getThing().getStatus() != ThingStatus.OFFLINE) {
             // no data received for 900 seconds - set thing status to offline..
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No update from C.M.I. for 15 min");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "No update from C.M.I. for 15 min");
         }
         for (final PodData pd : this.podDatas.values()) {
             if (!(pd instanceof PodDataOutgoing)) {

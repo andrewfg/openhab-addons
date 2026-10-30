@@ -95,14 +95,16 @@ public class EnturNoHandler extends BaseThingHandler {
         logger.debug("Stop place id: {}", stopId);
         boolean configValid = true;
         if (stopId == null || stopId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-stopId");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-stopId");
             configValid = false;
         }
 
         String lineCode = config.getLineCode();
         logger.debug("Line code: {}", lineCode);
         if (lineCode == null || lineCode.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-lineCode");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-lineCode");
             configValid = false;
         }
 
@@ -145,9 +147,7 @@ public class EnturNoHandler extends BaseThingHandler {
             status = ThingStatus.OFFLINE;
         }
 
-        if (status == ThingStatus.ONLINE || status == ThingStatus.OFFLINE || status == ThingStatus.UNKNOWN) {
-            updateStatus(status);
-        }
+        updateStatus(status);
     }
 
     public void updateData(EnturNoConnection connection) {
@@ -157,9 +157,9 @@ public class EnturNoHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.ONLINE);
             }
         } catch (EnturCommunicationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getLocalizedMessage());
         } catch (EnturConfigurationException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
         }
     }
 

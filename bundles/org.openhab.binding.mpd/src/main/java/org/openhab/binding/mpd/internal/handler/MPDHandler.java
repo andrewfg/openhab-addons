@@ -293,10 +293,6 @@ public class MPDHandler extends BaseThingHandler implements MPDEventListener {
 
     @Override
     public void updateThingStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
-        if (statusDetail == ThingStatusDetail.NONE) {
-            updateStatus(status, description);
-        } else {
-            updateStatus(statusDetail, description);
-        }
+        updateStatus(status, statusDetail, description);
     }
 }

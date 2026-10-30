@@ -114,12 +114,12 @@ public class KM200GatewayHandler extends BaseBridgeHandler {
         try {
             int maxKeyLen = Cipher.getMaxAllowedKeyLength("AES/ECB/NoPadding");
             if (maxKeyLen <= 128) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "Java Cryptography Extension (JCE) have to be installed");
                 return;
             }
         } catch (NoSuchAlgorithmException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "AES encoding not supported");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "AES encoding not supported");
             return;
         }
         if (!getDevice().getInited()) {
@@ -133,7 +133,7 @@ public class KM200GatewayHandler extends BaseBridgeHandler {
                 readCapabilities();
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
                 logger.debug("The KM50/100/200 gateway configuration is not complete");
                 return;
             }
@@ -248,7 +248,8 @@ public class KM200GatewayHandler extends BaseBridgeHandler {
         /* Get HTTP Data from device */
         JsonObject nodeRoot = remoteDevice.getServiceNode("/gateway/DateTime");
         if (nodeRoot == null || nodeRoot.isJsonNull()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No communication possible with gateway");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "No communication possible with gateway");
             return false;
         }
         logger.debug("Test of the communication to the gateway was successful..");
@@ -259,7 +260,7 @@ public class KM200GatewayHandler extends BaseBridgeHandler {
             nodeRoot.get("id").getAsString();
         } catch (JsonParseException e) {
             logger.debug("The data is not readable, check the key and password configuration! {}", e.getMessage());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Wrong gateway configuration");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Wrong gateway configuration");
             return false;
         }
         return true;

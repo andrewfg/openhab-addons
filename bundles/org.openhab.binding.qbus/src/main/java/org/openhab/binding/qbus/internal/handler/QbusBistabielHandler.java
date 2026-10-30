@@ -99,7 +99,7 @@ public class QbusBistabielHandler extends QbusGlobalHandler {
                 if (qBridgeHandler.getStatus() == ThingStatus.ONLINE) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                             "Bridge offline for BISTABIEL ID " + this.bistabielId);
                 }
             }

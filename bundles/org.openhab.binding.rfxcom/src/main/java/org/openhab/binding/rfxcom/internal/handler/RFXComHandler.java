@@ -118,10 +118,10 @@ public class RFXComHandler extends BaseThingHandler implements DeviceMessageList
         Bridge bridge = getBridge();
 
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
+            initializeBridge(null, null);
+        } else {
+            initializeBridge(bridge.getHandler(), bridge.getStatus());
         }
-        initializeBridge(bridge.getHandler(), bridge.getStatus());
 
         stateMap.clear();
     }
@@ -133,10 +133,10 @@ public class RFXComHandler extends BaseThingHandler implements DeviceMessageList
         Bridge bridge = getBridge();
 
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
+            initializeBridge(null, bridgeStatusInfo.getStatus());
+        } else {
+            initializeBridge(bridge.getHandler(), bridgeStatusInfo.getStatus());
         }
-        initializeBridge(bridge.getHandler(), bridgeStatusInfo.getStatus());
     }
 
     private void initializeBridge(ThingHandler thingHandler, ThingStatus bridgeStatus) {
@@ -152,13 +152,13 @@ public class RFXComHandler extends BaseThingHandler implements DeviceMessageList
                 if (bridgeStatus == ThingStatus.ONLINE) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 }
             } else {
-                updateStatus(ThingStatus.UNKNOWN);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
             }
         } catch (RFXComInvalidParameterException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         }
     }
 

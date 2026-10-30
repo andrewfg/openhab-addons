@@ -195,7 +195,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
 
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing {}", getThing().getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED, "@text/offline.missing-bridge");
             return;
         }
 
@@ -213,7 +213,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 }
 
                 if (bridgeHandler instanceof BridgeRemoteApiHandler && config.prmId.isBlank()) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                             "@text/offline.config-error-mandatory-settings");
                     return;
                 }
@@ -223,10 +223,11 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 }
                 pollingJob = scheduler.schedule(this::pollingCode, 5, TimeUnit.SECONDS);
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-mandatory-settings");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.config-error-mandatory-settings");
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -282,7 +283,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                         REFRESH_INTERVAL_IN_MIN, TimeUnit.MINUTES);
             }
         } catch (LinkyException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 
@@ -373,7 +374,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
             }
             return result;
         } catch (LinkyException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
 
         return null;
@@ -936,7 +937,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 return api.getEnergyData(this, this.userId, config.prmId, segment, from, to);
             } catch (LinkyException e) {
                 logger.debug("Exception when getting consumption data for {} : {}", config.prmId, e.getMessage(), e);
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
         }
 
@@ -953,7 +954,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 return api.getEnergyIndex(this, this.userId, config.prmId, segment, from, to);
             } catch (LinkyException e) {
                 logger.debug("Exception when getting consumption data for {} : {}", config.prmId, e.getMessage(), e);
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
         }
 
@@ -970,7 +971,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 return api.getLoadCurveData(this, this.userId, config.prmId, segment, from, to);
             } catch (LinkyException e) {
                 logger.debug("Exception when getting consumption data: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
         }
 
@@ -987,7 +988,7 @@ public class ThingLinkyRemoteHandler extends ThingBaseRemoteHandler {
                 return api.getPowerData(this, this.userId, config.prmId, segment, from, to);
             } catch (LinkyException e) {
                 logger.debug("Exception when getting power data: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, e.getMessage());
             }
         }
 

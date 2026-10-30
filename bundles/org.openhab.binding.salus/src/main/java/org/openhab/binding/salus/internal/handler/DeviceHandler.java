@@ -16,6 +16,7 @@ import static java.math.RoundingMode.HALF_EVEN;
 import static java.util.Objects.requireNonNull;
 import static org.openhab.binding.salus.internal.SalusBindingConstants.BINDING_ID;
 import static org.openhab.binding.salus.internal.SalusBindingConstants.SalusDevice.DSN;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 import static org.openhab.core.thing.ThingStatusDetail.*;
 import static org.openhab.core.types.RefreshType.REFRESH;
@@ -74,12 +75,12 @@ public class DeviceHandler extends BaseThingHandler {
     public void initialize() {
         var bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing {}", getThing().getUID());
+            updateStatus(OFFLINE, BRIDGE_UNINITIALIZED, "@text/device-handler.initialize.errors.no-bridge");
             return;
         }
         var bridgeHandler = bridge.getHandler();
         if (!(bridgeHandler instanceof AbstractBridgeHandler<?> cloudHandler)) {
-            updateStatus(CONFIGURATION_ERROR, "@text/device-handler.initialize.errors.bridge-wrong-type");
+            updateStatus(OFFLINE, BRIDGE_UNINITIALIZED, "@text/device-handler.initialize.errors.bridge-wrong-type");
             return;
         }
         this.cloudApi = cloudHandler;
@@ -87,31 +88,32 @@ public class DeviceHandler extends BaseThingHandler {
         dsn = (String) getConfig().get(DSN);
 
         if ("".equals(dsn)) {
-            updateStatus(CONFIGURATION_ERROR, "@text/device-handler.initialize.errors.no-dsn [\"" + DSN + "\"]");
+            updateStatus(OFFLINE, CONFIGURATION_ERROR,
+                    "@text/device-handler.initialize.errors.no-dsn [\"" + DSN + "\"]");
             return;
         }
 
         try {
             var device = this.cloudApi.findDevice(dsn);
             if (device.isEmpty()) {
-                updateStatus(COMMUNICATION_ERROR,
+                updateStatus(OFFLINE, COMMUNICATION_ERROR,
                         "@text/device-handler.initialize.errors.dsn-not-found [\"" + dsn + "\"]");
                 return;
             }
             if (!device.get().connected()) {
-                updateStatus(COMMUNICATION_ERROR,
+                updateStatus(OFFLINE, COMMUNICATION_ERROR,
                         "@text/device-handler.initialize.errors.dsn-not-connected [\"" + dsn + "\"]");
                 return;
             }
             var channels = findDeviceProperties().stream().map(this::buildChannel).toList();
             if (channels.isEmpty()) {
-                updateStatus(CONFIGURATION_ERROR,
+                updateStatus(OFFLINE, CONFIGURATION_ERROR,
                         "@text/device-handler.initialize.errors.no-channels [\"" + dsn + "\"]");
                 return;
             }
             updateChannels(channels);
         } catch (Exception e) {
-            updateStatus(COMMUNICATION_ERROR, "@text/device-handler.initialize.errors.general-error");
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, "@text/device-handler.initialize.errors.general-error");
             return;
         }
 
@@ -224,7 +226,7 @@ public class DeviceHandler extends BaseThingHandler {
             }
         } catch (AuthSalusApiException | SalusApiException e) {
             logger.debug("Error while handling command `{}` on channel `{}`", command, channelUID, e);
-            updateStatus(COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, e.getLocalizedMessage());
         }
     }
 

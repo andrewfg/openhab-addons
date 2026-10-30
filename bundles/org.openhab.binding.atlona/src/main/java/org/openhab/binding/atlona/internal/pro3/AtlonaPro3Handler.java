@@ -445,7 +445,7 @@ public class AtlonaPro3Handler extends AtlonaHandler<AtlonaPro3Capabilities> {
         }
 
         if (config.getIpAddress() == null || config.getIpAddress().trim().length() == 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "IP Address of Atlona Pro3 is missing from configuration");
             return;
         }
@@ -460,11 +460,7 @@ public class AtlonaPro3Handler extends AtlonaHandler<AtlonaPro3Capabilities> {
 
                     @Override
                     public void statusChanged(ThingStatus status, ThingStatusDetail detail, String msg) {
-                        if (detail == ThingStatusDetail.NONE) {
-                            updateStatus(status, msg);
-                        } else {
-                            updateStatus(detail, msg);
-                        }
+                        updateStatus(status, detail, msg);
 
                         if (status != ThingStatus.ONLINE) {
                             disconnect(true);
@@ -509,7 +505,7 @@ public class AtlonaPro3Handler extends AtlonaHandler<AtlonaPro3Capabilities> {
                             if (session.isConnected()) {
                                 atlonaHandler.refreshAll();
                             } else {
-                                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                         "Atlona PRO3 has disconnected. Will try to reconnect later.");
                             }
                         } else if (status == ThingStatus.OFFLINE) {
@@ -535,7 +531,7 @@ public class AtlonaPro3Handler extends AtlonaHandler<AtlonaPro3Capabilities> {
             // do nothing
         }
 
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, response);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, response);
         retryConnect();
     }
 

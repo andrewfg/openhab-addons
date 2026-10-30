@@ -225,7 +225,7 @@ public class SerialOceanicThingHandler extends OceanicThingHandler implements Se
             if (!isLifecycleCurrent(generation)) {
                 return false;
             }
-            updateStatus(detail, description);
+            updateStatus(ThingStatus.OFFLINE, detail, description);
             return true;
         }
     }

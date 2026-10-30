@@ -25,7 +25,6 @@ import org.openhab.core.ephemeris.EphemerisManager;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
-import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -82,11 +81,7 @@ public abstract class BaseEphemerisHandler extends BaseThingHandler {
             logger.debug("Scheduling next {} update in {} minutes", getThing().getUID(), delay);
             refreshJob = Optional.of(scheduler.schedule(this::updateData, delay, TimeUnit.MINUTES));
         } catch (EphemerisException e) {
-            if (e.getStatusDetail() == ThingStatusDetail.NONE) {
-                updateStatus(ThingStatus.OFFLINE, e.getMessage());
-            } else {
-                updateStatus(e.getStatusDetail(), e.getMessage());
-            }
+            updateStatus(ThingStatus.OFFLINE, e.getStatusDetail(), e.getMessage());
         }
     }
 

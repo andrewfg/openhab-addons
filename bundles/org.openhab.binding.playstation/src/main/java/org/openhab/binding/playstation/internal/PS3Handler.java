@@ -128,7 +128,7 @@ public class PS3Handler extends BaseThingHandler {
     private void turnOnPS3() {
         String macAdr = thing.getProperties().get(Thing.PROPERTY_MAC_ADDRESS);
         if (macAdr == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No MAC address configured.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No MAC address configured.");
             return;
         }
         try {

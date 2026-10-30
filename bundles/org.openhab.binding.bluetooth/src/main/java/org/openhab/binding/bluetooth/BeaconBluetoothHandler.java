@@ -40,8 +40,6 @@ import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.UnDefType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * This is a handler for generic Bluetooth devices in beacon-mode (i.e. not connected), which at the same time can be
@@ -51,7 +49,6 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class BeaconBluetoothHandler extends BaseThingHandler implements BluetoothDeviceListener {
-    private final Logger logger = LoggerFactory.getLogger(BeaconBluetoothHandler.class);
 
     @NonNullByDefault({} /* non-null if initialized */)
     protected BluetoothAdapter adapter;
@@ -73,23 +70,23 @@ public class BeaconBluetoothHandler extends BaseThingHandler implements Bluetoot
 
     @Override
     public void initialize() {
+        try {
+            address = new BluetoothAddress(getConfig().get(BluetoothBindingConstants.CONFIGURATION_ADDRESS).toString());
+        } catch (IllegalArgumentException e) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
+            return;
+        }
 
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Not associated with any bridge");
             return;
         }
 
         BridgeHandler bridgeHandler = bridge.getHandler();
         if (!(bridgeHandler instanceof BluetoothAdapter)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Associated with an unsupported bridge");
-            return;
-        }
-
-        try {
-            address = new BluetoothAddress(getConfig().get(BluetoothBindingConstants.CONFIGURATION_ADDRESS).toString());
-        } catch (IllegalArgumentException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getLocalizedMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Associated with an unsupported bridge");
             return;
         }
 
@@ -213,7 +210,7 @@ public class BeaconBluetoothHandler extends BaseThingHandler implements Bluetoot
         if (receivedSignal) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 

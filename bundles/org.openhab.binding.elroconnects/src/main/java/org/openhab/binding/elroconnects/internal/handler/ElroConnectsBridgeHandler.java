@@ -162,11 +162,11 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
         legacyFirmware = config.legacyFirmware;
 
         if (connectorId.isEmpty()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.no-connector-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.no-connector-id");
             return;
         } else if (!CONNECTOR_ID_PATTERN.matcher(connectorId).matches()) {
             String msg = String.format("@text/offline.invalid-connector-id [ \"%s\" ]", connectorId);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, msg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, msg);
             return;
         }
 
@@ -203,7 +203,7 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
                 addr = getAddr(true);
             } catch (IOException e) {
                 String msg = String.format("@text/offline.find-ip-fail [ \"%s\" ]", connectorId);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, msg);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, msg);
                 stopCommunication();
                 return;
             }
@@ -211,7 +211,7 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
 
         if (addr == null) {
             String msg = String.format("@text/offline.find-ip-fail [ \"%s\" ]", connectorId);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, msg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, msg);
             stopCommunication();
             return;
         }
@@ -223,7 +223,8 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
 
         String ctrlKey = this.ctrlKey;
         if (ctrlKey.isEmpty()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-data-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-data-error");
             stopCommunication();
             return;
         }
@@ -234,7 +235,7 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
             this.socket = socket;
         } catch (IOException e) {
             String msg = String.format("@text/offline.communication-error [ \"%s\" ]", e.getMessage());
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, msg);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, msg);
             stopCommunication();
             return;
         }
@@ -339,7 +340,7 @@ public class ElroConnectsBridgeHandler extends BaseBridgeHandler {
      * @param offlineMessage message for thing status
      */
     private synchronized void restartCommunication(String offlineMessage) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, offlineMessage);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, offlineMessage);
 
         stopCommunication();
 

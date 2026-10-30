@@ -14,12 +14,7 @@ package org.openhab.binding.heos.internal.handler;
 
 import static org.openhab.binding.heos.internal.HeosBindingConstants.*;
 import static org.openhab.binding.heos.internal.handler.FutureUtil.cancel;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.CONNECTION_LOST;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.CONNECTION_RESTORED;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.EVENT_STREAM_TIMEOUT;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.EVENT_TYPE_EVENT;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.EVENT_TYPE_SYSTEM;
-import static org.openhab.binding.heos.internal.resources.HeosConstants.PID;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 
 import java.io.IOException;
@@ -144,7 +139,8 @@ public class HeosBridgeHandler extends BaseBridgeHandler implements HeosEventLis
                 failureCount++;
 
                 if (failureCount > FAILURE_COUNT_LIMIT) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Failed to handle command: " + e.getMessage());
+                    updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Failed to handle command: " + e.getMessage());
                 }
             }
         }
@@ -175,7 +171,8 @@ public class HeosBridgeHandler extends BaseBridgeHandler implements HeosEventLis
             if (!username.isBlank() && !password.isBlank()) {
                 login(connection, username, password);
             } else {
-                updateStatus(ThingStatus.ONLINE, "Localmode, cloud username or password not set.");
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Can't log in. Username or password not set.");
             }
 
             fetchPlayersAndGroups();
@@ -184,7 +181,7 @@ public class HeosBridgeHandler extends BaseBridgeHandler implements HeosEventLis
             if (connection != null) {
                 connection.closeConnection();
             }
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Errors occurred: " + e.getMessage());
+            updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Errors occurred: " + e.getMessage());
             cancel(startupFuture, false);
             startupFuture = scheduler.schedule(this::delayedInitialize, 30, TimeUnit.SECONDS);
         }
@@ -253,7 +250,7 @@ public class HeosBridgeHandler extends BaseBridgeHandler implements HeosEventLis
 
         HeosError error = response.getError();
         logger.debug("Failed to login: {}", error);
-        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+        updateStatus(ONLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                 error != null ? error.code.toString() : "Failed to login, no error was returned.");
     }
 
@@ -411,7 +408,7 @@ public class HeosBridgeHandler extends BaseBridgeHandler implements HeosEventLis
             } else if (EVENT_STREAM_TIMEOUT.equals(command)) {
                 logger.debug("HEOS Bridge events timed-out might be nothing, trying to reconnect");
             } else if (CONNECTION_LOST.equals(command)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 logger.debug("HEOS Bridge OFFLINE");
             } else if (CONNECTION_RESTORED.equals(command)) {
                 initialize();

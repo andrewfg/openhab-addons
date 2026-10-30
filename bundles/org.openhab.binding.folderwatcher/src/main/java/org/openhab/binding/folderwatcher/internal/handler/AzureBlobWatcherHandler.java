@@ -77,11 +77,13 @@ public class AzureBlobWatcherHandler extends BaseThingHandler {
         if (config.azureAccountName.isBlank() || config.azureContainerName.isBlank()) {
             logger.debug("Azure configuration invalid: account={}, container={}", config.azureAccountName,
                     config.azureContainerName);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Account name or container configuration is invalid");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Account name or container configuration is invalid");
             return;
         } else if (config.pollIntervalAzure <= 0) {
             logger.debug("Polling interval is zero or negative");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Polling interval must be greater than 0 seconds");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Polling interval must be greater than 0 seconds");
             return;
         }
 
@@ -111,7 +113,7 @@ public class AzureBlobWatcherHandler extends BaseThingHandler {
                 logger.debug("Loaded {} previous Azure files from storage", previousBlobListing.size());
             } catch (Exception e) {
                 logger.debug("Exception initializing Azure listing file: {}", e.getMessage());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Local storage initialization error: " + e.getMessage());
                 logger.debug("Can't write file {}: {}", currentBlobListingFile, e.getMessage());
                 ScheduledFuture<?> executionJob = this.executionJob;
@@ -144,7 +146,8 @@ public class AzureBlobWatcherHandler extends BaseThingHandler {
             previousBlobListing = new ArrayList<>(currentBlobListing);
         } catch (Exception e) {
             logger.debug("Exception connecting to Azure container: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Can't connect to the container: " + e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Can't connect to the container: " + e.getMessage());
             return false;
         }
         return true;

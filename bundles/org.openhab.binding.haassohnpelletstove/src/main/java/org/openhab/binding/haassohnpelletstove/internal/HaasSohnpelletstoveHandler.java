@@ -113,17 +113,18 @@ public class HaasSohnpelletstoveHandler extends BaseThingHandler {
         logger.debug("Initializing haassohnpelletstove handler for thing {}", getThing().getUID());
         config = getConfigAs(HaasSohnpelletstoveConfiguration.class);
         if (config.refreshRate < 1 || config.refreshRate > 1000) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Parameter 'refresh Rate' must be in the range 1-1000!");
             return;
         }
         if (config.hostIP.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "IP Address must be configured!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "IP Address must be configured!");
             return;
         }
 
         if (config.hostPIN.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Parameter 'hostPin' must be configured!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Parameter 'hostPin' must be configured!");
             return;
         }
 
@@ -160,7 +161,7 @@ public class HaasSohnpelletstoveHandler extends BaseThingHandler {
                 updateStatus(ThingStatus.ONLINE);
             }
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
             return false;
         }
         return error.isEmpty();

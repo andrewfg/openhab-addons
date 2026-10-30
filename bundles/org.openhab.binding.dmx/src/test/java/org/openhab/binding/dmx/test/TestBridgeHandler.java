@@ -23,6 +23,7 @@ import org.openhab.binding.dmx.internal.multiverse.Universe;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.slf4j.Logger;
@@ -66,7 +67,7 @@ public class TestBridgeHandler extends DmxBridgeHandler {
 
         super.updateConfiguration();
 
-        updateStatus(ThingStatus.ONLINE);
+        updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
 
         logger.debug("updated configuration for Test bridge {}", this.thing.getUID());
     }

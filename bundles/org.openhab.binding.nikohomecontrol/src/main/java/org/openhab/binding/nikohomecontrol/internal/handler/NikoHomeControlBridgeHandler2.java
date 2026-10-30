@@ -32,6 +32,7 @@ import org.openhab.core.i18n.TimeZoneProvider;
 import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.net.NetworkAddressService;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,14 +78,14 @@ public class NikoHomeControlBridgeHandler2 extends NikoHomeControlBridgeHandler 
                 // advanced configuration, skipping token validation.
                 // This behavior would allow the same logic to be used (with profile UUID) as before token validation
                 // was introduced.
-                updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
                         "@text/offline.configuration-error.tokenEmpty");
                 return;
             }
         } else {
             Date now = new Date();
             if (expiryDate.before(now)) {
-                updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
                         "@text/offline.configuration-error.tokenExpired");
                 return;
             }
@@ -104,7 +105,8 @@ public class NikoHomeControlBridgeHandler2 extends NikoHomeControlBridgeHandler 
             startCommunication();
         } catch (CertificateException e) {
             // this should not happen unless there is a programming error
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "@text/offline.communication-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error");
             return;
         }
     }

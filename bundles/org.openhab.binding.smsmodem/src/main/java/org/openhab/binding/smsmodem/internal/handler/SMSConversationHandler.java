@@ -117,7 +117,7 @@ public class SMSConversationHandler extends BaseThingHandler {
             checkBridgeHandler();
             updateStatus(ThingStatus.ONLINE);
         } catch (ConfigurationException confe) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, confe.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, confe.getMessage());
         }
     }
 }

@@ -59,7 +59,8 @@ public class PentairSerialBridgeHandler extends PentairBaseBridgeHandler {
         config = getConfigAs(PentairSerialBridgeConfig.class);
 
         if (config.serialPort.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.serial-port-empty");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.serial-port-empty");
             return false;
         }
 
@@ -67,7 +68,7 @@ public class PentairSerialBridgeHandler extends PentairBaseBridgeHandler {
         SerialPortIdentifier portIdentifier = this.portIdentifier;
         if (portIdentifier == null) {
             if (getThing().getStatus() != ThingStatus.OFFLINE) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/offline.communication-error.serial-port-not-found" + config.serialPort);
             }
             return false;
@@ -77,7 +78,7 @@ public class PentairSerialBridgeHandler extends PentairBaseBridgeHandler {
             logger.trace("connect port: {}", config.serialPort);
 
             if (portIdentifier.isCurrentlyOwned()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "@text/offline.communication-error.serial-port-busy" + config.serialPort);
                 return false;
             }
@@ -103,11 +104,11 @@ public class PentairSerialBridgeHandler extends PentairBaseBridgeHandler {
                 setOutputStream(os);
             }
         } catch (PortInUseException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/offline.communication-error.serial-port-busy" + config.serialPort);
             return false;
         } catch (UnsupportedCommOperationException | IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "@text/offline.communication-error.serial-port-error" + config.serialPort + ", " + e.getMessage());
             return false;
         }

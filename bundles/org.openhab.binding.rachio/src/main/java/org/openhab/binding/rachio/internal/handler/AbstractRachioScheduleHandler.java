@@ -88,11 +88,12 @@ public abstract class AbstractRachioScheduleHandler<T extends RachioScheduleRule
         logger.debug("Initializing Rachio {} Thing '{}' with rule id '{}'", definition.kind(), thingId, resolvedRuleId);
 
         if (resolvedRuleId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, i18nText(definition.missingRuleStatus()));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    i18nText(definition.missingRuleStatus()));
             return;
         }
         if (!initializeCloudHandler()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
@@ -133,7 +134,8 @@ public abstract class AbstractRachioScheduleHandler<T extends RachioScheduleRule
         } catch (RachioApiException e) {
             String message = exceptionMessage(e);
             logger.debug("{}: {} command failed: {}", thingId, definition.kind(), message);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, i18nText(definition.commandFailedStatus(), message));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    i18nText(definition.commandFailedStatus(), message));
         }
     }
 
@@ -197,7 +199,7 @@ public abstract class AbstractRachioScheduleHandler<T extends RachioScheduleRule
             requestedRuleId = getRuleId();
         }
         if (handler == null) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return false;
         }
 
@@ -232,7 +234,7 @@ public abstract class AbstractRachioScheduleHandler<T extends RachioScheduleRule
             String message = exceptionMessage(e);
             logger.debug("{}: Unable to load {} rule '{}': {}", thingId, definition.kind(), requestedRuleId, message);
             if (isHandlerLifecycleCurrent(generation)) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         i18nText(definition.loadFailedStatus(), requestedRuleId, message));
             }
             return false;

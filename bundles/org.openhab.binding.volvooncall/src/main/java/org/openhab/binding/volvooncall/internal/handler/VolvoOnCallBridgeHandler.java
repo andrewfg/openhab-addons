@@ -70,10 +70,11 @@ public class VolvoOnCallBridgeHandler extends BaseBridgeHandler {
                 updateStatus(ThingStatus.ONLINE);
                 this.api = vocApi;
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-invalid-credentials");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.config-error-invalid-credentials");
             }
         } catch (VolvoOnCallException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

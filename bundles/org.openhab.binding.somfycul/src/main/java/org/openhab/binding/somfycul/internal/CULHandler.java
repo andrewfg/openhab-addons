@@ -137,7 +137,8 @@ public class CULHandler extends BaseBridgeHandler {
     public void initialize() {
         CULConfiguration config = getConfigAs(CULConfiguration.class);
         if (!validConfiguration(config)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.config-error-missing");
             return;
         }
         String port = config.port;
@@ -148,7 +149,7 @@ public class CULHandler extends BaseBridgeHandler {
             String description = i18nProvider.getText(bundle, "offline.config-error-port-not-found",
                     "Serial port {0} could not be found. Available ports are:\n{1}", localeProvider.getLocale(), port,
                     availablePorts);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, description);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
             return;
         }
         portId = localPortId;
@@ -171,13 +172,13 @@ public class CULHandler extends BaseBridgeHandler {
 
             updateStatus(ThingStatus.ONLINE);
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, i18nProvider.getText(bundle, "offline.comm-error-io",
-                    "IO Error: {0}", localeProvider.getLocale(), e.getMessage()));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, i18nProvider.getText(bundle,
+                    "offline.comm-error-io", "IO Error: {0}", localeProvider.getLocale(), e.getMessage()));
         } catch (PortInUseException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, i18nProvider.getText(bundle,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, i18nProvider.getText(bundle,
                     "offline.comm-error-port-in-use", "Port already in use: {0}", localeProvider.getLocale(), port));
         } catch (UnsupportedCommOperationException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     i18nProvider.getText(bundle, "offline.comm-error-unsupported-operation",
                             "Unsupported operation on port: {0}: {1}", localeProvider.getLocale(), port,
                             e.getMessage()));

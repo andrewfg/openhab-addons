@@ -176,7 +176,7 @@ public class InsteonBridgeHandler extends InsteonBaseThingHandler implements Bri
 
         InsteonBridgeConfiguration config = getBridgeConfig();
         if (isDuplicateBridge(config)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Duplicate bridge.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Duplicate bridge.");
             return;
         }
 
@@ -194,12 +194,13 @@ public class InsteonBridgeHandler extends InsteonBaseThingHandler implements Bri
             getChildHandlers().forEach(handler -> handler.bridgeThingUpdated(config, modem));
         }
 
-        updateStatus(ThingStatus.UNKNOWN, "Connecting to modem.");
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "Connecting to modem.");
 
         scheduler.execute(() -> {
             connectJob = scheduler.scheduleWithFixedDelay(() -> {
                 if (!modem.connect()) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Unable to connect to modem.");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            "Unable to connect to modem.");
                     return;
                 }
 
@@ -262,12 +263,12 @@ public class InsteonBridgeHandler extends InsteonBaseThingHandler implements Bri
     public void updateStatus() {
         InsteonModem modem = getModem();
         if (modem == null || !modem.isInitialized()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Unable to determine modem.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Unable to determine modem.");
             return;
         }
 
         if (!modem.getDB().isComplete()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_PENDING, "Loading modem database.");
+            updateStatus(ThingStatus.ONLINE, ThingStatusDetail.CONFIGURATION_PENDING, "Loading modem database.");
             return;
         }
 
@@ -328,7 +329,8 @@ public class InsteonBridgeHandler extends InsteonBaseThingHandler implements Bri
     public void reconnect(InsteonModem modem) {
         reconnectJob = scheduler.scheduleWithFixedDelay(() -> {
             if (!modem.reconnect()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Unable to reconnect to modem.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Unable to reconnect to modem.");
                 return;
             }
 
@@ -344,7 +346,7 @@ public class InsteonBridgeHandler extends InsteonBaseThingHandler implements Bri
 
             dispose();
 
-            updateStatus(ThingStatusDetail.DUTY_CYCLE, "Resetting bridge.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.DUTY_CYCLE, "Resetting bridge.");
 
             resetJob = scheduler.schedule(this::initialize, delay, TimeUnit.SECONDS);
         });

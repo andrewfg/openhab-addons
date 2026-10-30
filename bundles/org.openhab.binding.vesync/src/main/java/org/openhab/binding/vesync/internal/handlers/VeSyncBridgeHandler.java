@@ -167,7 +167,8 @@ public class VeSyncBridgeHandler extends BaseBridgeHandler implements VeSyncClie
             runDeviceScanSequence();
             updateStatus(ThingStatus.ONLINE);
         } catch (AuthenticationException ae) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, getLocalizedText("bridge.offline.check-credentials"));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    getLocalizedText("bridge.offline.check-credentials"));
         }
     }
 
@@ -239,7 +240,7 @@ public class VeSyncBridgeHandler extends BaseBridgeHandler implements VeSyncClie
                 runDeviceScanSequence();
                 updateStatus(ThingStatus.ONLINE);
             } catch (final AuthenticationException ae) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         getLocalizedText("bridge.offline.check-credentials"));
                 // The background scan will keep trying to authenticate in case the users credentials are updated on the
                 // veSync servers,

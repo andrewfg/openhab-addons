@@ -104,25 +104,21 @@ public class QolsysIQZoneHandler extends BaseThingHandler {
 
     private void initializeZone() {
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        BridgeHandler handler = bridge.getHandler();
-        if (handler instanceof QolsysIQPartitionHandler partitionHandler) {
+        BridgeHandler handler = bridge == null ? null : bridge.getHandler();
+        if (bridge != null && handler instanceof QolsysIQPartitionHandler partitionHandler) {
             if (handler.getThing().getStatus() != ThingStatus.ONLINE) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 return;
             }
             Zone z = partitionHandler.getZone(getZoneId());
             if (z == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Zone not found in partition");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Zone not found in partition");
                 return;
             }
             updateZone(z);
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 

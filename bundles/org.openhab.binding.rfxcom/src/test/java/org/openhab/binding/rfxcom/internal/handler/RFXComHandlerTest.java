@@ -159,13 +159,15 @@ public class RFXComHandlerTest {
                 .thenReturn(new Configuration(Map.of("deviceId", "RAW", "subType", "RAW_PACKET1")));
 
         handler.initialize();
-        verifyStatusUpdated(ThingStatus.UNKNOWN, ThingStatusDetail.NONE);
+        verifyStatusUpdated(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
     }
 
     @Test
     public void testWithoutBridge() {
+        when(thing.getConfiguration()).thenReturn(new Configuration(Map.of("deviceId", "1088338.11", "subType", "AC")));
+
         handler.initialize();
-        verify(callback, never()).statusUpdated(eq(thing), any());
+        verifyStatusUpdated(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
     }
 
     @Test

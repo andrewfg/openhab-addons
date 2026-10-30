@@ -109,7 +109,7 @@ public abstract class DeconzBaseThingHandler extends BaseThingHandler implements
     private @Nullable DeconzBridgeHandler getBridgeHandler() {
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return null;
         }
         return (DeconzBridgeHandler) bridge.getHandler();
@@ -117,13 +117,8 @@ public abstract class DeconzBaseThingHandler extends BaseThingHandler implements
 
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
-        if (getBridge() == null) {
-            unregisterListener();
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
         if (config.id.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "ID not set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "ID not set");
             return;
         }
 
@@ -132,11 +127,11 @@ public abstract class DeconzBaseThingHandler extends BaseThingHandler implements
             // register the listener
             DeconzBridgeHandler bridgeHandler = getBridgeHandler();
             if (bridgeHandler == null) {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
                 return;
             }
 
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE);
 
             // Real-time data
             WebSocketConnection socketConnection = bridgeHandler.getWebSocketConnection();
@@ -149,7 +144,7 @@ public abstract class DeconzBaseThingHandler extends BaseThingHandler implements
             // if the bridge is not ONLINE, we assume communication is not possible, so we unregister the listener and
             // set the thing status to OFFLINE
             unregisterListener();
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 

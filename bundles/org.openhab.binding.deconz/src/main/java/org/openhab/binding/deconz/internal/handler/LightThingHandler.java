@@ -45,6 +45,7 @@ import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.thing.type.ChannelKind;
@@ -432,7 +433,7 @@ public class LightThingHandler extends DeconzBaseThingHandler {
                     updateStatus(ThingStatus.ONLINE);
                     thing.getChannels().stream().map(Channel::getUID).forEach(c -> valueUpdated(c, lightState));
                 } else {
-                    updateStatus(ThingStatus.OFFLINE, "@text/offline.sensor-not-reachable");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "@text/offline.sensor-not-reachable");
                 }
             }
         }

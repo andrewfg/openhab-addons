@@ -139,21 +139,21 @@ public class IPBridgeHandler extends LutronBridgeHandler {
             heartbeatInterval = (config.heartbeat > 0) ? config.heartbeat : DEFAULT_HEARTBEAT_MINUTES;
             sendDelay = (config.delay < 0) ? 0 : config.delay;
 
-            updateStatus(ThingStatus.OFFLINE, "Connecting");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, "Connecting");
             scheduler.submit(this::connect); // start the async connect task
         }
     }
 
     private boolean validConfiguration(IPBridgeConfig config) {
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "bridge configuration missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "bridge configuration missing");
 
             return false;
         }
 
         String ipAddress = config.ipAddress;
         if (ipAddress == null || ipAddress.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "bridge address not specified");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "bridge address not specified");
 
             return false;
         }
@@ -175,18 +175,18 @@ public class IPBridgeHandler extends LutronBridgeHandler {
 
         try {
             if (!login(config)) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "invalid username/password");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "invalid username/password");
 
                 return;
             }
         } catch (LutronSafemodeException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "main repeater is in safe mode");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "main repeater is in safe mode");
             disconnect();
             scheduleConnectRetry(reconnectInterval); // Possibly a temporary problem. Try again later.
 
             return;
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             disconnect();
             scheduleConnectRetry(reconnectInterval); // Possibly a temporary problem. Try again later.
 
@@ -194,7 +194,7 @@ public class IPBridgeHandler extends LutronBridgeHandler {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "login interrupted");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR, "login interrupted");
             disconnect();
 
             return;
@@ -235,7 +235,7 @@ public class IPBridgeHandler extends LutronBridgeHandler {
                     session.writeLine(command.toString());
                 } catch (IOException e) {
                     logger.warn("Communication error, will try to reconnect. Error: {}", e.getMessage());
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
 
                     sendQueue.add(command); // Requeue command
 
@@ -284,7 +284,7 @@ public class IPBridgeHandler extends LutronBridgeHandler {
     private synchronized void reconnect() {
         logger.debug("Keepalive timeout, attempting to reconnect to the bridge");
 
-        updateStatus(ThingStatusDetail.DUTY_CYCLE);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.DUTY_CYCLE);
         disconnect();
         connect();
     }

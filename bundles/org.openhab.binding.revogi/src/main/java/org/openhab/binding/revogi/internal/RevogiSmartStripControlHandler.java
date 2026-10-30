@@ -141,7 +141,8 @@ public class RevogiSmartStripControlHandler extends BaseThingHandler {
             handleAllPlugsInformation(status);
             handleSinglePlugInformation(status);
         } else {
-            updateStatus(ThingStatusDetail.GONE, "Retrieved status code: " + status.getResponseCode());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.GONE,
+                    "Retrieved status code: " + status.getResponseCode());
         }
     }
 

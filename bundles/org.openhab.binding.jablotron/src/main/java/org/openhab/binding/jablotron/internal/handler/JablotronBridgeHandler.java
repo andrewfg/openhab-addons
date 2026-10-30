@@ -186,20 +186,24 @@ public class JablotronBridgeHandler extends BaseBridgeHandler {
             logger.trace("Response: {}", line);
             return line;
         } catch (TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Timeout during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Timeout during calling url: " + url);
         } catch (InterruptedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Interrupt during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Interrupt during calling url: " + url);
             Thread.currentThread().interrupt();
         } catch (JsonSyntaxException e) {
             logger.debug("Invalid JSON received: {}", line);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Syntax error during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Syntax error during calling url: " + url);
         } catch (ExecutionException e) {
             if (e.getMessage().contains(AUTHENTICATION_CHALLENGE)) {
                 relogin();
                 return null;
             }
             logger.debug("Error during calling url: {}", url, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Error during calling url: " + url);
         }
         return null;
     }
@@ -216,13 +220,16 @@ public class JablotronBridgeHandler extends BaseBridgeHandler {
             logger.trace("Response: {}", line);
             return gson.fromJson(line, classOfT);
         } catch (TimeoutException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Timeout during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Timeout during calling url: " + url);
         } catch (InterruptedException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Interrupt during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Interrupt during calling url: " + url);
             Thread.currentThread().interrupt();
         } catch (JsonSyntaxException e) {
             logger.debug("Invalid JSON received: {}", line);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Syntax error during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Syntax error during calling url: " + url);
         } catch (ExecutionException e) {
             if (relogin) {
                 if (e.getMessage().contains(AUTHENTICATION_CHALLENGE)) {
@@ -231,7 +238,8 @@ public class JablotronBridgeHandler extends BaseBridgeHandler {
                 }
             }
             logger.debug("Error during calling url: {}", url, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Error during calling url: " + url);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Error during calling url: " + url);
         }
         return null;
     }
@@ -243,12 +251,13 @@ public class JablotronBridgeHandler extends BaseBridgeHandler {
         JablotronLoginResponse response = sendJsonMessage(url, urlParameters, JablotronLoginResponse.class, false);
 
         if (response == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Null login response");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Null login response");
             return;
         }
 
         if (response.getHttpCode() != 200) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Login http error: " + response.getHttpCode());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Login http error: " + response.getHttpCode());
             return;
         }
 
@@ -258,12 +267,12 @@ public class JablotronBridgeHandler extends BaseBridgeHandler {
                 JablotronAccessTokenResponse.class, false);
 
         if (tokenResponse == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Null get access token response");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Null get access token response");
             return;
         }
 
         if (tokenResponse.getHttpCode() != 200) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Get access token http error: " + response.getHttpCode());
         } else {
             accessToken = tokenResponse.getData().getAccessToken();

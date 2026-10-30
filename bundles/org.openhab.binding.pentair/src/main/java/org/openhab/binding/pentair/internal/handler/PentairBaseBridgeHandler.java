@@ -133,7 +133,8 @@ public abstract class PentairBaseBridgeHandler extends BaseBridgeHandler
         this.config = getConfigAs(PentairBaseBridgeConfig.class);
 
         if (PentairBaseBridgeHandler.bridge != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.bridge-duplicate");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.bridge-duplicate");
             return;
         }
 
@@ -209,7 +210,8 @@ public abstract class PentairBaseBridgeHandler extends BaseBridgeHandler
         parserThread.start();
 
         if (inputStream == null || outputStream == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error.iostream-error ");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.communication-error.iostream-error ");
             return;
         }
 
@@ -219,7 +221,7 @@ public abstract class PentairBaseBridgeHandler extends BaseBridgeHandler
     private void baseDisconnect() {
         // Preserve OFFLINE status detail if already OFFLINE
         if (getThing().getStatus() != ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
 
         Thread parserThread = this.parserThread;

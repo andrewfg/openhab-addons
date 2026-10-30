@@ -22,8 +22,7 @@ import org.openhab.binding.haywardomnilogic.internal.HaywardThingHandler;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.openhab.core.thing.ThingStatusDetail;
 
 /**
  * The Body of Water Handler
@@ -32,7 +31,6 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class HaywardBowHandler extends HaywardThingHandler {
-    private final Logger logger = LoggerFactory.getLogger(HaywardBowHandler.class);
 
     public HaywardBowHandler(Thing thing) {
         super(thing);
@@ -44,11 +42,7 @@ public class HaywardBowHandler extends HaywardThingHandler {
         List<String> data = new ArrayList<>();
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        if (bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
+        if (bridge != null && bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
             systemIDs = bridgehandler.evaluateXPath("//BodyOfWater/@systemId", xmlResponse);
 
             String thingSystemID = getThing().getUID().getId();
@@ -65,7 +59,7 @@ public class HaywardBowHandler extends HaywardThingHandler {
             }
             this.updateStatus(ThingStatus.ONLINE);
         } else {
-            this.updateStatus(ThingStatus.UNKNOWN);
+            this.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 }

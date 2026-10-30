@@ -104,11 +104,7 @@ public class VehicleHandler extends BaseThingHandler {
         logger.trace("Initializing the Volvo On Call handler for {}", getThing().getUID());
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        initializeBridge(bridge.getHandler(), bridge.getStatus());
+        initializeBridge(bridge == null ? null : bridge.getHandler(), bridge == null ? null : bridge.getStatus());
     }
 
     @Override
@@ -116,11 +112,7 @@ public class VehicleHandler extends BaseThingHandler {
         logger.debug("bridgeStatusChanged {} for thing {}", bridgeStatusInfo, getThing().getUID());
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        initializeBridge(bridge.getHandler(), bridgeStatusInfo.getStatus());
+        initializeBridge(bridge == null ? null : bridge.getHandler(), bridgeStatusInfo.getStatus());
     }
 
     private void initializeBridge(@Nullable ThingHandler thingHandler, @Nullable ThingStatus bridgeStatus) {
@@ -151,15 +143,15 @@ public class VehicleHandler extends BaseThingHandler {
                         updateStatus(ThingStatus.ONLINE);
                         startAutomaticRefresh(configuration.refresh, api);
                     } catch (VolvoOnCallException e) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR, e.getMessage());
                     }
 
                 }
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -225,7 +217,7 @@ public class VehicleHandler extends BaseThingHandler {
             vehicleStatus = newVehicleStatus;
         } catch (VolvoOnCallException e) {
             logger.warn("Exception occurred during execution: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             freeRefreshJob();
             startAutomaticRefresh(configuration.refresh, service);
         }
@@ -572,7 +564,7 @@ public class VehicleHandler extends BaseThingHandler {
                 }
             } catch (VolvoOnCallException e) {
                 logger.warn("Exception occurred during execution: {}", e.getMessage(), e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
         pendingActions.removeIf(ScheduledFuture::isDone);

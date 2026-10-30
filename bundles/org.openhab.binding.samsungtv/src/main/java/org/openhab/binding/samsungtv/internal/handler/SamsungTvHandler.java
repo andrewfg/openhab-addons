@@ -632,7 +632,8 @@ public class SamsungTvHandler extends BaseThingHandler implements RegistryListen
 
         logger.debug("{}: Initializing Samsung TV handler for uid '{}'", host, getThing().getUID());
         if (host.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "host ip address or name is blank");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "host ip address or name is blank");
             return;
         }
 
@@ -791,7 +792,7 @@ public class SamsungTvHandler extends BaseThingHandler implements RegistryListen
         } else {
             logger.debug("{}: Error was reported: {}, {}", host, message, (e != null) ? e.getMessage() : "");
         }
-        updateStatus(statusDetail, message);
+        updateStatus(ThingStatus.OFFLINE, statusDetail, message);
     }
 
     /**

@@ -109,11 +109,11 @@ public class NukiBridgeHandler extends BaseBridgeHandler {
         if (ip == null || port == null) {
             logger.debug("NukiBridgeHandler[{}] is not initializable, IP setting is unset in the configuration!",
                     getThing().getUID());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "IP setting is unset");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "IP setting is unset");
         } else if (apiToken == null || apiToken.isBlank()) {
             logger.debug("NukiBridgeHandler[{}] is not initializable, apiToken setting is unset in the configuration!",
                     getThing().getUID());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "apiToken setting is unset");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "apiToken setting is unset");
         } else {
             NukiLinkBuilder linkBuilder = new NukiLinkBuilder(ip, port, apiToken, this.config.secureToken);
             nukiHttpClient = new NukiHttpClient(httpClient, linkBuilder);
@@ -167,7 +167,8 @@ public class NukiBridgeHandler extends BaseBridgeHandler {
             } else {
                 logger.debug("Bridge[{}] responded with status[{}]. Switching the bridge offline!", this.config.ip,
                         bridgeInfoResponse.getStatus());
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, bridgeInfoResponse.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        bridgeInfoResponse.getMessage());
             }
         });
     }
@@ -188,7 +189,8 @@ public class NukiBridgeHandler extends BaseBridgeHandler {
                 } else {
                     logger.debug("Bridge[{}] responded with status[{}]. Switching the bridge offline!", this.config.ip,
                             status);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, bridgeInfoResponse.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            bridgeInfoResponse.getMessage());
                 }
             });
         } else {
@@ -200,7 +202,7 @@ public class NukiBridgeHandler extends BaseBridgeHandler {
         NukiHttpClient httpClient = getNukiHttpClient();
         if (httpClient == null) {
             logger.debug("HTTP Client not configured, switching bridge to OFFLINE");
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "HTTP Client not configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "HTTP Client not configured");
             return true;
         } else {
             return false;

@@ -74,7 +74,8 @@ public class EchonetLiteHandler extends BaseThingHandler implements EchonetDevic
         @Nullable
         final EchonetLiteBridgeHandler handler = bridgeHandler();
         if (null == handler) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.null-bridge-handler");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.null-bridge-handler");
             return;
         }
 
@@ -105,7 +106,8 @@ public class EchonetLiteHandler extends BaseThingHandler implements EchonetDevic
         @Nullable
         final EchonetLiteBridgeHandler bridgeHandler = bridgeHandler();
         if (null == bridgeHandler) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.null-bridge-handler");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.null-bridge-handler");
             return;
         }
 
@@ -118,7 +120,7 @@ public class EchonetLiteHandler extends BaseThingHandler implements EchonetDevic
             updateProperty(PROPERTY_NAME_INSTANCE_KEY, instanceKey.representationProperty());
             bridgeHandler.newDevice(instanceKey, config.pollIntervalMs, config.retryTimeoutMs, this);
         } catch (Exception e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         }
     }
 
@@ -127,7 +129,8 @@ public class EchonetLiteHandler extends BaseThingHandler implements EchonetDevic
         @Nullable
         final EchonetLiteBridgeHandler bridgeHandler = bridgeHandler();
         if (null == bridgeHandler) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.null-bridge-handler");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.null-bridge-handler");
             return;
         }
 
@@ -184,7 +187,7 @@ public class EchonetLiteHandler extends BaseThingHandler implements EchonetDevic
     @Override
     public void onOffline() {
         if (ThingStatus.OFFLINE != getThing().getStatus()) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 }

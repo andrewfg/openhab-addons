@@ -63,10 +63,6 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
     @SuppressWarnings("null")
     public synchronized void initialize() {
         Bridge tradfriGateway = getBridge();
-        if (tradfriGateway == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
         this.id = getConfigAs(TradfriDeviceConfig.class).id;
         TradfriGatewayHandler handler = (TradfriGatewayHandler) tradfriGateway.getHandler();
 
@@ -81,7 +77,7 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
                     coapClient.setEndpoint(handler.getEndpoint());
                 } catch (URISyntaxException e) {
                     logger.debug("Illegal device URI `{}`: {}", uriString, e.getMessage());
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
                     return;
                 }
 
@@ -91,7 +87,7 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
                 break;
             case OFFLINE:
             default:
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                         String.format("Gateway offline '%s'", tradfriGateway.getStatusInfo()));
                 break;
         }
@@ -111,14 +107,10 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
     }
 
     @Override
+    @SuppressWarnings("null")
     public void setStatus(ThingStatus status, ThingStatusDetail statusDetail) {
-        Bridge bridge = getBridge();
-        if (active && bridge != null && bridge.getStatus() != ThingStatus.OFFLINE && status != ThingStatus.ONLINE) {
-            if (statusDetail == ThingStatusDetail.NONE) {
-                updateStatus(status);
-            } else {
-                updateStatus(statusDetail);
-            }
+        if (active && getBridge().getStatus() != ThingStatus.OFFLINE && status != ThingStatus.ONLINE) {
+            updateStatus(status, statusDetail);
             // we are offline and lost our observe relation - let's try to establish the connection in 10 seconds again
             scheduler.schedule(() -> {
                 if (observeRelation != null) {

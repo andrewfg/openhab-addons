@@ -90,23 +90,29 @@ public class FlashBriefingProfileHandler extends BaseThingHandler {
             ourFeeds = restoredFeeds;
         }
 
-        if (!(this.getBridge() instanceof Bridge bridge && bridge.getHandler() instanceof AccountHandler handler)) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+        Bridge bridge = this.getBridge();
+        if (bridge != null) {
+            accountHandler = (AccountHandler) bridge.getHandler();
+        }
+        if (accountHandler == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED, "Bridge handler not found.");
             return;
         }
 
-        accountHandler = handler;
-        bridgeStatusChanged(handler.getThing().getStatusInfo());
+        AccountHandler handler = this.accountHandler;
+        if (handler != null) {
+            bridgeStatusChanged(handler.getThing().getStatusInfo());
+        }
     }
 
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatus) {
         if (bridgeStatus.getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
         if (ourFeeds.isEmpty()) {
-            updateStatus(ThingStatus.UNKNOWN, "Waiting for feed configuration");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "Waiting for feed configuration");
         } else {
             updateStatus(ThingStatus.ONLINE);
         }

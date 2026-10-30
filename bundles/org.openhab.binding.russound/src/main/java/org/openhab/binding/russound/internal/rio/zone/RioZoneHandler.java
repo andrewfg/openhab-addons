@@ -404,35 +404,38 @@ public class RioZoneHandler extends AbstractThingHandler<RioZoneProtocol>
     public void initialize() {
         final Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Cannot be initialized without a bridge");
             return;
         }
         if (bridge.getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
         final ThingHandler handler = bridge.getHandler();
         if (handler == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No handler specified (null) for the bridge!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "No handler specified (null) for the bridge!");
             return;
         }
 
         if (!(handler instanceof RioControllerHandler)) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Source must be attached to a controller bridge: " + handler.getClass());
             return;
         }
 
         final RioZoneConfig config = getConfigAs(RioZoneConfig.class);
         if (config == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
             return;
         }
 
         final int configZone = config.getZone();
         if (configZone < 1 || configZone > 8) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Source must be between 1 and 8: " + configZone);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Source must be between 1 and 8: " + configZone);
             return;
         }
         zone.set(configZone);
@@ -443,7 +446,7 @@ public class RioZoneHandler extends AbstractThingHandler<RioZoneProtocol>
         // Get the socket session from the
         final SocketSession socketSession = getSocketSession();
         if (socketSession == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No socket session found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR, "No socket session found");
             return;
         }
 
@@ -451,11 +454,7 @@ public class RioZoneHandler extends AbstractThingHandler<RioZoneProtocol>
                 getPresetsProtocol(), socketSession, new StatefulHandlerCallback(new AbstractRioHandlerCallback() {
                     @Override
                     public void statusChanged(ThingStatus status, ThingStatusDetail detail, String msg) {
-                        if (detail == ThingStatusDetail.NONE) {
-                            updateStatus(status, msg);
-                        } else {
-                            updateStatus(detail, msg);
-                        }
+                        updateStatus(status, detail, msg);
                     }
 
                     @Override

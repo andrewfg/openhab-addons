@@ -363,10 +363,11 @@ public class SmhiHandler extends BaseThingHandler {
                 @SuppressWarnings("null")
                 String message = Optional.ofNullable(e.getCause()).orElse(e).getMessage();
                 logger.debug("Failed to get new forecast: {}", message);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
                 return;
             } catch (PointOutOfBoundsException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/thing-status.invalidCoordinates");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/thing-status.invalidCoordinates");
                 cancelPolling();
                 return;
             }

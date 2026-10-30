@@ -149,13 +149,14 @@ public class EmotivaProcessorHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         logger.debug("Initialize: '{}'", thing.getUID());
-        updateStatus(ThingStatus.UNKNOWN, "@text/message.processor.connecting");
+        updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "@text/message.processor.connecting");
         if (config.controlPort < 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/message.processor.connection.error.port");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/message.processor.connection.error.port");
             return;
         }
         if (config.ipAddress.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "@text/message.processor.connection.error.address-empty");
             return;
         } else {
@@ -163,7 +164,7 @@ public class EmotivaProcessorHandler extends BaseThingHandler {
                 // noinspection ResultOfMethodCallIgnored
                 InetAddress.getByName(config.ipAddress);
             } catch (UnknownHostException ignored) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         "@text/message.processor.connection.error.address-invalid");
                 return;
             }
@@ -209,7 +210,8 @@ public class EmotivaProcessorHandler extends BaseThingHandler {
                 this.menuNotifyListener = menuListenerConnector;
                 menuListenerConnector.connect(this::handleStatusUpdate, true);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/message.processor.connection.failed");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                        "@text/message.processor.connection.failed");
                 disconnect();
                 scheduleConnectRetry(retryConnectInMinutes);
             }
@@ -217,7 +219,8 @@ public class EmotivaProcessorHandler extends BaseThingHandler {
             // OH shutdown - don't log anything, Framework will call dispose()
         } catch (Exception e) {
             logger.error("Connection to '{}' failed", localConfig.ipAddress, e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/message.processor.connection.failed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                    "@text/message.processor.connection.failed");
             disconnect();
             scheduleConnectRetry(retryConnectInMinutes);
         }
@@ -377,7 +380,8 @@ public class EmotivaProcessorHandler extends BaseThingHandler {
     }
 
     private void setOfflineAndScheduleConnectRetry() {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/message.processor.connection.error.keep-alive");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                "@text/message.processor.connection.error.keep-alive");
         // Connection lost, avoid sending unsubscription messages
         udpSenderActive = false;
         disconnect();

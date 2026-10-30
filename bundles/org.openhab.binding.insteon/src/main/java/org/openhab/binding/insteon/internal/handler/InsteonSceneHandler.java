@@ -57,20 +57,21 @@ public class InsteonSceneHandler extends InsteonBaseThingHandler {
 
         scheduler.execute(() -> {
             if (getBridge() == null) {
-                logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge selected.");
                 return;
             }
 
             int group = config.getGroup();
             if (!InsteonScene.isValidGroup(group)) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Invalid scene group, it must be between "
-                        + InsteonScene.GROUP_MIN + " and " + InsteonScene.GROUP_MAX + ".");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Invalid scene group, it must be between " + InsteonScene.GROUP_MIN + " and "
+                                + InsteonScene.GROUP_MAX + ".");
                 return;
             }
 
             InsteonModem modem = getModem();
             if (modem != null && modem.hasScene(group)) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Duplicate scene.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Duplicate scene.");
                 return;
             }
 
@@ -152,29 +153,30 @@ public class InsteonSceneHandler extends InsteonBaseThingHandler {
     public void updateStatus() {
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge selected.");
             return;
         }
 
         if (bridge.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             return;
         }
 
         InsteonModem modem = getModem();
         if (modem == null || !modem.getDB().isComplete()) {
-            updateStatus(ThingStatus.UNKNOWN, "Waiting for modem database.");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "Waiting for modem database.");
             return;
         }
 
         InsteonScene scene = getScene();
         if (scene == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Unable to determine scene.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Unable to determine scene.");
             return;
         }
 
         if (!scene.hasModemDBEntry()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Scene not found in modem database.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Scene not found in modem database.");
             return;
         }
 

@@ -55,7 +55,7 @@ public abstract class OpenSprinklerBaseHandler extends BaseThingHandler {
         try {
             return localBridge.getApi();
         } catch (IllegalStateException e) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
             return null;
         }
     }
@@ -90,7 +90,7 @@ public abstract class OpenSprinklerBaseHandler extends BaseThingHandler {
     public void initialize() {
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "No HTTP Bridge thing selected");
             return;
         }
         bridgeHandler = (OpenSprinklerHttpBridgeHandler) bridge.getHandler();

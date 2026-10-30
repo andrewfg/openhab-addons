@@ -61,7 +61,7 @@ public class RoomHandler extends WarmupThingHandler implements WarmupRefreshList
         super.initialize();
         config = getConfigAs(RoomConfigurationDTO.class);
         if (config.getSerialNumber().length() == 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Serial Number not configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Serial Number not configured");
         } else {
             super.refreshFromServer();
         }
@@ -94,7 +94,7 @@ public class RoomHandler extends WarmupThingHandler implements WarmupRefreshList
     @Override
     public void refresh(@Nullable QueryResponseDTO domain) {
         if (domain == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "No data from bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "No data from bridge");
         } else if (config != null) {
             final String serialNumber = config.getSerialNumber();
             for (LocationDTO location : domain.data().user().locations()) {
@@ -102,7 +102,7 @@ public class RoomHandler extends WarmupThingHandler implements WarmupRefreshList
                     if (room.thermostat4ies() != null && !room.thermostat4ies().isEmpty()
                             && room.thermostat4ies().get(0).deviceSN().equals(serialNumber)) {
                         if (room.thermostat4ies().get(0).lastPoll() > 10) {
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                     "Thermostat has not polled for 10 minutes");
                         } else {
                             updateStatus(ThingStatus.ONLINE);
@@ -131,9 +131,9 @@ public class RoomHandler extends WarmupThingHandler implements WarmupRefreshList
                     }
                 }
             }
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Room not found");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Room not found");
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Room not configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Room not configured");
         }
     }
 

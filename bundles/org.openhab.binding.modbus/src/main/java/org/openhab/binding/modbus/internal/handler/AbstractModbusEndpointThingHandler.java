@@ -78,11 +78,12 @@ public abstract class AbstractModbusEndpointThingHandler<E extends ModbusSlaveEn
                     comms = modbusManager.newModbusCommunicationInterface(endpoint, poolConfiguration);
                     updateStatus(ThingStatus.ONLINE);
                 } catch (IllegalArgumentException e) {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, formatConflictingParameterError());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                            formatConflictingParameterError());
                 }
             } catch (ModbusConfigurationException e) {
                 logger.debug("Exception during initialization", e);
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, String.format(
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, String.format(
                         "Exception during initialization: %s (%s)", e.getMessage(), e.getClass().getSimpleName()));
             } finally {
                 logger.trace("initialize() of thing {} '{}' finished", thing.getUID(), thing.getLabel());

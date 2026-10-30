@@ -80,12 +80,8 @@ public abstract class TouchWandBaseUnitHandler extends BaseThingHandler implemen
     @Override
     public void initialize() {
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(bridge.getHandler() instanceof TouchWandBridgeHandler)) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+        if (bridge == null || !(bridge.getHandler() instanceof TouchWandBridgeHandler)) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             logger.warn("Trying to initialize {} without a bridge", getThing().getUID());
             return;
         }
@@ -94,7 +90,7 @@ public abstract class TouchWandBaseUnitHandler extends BaseThingHandler implemen
 
         String unitId = getThing().getProperties().get(HANDLER_PROPERTIES_ID); // TouchWand unit id
         if (unitId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "unitID missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "unitID missing");
             return;
         }
         this.unitId = unitId;
@@ -114,7 +110,7 @@ public abstract class TouchWandBaseUnitHandler extends BaseThingHandler implemen
                     updateStatus(ThingStatus.ONLINE);
                     updateTouchWandUnitState(TouchWandUnitFromJson.parseResponse(response));
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 }
             }
         }, UNITS_STATUS_UPDATE_DELAY_SEC, TimeUnit.SECONDS);

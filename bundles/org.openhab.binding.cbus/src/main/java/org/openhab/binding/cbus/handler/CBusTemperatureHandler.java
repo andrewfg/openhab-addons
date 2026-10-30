@@ -20,6 +20,7 @@ import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -60,7 +61,7 @@ public class CBusTemperatureHandler extends CBusGroupHandler {
                 }
             } catch (CGateException e) {
                 logger.debug("Failed to getLevel for group {}", groupId, e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Communication Error");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Communication Error");
             }
         }
     }

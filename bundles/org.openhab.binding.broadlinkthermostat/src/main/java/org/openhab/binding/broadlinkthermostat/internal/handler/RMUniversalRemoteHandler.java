@@ -69,12 +69,12 @@ public class RMUniversalRemoteHandler extends BroadlinkBaseHandler {
                 this.rm2Device = (RM2Device) blDevice;
                 updateStatus(ThingStatus.ONLINE);
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Could not find broadlink universal remote device at host " + host + " with MAC " + macAddress
                                 + ": " + e.getMessage());
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Missing device configuration");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Missing device configuration");
         }
     }
 

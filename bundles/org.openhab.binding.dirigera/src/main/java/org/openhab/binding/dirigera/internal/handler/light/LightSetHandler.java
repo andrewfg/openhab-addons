@@ -70,7 +70,8 @@ public class LightSetHandler extends ColorLightHandler {
         memberDeviceIds.addAll(gateway().model().getMemberDeviceIds(config.id));
         if (memberDeviceIds.isEmpty()) {
             logger.warn("DIRIGERA LIGHT_SET {} no member devices found for set id {}", thing.getLabel(), config.id);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No member devices found for light set");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "No member devices found for light set");
             return;
         }
         if (customDebug) {
@@ -136,7 +137,8 @@ public class LightSetHandler extends ColorLightHandler {
         // This covers the case where readDevice returned empty/error for all members.
         boolean anyReachable = memberReachability.values().stream().anyMatch(r -> r);
         if (!anyReachable) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/dirigera.device.status.not-reachable");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/dirigera.device.status.not-reachable");
         }
     }
 
@@ -171,7 +173,8 @@ public class LightSetHandler extends ColorLightHandler {
                 updateStatus(ThingStatus.ONLINE);
             } else {
                 online = false;
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/dirigera.device.status.not-reachable");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/dirigera.device.status.not-reachable");
             }
 
             // Strip isReachable so the parent handleUpdate does not override our status.

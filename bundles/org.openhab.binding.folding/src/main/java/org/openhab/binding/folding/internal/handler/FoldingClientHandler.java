@@ -192,7 +192,7 @@ public class FoldingClientHandler extends BaseBridgeHandler {
 
     private void disconnected() {
         closeSocket();
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
     }
 
     private synchronized @Nullable Socket getSocket() throws IOException {
@@ -216,7 +216,7 @@ public class FoldingClientHandler extends BaseBridgeHandler {
                 if (readUntilPrompt().startsWith("OK")) {
                     updateStatus(ThingStatus.ONLINE);
                 } else {
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Incorrect password");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Incorrect password");
                 }
             } else {
                 updateStatus(ThingStatus.ONLINE);

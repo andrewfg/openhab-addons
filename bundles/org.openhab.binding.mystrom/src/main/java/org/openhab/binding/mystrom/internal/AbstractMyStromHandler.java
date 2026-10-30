@@ -150,7 +150,7 @@ public abstract class AbstractMyStromHandler extends BaseThingHandler {
             checkRequiredInfo();
             pollingJob = scheduler.scheduleWithFixedDelay(this::pollDevice, 0, config.getRefresh(), TimeUnit.SECONDS);
         } catch (MyStromException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
         }
     }
 

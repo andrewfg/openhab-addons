@@ -126,12 +126,13 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
 
         String localIpAddress = config.ipAddress;
         if (localIpAddress == null || localIpAddress.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "The 'ipAddress' parameter must be configured.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "The 'ipAddress' parameter must be configured.");
             configValid = false;
         }
         pollingInterval = config.pollingInterval;
         if (pollingInterval < 1) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "The 'pollingInterval' parameter must be greater than or equals to 1 second.");
             configValid = false;
         }
@@ -253,11 +254,7 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
      * @param description Bridge status description
      */
     public void setStatusInfo(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
-        if (statusDetail == ThingStatusDetail.NONE) {
-            updateStatus(status, description);
-        } else {
-            updateStatus(statusDetail, description);
-        }
+        updateStatus(status, statusDetail, description);
     }
 
     /**

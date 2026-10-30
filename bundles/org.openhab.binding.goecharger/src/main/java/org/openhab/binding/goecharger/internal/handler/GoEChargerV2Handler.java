@@ -14,6 +14,7 @@ package org.openhab.binding.goecharger.internal.handler;
 
 import static org.openhab.binding.goecharger.internal.GoEChargerBindingConstants.*;
 import static org.openhab.binding.goecharger.internal.api.GoEStatusV2ApiKeys.*;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 import static org.openhab.core.thing.ThingStatusDetail.*;
 
@@ -330,7 +331,7 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
         try {
             urlStr = getWriteUrl(key, value);
         } catch (IllegalArgumentException e) {
-            updateStatus(CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(OFFLINE, CONFIGURATION_ERROR, e.getMessage());
             return;
         }
 
@@ -346,15 +347,15 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
 
             var statusCode = contentResponse.getStatus();
             if (!(statusCode == 200 || statusCode == 202 || statusCode == 204)) {
-                updateStatus(COMMUNICATION_ERROR, "@text/unsuccessful.communication-error");
+                updateStatus(OFFLINE, COMMUNICATION_ERROR, "@text/unsuccessful.communication-error");
                 logger.debug("Could not send data, Response {}, StatusCode: {}", response, statusCode);
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            updateStatus(COMMUNICATION_ERROR, ie.toString());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, ie.toString());
             logger.debug("Could not send data: {}, {}", urlStr, ie.toString());
         } catch (TimeoutException | ExecutionException | JsonSyntaxException e) {
-            updateStatus(COMMUNICATION_ERROR, e.toString());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, e.toString());
             logger.debug("Could not send data: {}, {}", urlStr, e.toString());
         }
     }
@@ -393,7 +394,7 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
     @Override
     protected void updateChannelsAndStatus(@Nullable GoEStatusResponseBaseDTO goeResponse, @Nullable String message) {
         if (goeResponse == null) {
-            updateStatus(COMMUNICATION_ERROR, message);
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, message);
             allChannels.forEach(channel -> updateState(channel, UnDefType.UNDEF));
         } else {
             updateStatus(ONLINE);

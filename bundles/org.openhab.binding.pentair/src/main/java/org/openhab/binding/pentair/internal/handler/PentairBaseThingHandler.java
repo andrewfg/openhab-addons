@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public abstract class PentairBaseThingHandler extends BaseThingHandler {
+    @SuppressWarnings("unused")
     private final Logger logger = LoggerFactory.getLogger(PentairBaseThingHandler.class);
 
     private PentairBaseThingConfig config = new PentairBaseThingConfig();
@@ -62,20 +63,17 @@ public abstract class PentairBaseThingHandler extends BaseThingHandler {
     public void initialize() {
         this.config = getConfigAs(PentairBaseThingConfig.class);
 
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        PentairBaseBridgeHandler bh = (PentairBaseBridgeHandler) bridge.getHandler();
+        PentairBaseBridgeHandler bh = getBridgeHandler();
 
         if (bh == null) {
-            logger.debug("Bridge handler unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.bridge-missing");
             return;
         }
 
         if (bh.equipment.get(config.id) != null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error.duplicate-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.duplicate-id");
             return;
         }
 
@@ -96,7 +94,7 @@ public abstract class PentairBaseThingHandler extends BaseThingHandler {
     }
 
     public void goOffline(ThingStatusDetail detail) {
-        updateStatus(detail);
+        updateStatus(ThingStatus.OFFLINE, detail);
     }
 
     @Override

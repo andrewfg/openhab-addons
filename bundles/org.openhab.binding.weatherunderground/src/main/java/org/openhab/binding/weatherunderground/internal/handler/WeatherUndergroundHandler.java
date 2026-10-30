@@ -199,10 +199,10 @@ public class WeatherUndergroundHandler extends BaseThingHandler {
         logger.debug("Initializing WeatherUnderground handler for thing {}", getThing().getUID());
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
+            initializeThingHandler(null, null);
+        } else {
+            initializeThingHandler(bridge.getHandler(), bridge.getStatus());
         }
-        initializeThingHandler(bridge.getHandler(), bridge.getStatus());
     }
 
     @Override
@@ -210,10 +210,10 @@ public class WeatherUndergroundHandler extends BaseThingHandler {
         logger.debug("bridgeStatusChanged {}", bridgeStatusInfo);
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
+            initializeThingHandler(null, bridgeStatusInfo.getStatus());
+        } else {
+            initializeThingHandler(bridge.getHandler(), bridgeStatusInfo.getStatus());
         }
-        initializeThingHandler(bridge.getHandler(), bridgeStatusInfo.getStatus());
     }
 
     private void initializeThingHandler(@Nullable ThingHandler bridgeHandler, @Nullable ThingStatus bridgeStatus) {
@@ -256,13 +256,13 @@ public class WeatherUndergroundHandler extends BaseThingHandler {
                     startAutomaticRefresh();
                 } else {
                     logger.debug("Setting thing '{}' to OFFLINE: {}", getThing().getUID(), errors);
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, statusDescr);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, statusDescr);
                 }
             } else {
-                updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             }
         } else {
-            updateStatus(ThingStatus.UNKNOWN);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -616,7 +616,7 @@ public class WeatherUndergroundHandler extends BaseThingHandler {
             weatherData = result;
         } else {
             logger.debug("Setting thing '{}' to OFFLINE: Error '{}': {}", getThing().getUID(), error, errorDetail);
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, statusDescr);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, statusDescr);
             weatherData = null;
         }
 

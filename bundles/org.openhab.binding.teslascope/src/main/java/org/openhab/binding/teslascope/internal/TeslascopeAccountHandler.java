@@ -71,9 +71,11 @@ public class TeslascopeAccountHandler extends BaseBridgeHandler {
             try {
                 return webTargets.getVehicleList(config.personalAccessToken);
             } catch (TeslascopeAuthenticationException e) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Authentication problem: " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Authentication problem: " + e.getMessage());
             } catch (TeslascopeCommunicationException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Communication problem: " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Communication problem: " + e.getMessage());
             }
         }
         return "";
@@ -113,7 +115,8 @@ public class TeslascopeAccountHandler extends BaseBridgeHandler {
     public void initialize() {
         TeslascopeAccountConfiguration localConfig = config = getConfigAs(TeslascopeAccountConfiguration.class);
         if (localConfig.personalAccessToken.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.no-credentials");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-credentials");
             return;
         }
         updateStatus(ThingStatus.UNKNOWN);
@@ -142,16 +145,19 @@ public class TeslascopeAccountHandler extends BaseBridgeHandler {
             if (jsonArrayVehicleList.size() > 0) {
                 VehicleList vehicleList = gson.fromJson(jsonArrayVehicleList.get(0), VehicleList.class);
                 if (vehicleList == null) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-vehicles");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.comm-error.no-vehicles");
                     return;
                 }
                 updateStatus(ThingStatus.ONLINE);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-vehicles");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.comm-error.no-vehicles");
             }
         } catch (JsonSyntaxException e) {
             logger.debug("Failed to parse vehicle list JSON: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-json");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "@text/offline.comm-error.no-json");
         }
     }
 

@@ -196,7 +196,7 @@ public class TeslaAccountHandler extends BaseBridgeHandler {
                             API_MAXIMUM_ERRORS_IN_INTERVAL, API_ERROR_INTERVAL_SECONDS);
                     apiIntervalErrors = 0;
                 }
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             } else if ((System.currentTimeMillis() - apiIntervalTimestamp) > 1000 * API_ERROR_INTERVAL_SECONDS) {
                 logger.trace("Resetting the error counter. ({} errors in the last interval)", apiIntervalErrors);
                 apiIntervalTimestamp = System.currentTimeMillis();
@@ -339,18 +339,10 @@ public class TeslaAccountHandler extends BaseBridgeHandler {
         lock.lock();
         try {
             ThingStatusInfo authenticationResult = authenticate();
-            updateAuthenticationStatus(authenticationResult);
+            updateStatus(authenticationResult.getStatus(), authenticationResult.getStatusDetail(),
+                    authenticationResult.getDescription());
         } finally {
             lock.unlock();
-        }
-    }
-
-    private void updateAuthenticationStatus(ThingStatusInfo authenticationResult) {
-        ThingStatusDetail detail = authenticationResult.getStatusDetail();
-        if (detail == ThingStatusDetail.NONE) {
-            updateStatus(authenticationResult.getStatus(), authenticationResult.getDescription());
-        } else {
-            updateStatus(detail, authenticationResult.getDescription());
         }
     }
 
@@ -422,7 +414,8 @@ public class TeslaAccountHandler extends BaseBridgeHandler {
                 logger.debug("Setting up an authenticated connection to the Tesla back-end");
 
                 ThingStatusInfo authenticationResult = authenticate();
-                updateAuthenticationStatus(authenticationResult);
+                updateStatus(authenticationResult.getStatus(), authenticationResult.getStatusDetail(),
+                        authenticationResult.getDescription());
 
                 if (authenticationResult.getStatus() == ThingStatus.ONLINE) {
                     // get a list of vehicles
@@ -449,7 +442,8 @@ public class TeslaAccountHandler extends BaseBridgeHandler {
                                             logger.warn(
                                                     "Unable to find the vehicle with VIN '{}' in the list of vehicles you own",
                                                     getConfig().get(VIN));
-                                            handler.updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                                            handler.updateStatus(ThingStatus.OFFLINE,
+                                                    ThingStatusDetail.CONFIGURATION_ERROR,
                                                     "Vin is not available through this account.");
                                         }
                                     }
@@ -464,7 +458,8 @@ public class TeslaAccountHandler extends BaseBridgeHandler {
                 } else if (authenticationResult.getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
                     // make sure to set thing to CONFIGURATION_ERROR in case of failed authentication in order not to
                     // hit request limit on retries on the Tesla SSO endpoints.
-                    updateStatus(authenticationResult.getStatusDetail(), authenticationResult.getDescription());
+                    updateStatus(ThingStatus.OFFLINE, authenticationResult.getStatusDetail(),
+                            authenticationResult.getDescription());
                 }
             }
         } catch (Exception e) {

@@ -14,6 +14,7 @@ package org.openhab.binding.salus.internal.handler;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.*;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 import static org.openhab.core.thing.ThingStatusDetail.*;
 import static org.openhab.core.types.RefreshType.REFRESH;
@@ -80,7 +81,7 @@ public abstract class AbstractBridgeHandler<ConfigT extends AbstractBridgeConfig
     public void initialize() {
         var config = this.getConfigAs(configClass);
         if (!config.isValid()) {
-            updateStatus(CONFIGURATION_ERROR, "@text/cloud-bridge-handler.initialize.username-pass-not-valid");
+            updateStatus(OFFLINE, CONFIGURATION_ERROR, "@text/cloud-bridge-handler.initialize.username-pass-not-valid");
             return;
         }
         RestClient httpClient = new HttpClient(httpClientFactory.getCommonHttpClient());
@@ -111,10 +112,10 @@ public abstract class AbstractBridgeHandler<ConfigT extends AbstractBridgeConfig
             // there is a connection with the cloud
             updateStatus(ONLINE);
         } catch (SalusApiException ex) {
-            updateStatus(COMMUNICATION_ERROR,
+            updateStatus(OFFLINE, COMMUNICATION_ERROR,
                     "@text/cloud-bridge-handler.initialize.cannot-connect-to-cloud [\"" + ex.getMessage() + "\"]");
         } catch (AuthSalusApiException ex) {
-            updateStatus(COMMUNICATION_ERROR,
+            updateStatus(OFFLINE, COMMUNICATION_ERROR,
                     "@text/cloud-bridge-handler.initialize.auth-exception [\"" + ex.getMessage() + "\"]");
         }
     }

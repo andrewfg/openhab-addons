@@ -196,18 +196,8 @@ public class HarmonyHubHandler extends BaseBridgeHandler implements HarmonyClien
     }
 
     @Override
-    protected void updateStatus(ThingStatus status) {
-        super.updateStatus(status);
-        notifyHubStatusListeners(status);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatusDetail detail, @Nullable String description) {
-        super.updateStatus(detail, description);
-        notifyHubStatusListeners(thing.getStatus());
-    }
-
-    private void notifyHubStatusListeners(ThingStatus status) {
+    protected void updateStatus(ThingStatus status, ThingStatusDetail detail, @Nullable String comment) {
+        super.updateStatus(status, detail, comment);
         logger.debug("Updating listeners with status {}", status);
         for (HubStatusListener listener : listeners) {
             listener.hubStatusChanged(status);
@@ -287,7 +277,7 @@ public class HarmonyHubHandler extends BaseBridgeHandler implements HarmonyClien
                 updateConfiguration(genericConfig);
             } else {
                 logger.debug("host not configured");
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "host not configured");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "host not configured");
                 return;
             }
         }
@@ -312,7 +302,7 @@ public class HarmonyHubHandler extends BaseBridgeHandler implements HarmonyClien
 
     private void setOfflineAndReconnect(String error) {
         disconnectFromHub();
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, error);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
         scheduleRetry(RETRY_TIME);
     }
 

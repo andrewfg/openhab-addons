@@ -46,7 +46,6 @@ import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
-import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandler;
@@ -114,13 +113,7 @@ public class FineOffsetGatewayHandler extends BaseBridgeHandler {
     @Override
     public void initialize() {
         FineOffsetGatewayConfiguration config = getConfigAs(FineOffsetGatewayConfiguration.class);
-        gatewayQueryService = config.protocol.getGatewayQueryService(config, (status, detail, description) -> {
-            if (detail == ThingStatusDetail.NONE) {
-                updateStatus(status, description);
-            } else {
-                updateStatus(detail, description);
-            }
-        });
+        gatewayQueryService = config.protocol.getGatewayQueryService(config, this::updateStatus);
 
         updateStatus(ThingStatus.UNKNOWN);
         reconciler.reset();

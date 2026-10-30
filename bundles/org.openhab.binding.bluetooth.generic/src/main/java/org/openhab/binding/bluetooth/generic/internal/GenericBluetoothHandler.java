@@ -42,6 +42,7 @@ import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
@@ -277,8 +278,9 @@ public class GenericBluetoothHandler extends ConnectedBluetoothHandler {
         writeCharacteristic(characteristic.getService().getUuid(), characteristic.getUuid(), data, false)
                 .whenComplete((r, th) -> {
                     if (th != null) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Could not write data to characteristic "
-                                + characteristic.getUuid() + ": " + th.getMessage());
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                                "Could not write data to characteristic " + characteristic.getUuid() + ": "
+                                        + th.getMessage());
                     }
                 });
     }
@@ -322,7 +324,7 @@ public class GenericBluetoothHandler extends ConnectedBluetoothHandler {
                         writeCharacteristic(characteristic, data);
                     }
                 } catch (RuntimeException ex) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "Could not update bluetooth device. Error: " + ex.getMessage());
                 }
             }
@@ -341,7 +343,7 @@ public class GenericBluetoothHandler extends ConnectedBluetoothHandler {
                     writeCharacteristic(characteristic, data);
                 } catch (NumberFormatException ex) {
                     logger.warn("Could not parse characteristic value: {} : {}", characteristicUUID, state, ex);
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "Could not parse characteristic value: " + characteristicUUID + " : " + state);
                 }
             }

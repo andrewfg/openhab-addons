@@ -76,7 +76,8 @@ public class CBusCGateHandler extends BaseBridgeHandler {
         try {
             this.ipAddress = InetAddress.getByName(configuration.ipAddress);
         } catch (UnknownHostException e1) {
-            updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, "IP Address not resolvable");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR,
+                    "IP Address not resolvable");
             return;
         }
 
@@ -137,7 +138,7 @@ public class CBusCGateHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
         } else {
             if (lastStatus != ThingStatus.OFFLINE) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         }
         if (!getThing().getStatus().equals(lastStatus)) {

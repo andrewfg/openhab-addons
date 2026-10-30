@@ -180,7 +180,7 @@ public class MiIoAsyncCommunication {
                             miIoSendCommand.getCloudServer(), miIoSendCommand);
                     logger.debug("Command {} send via cloudserver {}", miIoSendCommand.getCommandString(),
                             miIoSendCommand.getCloudServer());
-                    updateStatus(ThingStatus.ONLINE);
+                    updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
                 } else {
                     String data = miIoSendCommand.getParams().toString();
                     logger.debug("Custom cloud request send to url '{}' with data '{}'", miIoSendCommand.getMethod(),
@@ -245,7 +245,7 @@ public class MiIoAsyncCommunication {
             errorMsg = e.getMessage();
             // a failing custom cloud request (e.g. no cloud login) says nothing about the device connection
             if (!miIoSendCommand.getMethod().startsWith("/")) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             }
         }
         return setErrorResponse(miIoSendCommand, errorMsg);
@@ -345,7 +345,7 @@ public class MiIoAsyncCommunication {
         if (errorCounter > 0) {
             errorCounter = 0;
             status = ThingStatusDetail.NONE;
-            updateStatus(ThingStatus.ONLINE);
+            updateStatus(ThingStatus.ONLINE, status);
         }
         if (!connected) {
             pingSuccess();
@@ -374,7 +374,7 @@ public class MiIoAsyncCommunication {
         logger.debug("Ping to device '{}' ({}) failed", deviceId, ip);
         connected = false;
         status = ThingStatusDetail.COMMUNICATION_ERROR;
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
     }
 
     private void pingSuccess() {
@@ -382,33 +382,22 @@ public class MiIoAsyncCommunication {
         if (!connected) {
             connected = true;
             status = ThingStatusDetail.NONE;
-            updateStatus(ThingStatus.OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE);
         } else {
             if (ThingStatusDetail.CONFIGURATION_ERROR.equals(status)) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR);
             } else {
                 status = ThingStatusDetail.NONE;
-                updateStatus(ThingStatus.ONLINE);
+                updateStatus(ThingStatus.ONLINE, status);
             }
         }
     }
 
-    private void updateStatus(ThingStatus status) {
+    private void updateStatus(ThingStatus status, ThingStatusDetail statusDetail) {
         for (MiIoMessageListener listener : listeners) {
-            logger.trace("inform listener {}, status {}", listener, status);
+            logger.trace("inform listener {}, data {} from {}", listener, status, statusDetail);
             try {
-                listener.onStatusUpdated(status);
-            } catch (Exception e) {
-                logger.debug("Could not inform listener {}: {}", listener, e.getMessage(), e);
-            }
-        }
-    }
-
-    private void updateStatus(ThingStatusDetail statusDetail) {
-        for (MiIoMessageListener listener : listeners) {
-            logger.trace("inform listener {}, status detail {}", listener, statusDetail);
-            try {
-                listener.onStatusUpdated(statusDetail);
+                listener.onStatusUpdated(status, statusDetail);
             } catch (Exception e) {
                 logger.debug("Could not inform listener {}: {}", listener, e.getMessage(), e);
             }

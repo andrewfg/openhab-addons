@@ -115,7 +115,7 @@ public class WebserviceHandler extends BaseBridgeHandler {
 
     @Override
     public void updateStatus(ThingStatus status) {
-        super.updateStatus(status);
+        updateStatus(status, ThingStatusDetail.NONE, null);
     }
 
     /***
@@ -146,7 +146,7 @@ public class WebserviceHandler extends BaseBridgeHandler {
                 // web-request!"
                 // in both cases the Webservice and the Station(s) will go OFFLINE
                 // only in case A the pollingJob gets canceled!
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, result.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, result.getMessage());
                 // if the Bridge goes OFFLINE, all connected Stations will go OFFLINE as well.
                 // The bridge reports its statusUpdate and the things react using the bridgeStatusChanged-Method!
                 // Only if the message is NOT "No valid response from the web-request!" the scheduled job gets stopped!
@@ -165,7 +165,7 @@ public class WebserviceHandler extends BaseBridgeHandler {
             }
         } catch (ParseException e) {
             logger.error("ParseException: ", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 

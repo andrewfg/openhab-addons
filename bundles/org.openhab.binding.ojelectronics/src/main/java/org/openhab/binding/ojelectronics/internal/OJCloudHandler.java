@@ -132,7 +132,7 @@ public class OJCloudHandler extends BaseBridgeHandler {
         if (groupContentResponse != null && groupContentResponse.errorCode == 0) {
             internalInitializationDone(groupContentResponse);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     (errorMessage == null) ? "Wrong or no result model; Refreshing stoppped" : errorMessage);
             final RefreshService localRefreshService = this.refreshService;
             if (localRefreshService != null) {
@@ -147,7 +147,7 @@ public class OJCloudHandler extends BaseBridgeHandler {
             new RefreshThermostatsService(resultModel.getThermostats(), resultModel.getThermostatRealTimes(),
                     getThing().getThings()).handle();
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     (errorMessage == null) ? "Wrong or no result model; Refreshing stoppped" : errorMessage);
             final RefreshService localRefreshService = this.refreshService;
             if (localRefreshService != null) {
@@ -191,7 +191,8 @@ public class OJCloudHandler extends BaseBridgeHandler {
 
     private void handleUnauthorizedWhileSignIn() {
         logger.trace("OJElectronicsCloudHandler.handleUnauthorizedWhileSignIn()");
-        updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Could not sign in. Check user name and password.");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                "Could not sign in. Check user name and password.");
         final RefreshService localRefreshService = this.refreshService;
         if (localRefreshService != null) {
             localRefreshService.stop();
@@ -209,7 +210,7 @@ public class OJCloudHandler extends BaseBridgeHandler {
 
     private void handleConnectionLost(@Nullable String message) {
         logger.trace("OJElectronicsCloudHandler.handleConnectionLost()");
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, message);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
         final RefreshService localRefreshService = this.refreshService;
         if (localRefreshService != null) {
             localRefreshService.stop();

@@ -69,7 +69,8 @@ public class WeatherUndergroundBridgeHandler extends BaseBridgeHandler {
         Object configApiKey = config.get(WeatherUndergroundBindingConstants.APIKEY);
         if (!(configApiKey instanceof String) || ((String) configApiKey).trim().isEmpty()) {
             logger.debug("Setting thing '{}' to OFFLINE: Parameter 'apikey' must be configured.", getThing().getUID());
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error-missing-apikey");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error-missing-apikey");
         } else {
             apikey = ((String) configApiKey).trim();
             updateStatus(ThingStatus.UNKNOWN);
@@ -143,7 +144,7 @@ public class WeatherUndergroundBridgeHandler extends BaseBridgeHandler {
                     } else {
                         logger.debug("Setting thing '{}' to OFFLINE: Error '{}': {}", getThing().getUID(), error,
                                 errorDetail);
-                        updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, statusDescr);
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, statusDescr);
                     }
                 }
             };

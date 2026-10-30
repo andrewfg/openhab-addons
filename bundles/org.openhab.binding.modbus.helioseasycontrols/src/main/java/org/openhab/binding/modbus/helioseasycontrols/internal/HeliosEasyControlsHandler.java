@@ -227,7 +227,8 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
         ModbusEndpointThingHandler slaveEndpointThingHandler = getEndpointThingHandler();
         if (slaveEndpointThingHandler == null) {
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, String.format("Bridge '%s' is offline", label));
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                    String.format("Bridge '%s' is offline", label));
             logger.debug("No bridge handler available -- aborting init for {}", label);
             return;
         }
@@ -236,7 +237,7 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
 
         if (comms == null) {
             String label = Optional.ofNullable(getBridge()).map(b -> b.getLabel()).orElse("<null>");
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
                     String.format("Bridge '%s' not completely initialized", label));
             logger.debug("Bridge not initialized fully (no endpoint) -- aborting init for {}", this);
             return;
@@ -393,7 +394,7 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
                             }
                         }
                     } catch (HeliosException e) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                 "Writing value " + v + "to channel " + channelId + " failed: " + e.getMessage());
                     } catch (InterruptedException e) {
                         logger.debug(
@@ -459,7 +460,7 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
                                             updateStatus(ThingStatus.ONLINE);
                                         }, failureInfo -> {
                                             lock.release();
-                                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                                     "Error writing to device: " + failureInfo.getCause().getMessage());
                                         });
                             }
@@ -510,12 +511,12 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
                                         }
                                     }, failureInfo -> {
                                         lock.release();
-                                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                                 "Error reading from device: " + failureInfo.getCause().getMessage());
                                     });
                         }, failureInfo -> {
                             lock.release();
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                                     "Error writing to device: " + failureInfo.getCause().getMessage());
 
                         });
@@ -917,6 +918,6 @@ public class HeliosEasyControlsHandler extends BaseThingHandler {
      * @param status The Thing's new status
      */
     private void handleError(String errorMsg, ThingStatusDetail status) {
-        updateStatus(status, errorMsg);
+        updateStatus(ThingStatus.OFFLINE, status, errorMsg);
     }
 }

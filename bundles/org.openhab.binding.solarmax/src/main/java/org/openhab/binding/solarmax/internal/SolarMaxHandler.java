@@ -112,7 +112,7 @@ public class SolarMaxHandler extends BaseThingHandler {
                 return;
             }
         } catch (SolarMaxException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Communication error with the device: " + e.getMessage());
         }
     }

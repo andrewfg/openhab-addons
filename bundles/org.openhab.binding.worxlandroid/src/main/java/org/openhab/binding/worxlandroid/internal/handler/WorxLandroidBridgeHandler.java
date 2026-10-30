@@ -79,12 +79,12 @@ public class WorxLandroidBridgeHandler extends BaseBridgeHandler
         WebApiConfiguration config = getConfigAs(WebApiConfiguration.class);
 
         if (config.username.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error-no-username");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error-no-username");
             return;
         }
 
         if (config.password.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error-no-password");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/conf-error-no-password");
             return;
         }
 
@@ -102,19 +102,20 @@ public class WorxLandroidBridgeHandler extends BaseBridgeHandler
                 updateStatus(ThingStatus.ONLINE);
             }
         } catch (IOException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         } catch (OAuthResponseException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/oauth-connection-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/oauth-connection-error");
         } catch (OAuthException e) {
             Throwable cause = e.getCause();
             if (cause != null) {
                 String message = cause.getMessage();
                 if (message != null && message.contains("http code 403")) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/oauth-connection-error");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/oauth-connection-error");
                     return;
                 }
             }
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/oauth-connection-error");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/oauth-connection-error");
         }
     }
 
@@ -167,7 +168,7 @@ public class WorxLandroidBridgeHandler extends BaseBridgeHandler
             retryCount = 3;
             stopTokenRefreshJob();
         } catch (IOException | OAuthResponseException e) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         } catch (OAuthException e) {
             if (retryCount > 0) {
                 tokenRefreshJob = scheduler.schedule(() -> {
@@ -175,7 +176,7 @@ public class WorxLandroidBridgeHandler extends BaseBridgeHandler
                     requestTokenRefresh();
                 }, retryDelayS, TimeUnit.MINUTES);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/oauth-refresh-error");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/oauth-refresh-error");
             }
         }
     }
@@ -211,7 +212,7 @@ public class WorxLandroidBridgeHandler extends BaseBridgeHandler
     }
 
     @Override
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        super.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
     }
 }

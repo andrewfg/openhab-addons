@@ -65,7 +65,7 @@ public class Device {
     private @Nullable String idName;
     private @Nullable String idFirmware;
     private @Nullable String idManufacturer;
-    private ThingStatus stateDevice = ThingStatus.UNKNOWN;
+    private ThingStatus stateDevice = ThingStatus.UNINITIALIZED;
     protected final Map<String, State> stateValues;
     protected final Map<String, SolarwattChannel> solarwattChannelSet;
 

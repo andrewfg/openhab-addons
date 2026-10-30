@@ -65,19 +65,19 @@ public class DLinkMotionSensorHandler extends BaseThingHandler implements DLinkM
                 updateStatus(ThingStatus.ONLINE);
                 break;
             case REBOOTING:
-                updateStatus(ThingStatusDetail.DUTY_CYCLE, "Device rebooting");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.DUTY_CYCLE, "Device rebooting");
                 break;
             case COMMUNICATION_ERROR:
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
                 break;
             case INVALID_PIN:
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Invalid pin code");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Invalid pin code");
                 break;
             case INTERNAL_ERROR:
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "System error");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "System error");
                 break;
             case UNSUPPORTED_FIRMWARE:
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Unsupported firmware");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Unsupported firmware");
                 break;
             default:
                 break;

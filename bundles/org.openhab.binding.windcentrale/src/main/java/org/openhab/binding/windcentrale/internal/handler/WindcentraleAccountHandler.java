@@ -148,33 +148,15 @@ public class WindcentraleAccountHandler extends BaseBridgeHandler {
     }
 
     @Override
-    protected void updateStatus(ThingStatus status) {
+    protected void updateStatus(ThingStatus status, ThingStatusDetail detail, @Nullable String comment) {
         ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(status);
-        notifyStatusListeners(oldStatus);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatus status, @Nullable String description) {
-        ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(status, description);
-        notifyStatusListeners(oldStatus);
-    }
-
-    @Override
-    protected void updateStatus(ThingStatusDetail detail, @Nullable String description) {
-        ThingStatus oldStatus = thing.getStatus();
-        super.updateStatus(detail, description);
-        notifyStatusListeners(oldStatus);
-    }
-
-    private void notifyStatusListeners(ThingStatus oldStatus) {
+        super.updateStatus(status, detail, comment);
         ThingStatus newStatus = thing.getStatus();
 
         if (!oldStatus.equals(newStatus)) {
-            logger.debug("Updating listeners with status {}", newStatus);
+            logger.debug("Updating listeners with status {}", status);
             for (ThingStatusListener listener : thingStatusListeners) {
-                listener.thingStatusChanged(thing, newStatus);
+                listener.thingStatusChanged(thing, status);
             }
         }
     }
@@ -183,7 +165,7 @@ public class WindcentraleAccountHandler extends BaseBridgeHandler {
         Exception e = apiException;
         if (e != null) {
             if (e instanceof InvalidAccessTokenException) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             } else {
                 Throwable cause = e.getCause();
                 String description = Stream
@@ -191,10 +173,10 @@ public class WindcentraleAccountHandler extends BaseBridgeHandler {
                                 cause == null ? "" : Objects.requireNonNullElse(cause.getMessage(), ""))
                         .filter(not(String::isBlank)) //
                         .collect(Collectors.joining(": "));
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, description);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
             }
         } else {
-            updateStatus(ThingStatus.ONLINE);
+            updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
         }
     }
 }

@@ -129,7 +129,7 @@ public class AdorneHubHandler extends BaseBridgeHandler implements AdorneHubChan
             });
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
         }
     }
 }

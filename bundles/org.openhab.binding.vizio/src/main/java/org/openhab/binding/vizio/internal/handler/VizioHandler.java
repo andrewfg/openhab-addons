@@ -123,7 +123,8 @@ public class VizioHandler extends BaseThingHandler {
         String appListJson = config.appListJson;
 
         if (host == null || host.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-hostname");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error-hostname");
             return;
         } else if (host.contains(":")) {
             // format for ipv6
@@ -143,12 +144,13 @@ public class VizioHandler extends BaseThingHandler {
             logger.error(
                     "Long running HttpClient for Vizio handler {} cannot be started. Creating Handler failed. Exception: {}",
                     httpClientName, e.getMessage(), e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             return;
         }
 
         if (authToken == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-authtoken");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                    "@text/offline.configuration-error-authtoken");
             return;
         }
 
@@ -177,7 +179,8 @@ public class VizioHandler extends BaseThingHandler {
             }
         } catch (JsonSyntaxException e) {
             logger.debug("Invalid App List Configuration in thing configuration. Exception: {}", e.getMessage(), e);
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.configuration-error-applist");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error-applist");
             return;
         }
 
@@ -224,7 +227,8 @@ public class VizioHandler extends BaseThingHandler {
                 // A communication error must occur 3 times before updating the thing status
                 failCount++;
                 if (failCount > 2) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.communication-error-polling");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.communication-error-polling");
                 }
                 return;
             }

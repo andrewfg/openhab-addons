@@ -101,7 +101,8 @@ public class InsteonLegacyNetworkHandler extends BaseBridgeHandler {
 
         InsteonLegacyNetworkConfiguration config = getConfigAs(InsteonLegacyNetworkConfiguration.class);
         if (!config.isParsable()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Unable to parse port configuration.");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Unable to parse port configuration.");
             return;
         }
 
@@ -152,7 +153,7 @@ public class InsteonLegacyNetworkHandler extends BaseBridgeHandler {
                             + config.getRedactedPort() + "'.";
                     logger.warn(msg);
 
-                    updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, msg);
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, msg);
                 }
 
                 ScheduledFuture<?> settleJob = this.settleJob;
@@ -220,7 +221,7 @@ public class InsteonLegacyNetworkHandler extends BaseBridgeHandler {
                     this.reconnectJob = null;
                 }
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Port disconnected.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Port disconnected.");
             }
         }, 0, RETRY_DELAY_IN_SECONDS, TimeUnit.SECONDS);
     }

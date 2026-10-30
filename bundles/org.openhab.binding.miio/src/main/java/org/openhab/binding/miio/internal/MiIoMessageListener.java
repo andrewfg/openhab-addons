@@ -32,12 +32,10 @@ public interface MiIoMessageListener {
     void onMessageReceived(MiIoSendCommand cmd);
 
     /**
-     * @param statusDetail detail from which the Thing status is derived
+     * Callback method for the {@link MiIoMessageListener}
+     *
+     * @param status Status online/offline
+     * @param statusDetail Status details text
      */
-    void onStatusUpdated(ThingStatusDetail statusDetail);
-
-    /**
-     * @param status Thing status to report without a detail
-     */
-    void onStatusUpdated(ThingStatus status);
+    void onStatusUpdated(ThingStatus status, ThingStatusDetail statusDetail);
 }

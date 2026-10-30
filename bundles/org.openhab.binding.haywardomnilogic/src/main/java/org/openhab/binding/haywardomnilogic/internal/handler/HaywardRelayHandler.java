@@ -23,6 +23,7 @@ import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.slf4j.Logger;
@@ -47,11 +48,7 @@ public class HaywardRelayHandler extends HaywardThingHandler {
         List<String> data = new ArrayList<>();
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        if (bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
+        if (bridge != null && bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
             systemIDs = bridgehandler.evaluateXPath("//Relay/@systemId", xmlResponse);
             data = bridgehandler.evaluateXPath("//Relay/@relayState", xmlResponse);
             String thingSystemID = getThing().getUID().getId();
@@ -62,7 +59,7 @@ public class HaywardRelayHandler extends HaywardThingHandler {
             }
             this.updateStatus(ThingStatus.ONLINE);
         } else {
-            this.updateStatus(ThingStatus.UNKNOWN);
+            this.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 
@@ -76,11 +73,7 @@ public class HaywardRelayHandler extends HaywardThingHandler {
         String poolID = getThing().getProperties().get(HaywardBindingConstants.PROPERTY_BOWID);
 
         Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
-            return;
-        }
-        if (bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
+        if (bridge != null && bridge.getHandler() instanceof HaywardBridgeHandler bridgehandler) {
             String cmdString = this.cmdToString(command);
             String cmdURL = null;
             try {
@@ -117,7 +110,7 @@ public class HaywardRelayHandler extends HaywardThingHandler {
             }
             this.updateStatus(ThingStatus.ONLINE);
         } else {
-            this.updateStatus(ThingStatus.UNKNOWN);
+            this.updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED);
         }
     }
 }

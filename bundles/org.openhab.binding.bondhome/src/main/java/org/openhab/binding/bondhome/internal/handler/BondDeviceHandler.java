@@ -98,7 +98,7 @@ public class BondDeviceHandler extends BaseThingHandler {
                 channelUID);
         final BondHttpApi api = this.api;
         if (api == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-api");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-api");
             // Re-attempt initialization
             scheduler.schedule(() -> {
                 logger.trace("Re-attempting initialization");
@@ -114,7 +114,7 @@ public class BondDeviceHandler extends BaseThingHandler {
                 updateChannelsFromState(deviceState);
             } catch (BondException e) {
                 if (!e.wasBridgeSetOffline()) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 }
             }
             return;
@@ -460,7 +460,8 @@ public class BondDeviceHandler extends BaseThingHandler {
         String deviceId = config.deviceId;
 
         if (deviceId == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.no-device-id");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-device-id");
             return;
         }
 
@@ -469,7 +470,7 @@ public class BondDeviceHandler extends BaseThingHandler {
         }
         BondHttpApi api = this.api;
         if (api == null) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-api");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-api");
             return;
         }
 
@@ -480,7 +481,7 @@ public class BondDeviceHandler extends BaseThingHandler {
             deviceProperties = api.getDeviceProperties(deviceId);
         } catch (BondException e) {
             if (!e.wasBridgeSetOffline()) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
             return;
         }
@@ -491,7 +492,8 @@ public class BondDeviceHandler extends BaseThingHandler {
         String devHash;
         if (devInfo == null || devProperties == null || (devType = devInfo.type) == null
                 || (devHash = devInfo.hash) == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.no-device-properties");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-device-properties");
             return;
         }
 
@@ -705,7 +707,8 @@ public class BondDeviceHandler extends BaseThingHandler {
     private boolean getBridgeAndAPI() {
         Bridge myBridge = this.getBridge();
         if (myBridge == null) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.no-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-bridge");
 
             return false;
         } else {
@@ -714,7 +717,8 @@ public class BondDeviceHandler extends BaseThingHandler {
                 this.api = myBridgeHandler.getBridgeAPI();
                 return true;
             } else {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.conf-error.no-bridge");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "@text/offline.conf-error.no-bridge");
                 return false;
             }
         }
@@ -727,7 +731,8 @@ public class BondDeviceHandler extends BaseThingHandler {
             Runnable pollingCommand = () -> {
                 BondHttpApi api = this.api;
                 if (api == null) {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.no-api");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.comm-error.no-api");
                     return;
                 }
 
@@ -738,7 +743,7 @@ public class BondDeviceHandler extends BaseThingHandler {
                     updateChannelsFromState(deviceState);
                 } catch (BondException e) {
                     if (!e.wasBridgeSetOffline()) {
-                        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                     }
                 }
             };
@@ -753,12 +758,12 @@ public class BondDeviceHandler extends BaseThingHandler {
             if (!fullyInitialized) {
                 scheduler.execute(this::initializeThing);
             } else {
-                updateStatus(ThingStatus.ONLINE);
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
                 // restart the polling job when the bridge goes back online
                 startPollingJob();
             }
         } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             // stop the polling job when the bridge goes offline
             ScheduledFuture<?> pollingJob = this.pollingJob;
             if (pollingJob != null) {

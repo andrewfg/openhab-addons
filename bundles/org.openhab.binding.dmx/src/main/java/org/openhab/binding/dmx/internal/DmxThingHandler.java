@@ -61,12 +61,10 @@ public abstract class DmxThingHandler extends BaseThingHandler {
         if (ThingStatus.ONLINE.equals(bridgeStatusInfo.getStatus())
                 && ThingStatus.OFFLINE.equals(getThing().getStatusInfo().getStatus())
                 && ThingStatusDetail.BRIDGE_OFFLINE.equals(getThing().getStatusInfo().getStatusDetail())) {
-            if (dmxHandlerStatus == ThingStatusDetail.HANDLER_CONFIGURATION_PENDING) {
-                updateStatus(ThingStatus.UNKNOWN);
-            } else if (ThingStatusDetail.NONE.equals(dmxHandlerStatus)) {
-                updateStatus(ThingStatus.ONLINE);
+            if (ThingStatusDetail.NONE.equals(dmxHandlerStatus)) {
+                updateStatus(ThingStatus.ONLINE, ThingStatusDetail.NONE);
             } else {
-                updateStatus(dmxHandlerStatus);
+                updateStatus(ThingStatus.OFFLINE, dmxHandlerStatus);
             }
         }
     }

@@ -23,6 +23,7 @@ import org.openhab.binding.nikohomecontrol.internal.protocol.nhc1.NikoHomeContro
 import org.openhab.core.i18n.TimeZoneProvider;
 import org.openhab.core.net.NetworkAddressService;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,8 @@ public class NikoHomeControlBridgeHandler1 extends NikoHomeControlBridgeHandler 
             nhcComm = new NikoHomeControlCommunication1(this, scheduler, eventThreadName);
             startCommunication();
         } else {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "@text/offline.configuration-error.ip");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.ip");
         }
     }
 

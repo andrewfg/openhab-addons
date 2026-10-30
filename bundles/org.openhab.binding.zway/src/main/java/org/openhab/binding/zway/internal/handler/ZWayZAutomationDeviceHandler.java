@@ -55,11 +55,7 @@ public class ZWayZAutomationDeviceHandler extends ZWayDeviceHandler {
                 logger.debug("Change Z-Way device status to bridge status: {}", statusInfo.getStatus());
 
                 // Set thing status to bridge status
-                if (statusInfo.getStatusDetail() == ThingStatusDetail.NONE) {
-                    updateStatus(statusInfo.getStatus(), statusInfo.getDescription());
-                } else {
-                    updateStatus(statusInfo.getStatusDetail(), statusInfo.getDescription());
-                }
+                updateStatus(statusInfo.getStatus(), statusInfo.getStatusDetail(), statusInfo.getDescription());
 
                 // Add all available channels
                 DeviceList deviceList = getZWayBridgeHandler().getZWayApi().getDevices();
@@ -83,7 +79,7 @@ public class ZWayZAutomationDeviceHandler extends ZWayDeviceHandler {
                         } else {
                             logger.warn("Initializing Z-Way device handler failed (virtual device not found): {}",
                                     getThing().getLabel());
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
                                     "Z-Way virtual device with id " + mConfig.getDeviceId() + " not found.");
                         }
                     } catch (Throwable t) {
@@ -95,15 +91,17 @@ public class ZWayZAutomationDeviceHandler extends ZWayDeviceHandler {
                             logger.error("Unexpected error");
                         }
                         if (getThing().getStatus() == ThingStatus.ONLINE) {
-                            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
                                     "Error occurred when adding device as channel.");
                         }
                     }
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Devices not loaded");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                            "Devices not loaded");
                 }
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Z-Way bridge handler not found or not ONLINE.");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                        "Z-Way bridge handler not found or not ONLINE.");
             }
         }
     }
@@ -116,21 +114,22 @@ public class ZWayZAutomationDeviceHandler extends ZWayDeviceHandler {
     public void initialize() {
         logger.debug("Initializing Z-Way ZAutomation device handler ...");
 
+        // Set thing status to a valid status
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_PENDING,
+                "Checking configuration and bridge...");
+
         // Configuration - thing status update with an error message
-        mConfig = getConfigAs(ZWayZAutomationDeviceConfiguration.class);
+        mConfig = loadAndCheckConfiguration();
 
-        String deviceId = mConfig.getDeviceId();
-        if (deviceId == null || deviceId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
-                    "Z-Wave device couldn't create, because the device id is missing.");
-            return;
+        if (mConfig != null) {
+            logger.debug("Configuration complete: {}", mConfig);
+
+            // Start an extra thread to check the connection, because it takes sometimes more
+            // than 5000 milliseconds and the handler will suspend (ThingStatus.UNINITIALIZED).
+            scheduler.schedule(new Initializer(), 2, TimeUnit.SECONDS);
+        } else {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Z-Way device id required!");
         }
-
-        updateStatus(ThingStatus.UNKNOWN);
-
-        // Start an extra thread to check the connection, because it takes sometimes more
-        // than 5000 milliseconds and the handler will suspend (ThingStatus.UNINITIALIZED).
-        scheduler.schedule(new Initializer(), 2, TimeUnit.SECONDS);
     }
 
     private void completeInitialization() {
@@ -142,7 +141,7 @@ public class ZWayZAutomationDeviceHandler extends ZWayDeviceHandler {
 
         String deviceId = config.getDeviceId();
         if (deviceId == null || deviceId.isBlank()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Z-Wave device couldn't create, because the device id is missing.");
             return null;
         }

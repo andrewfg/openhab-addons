@@ -142,18 +142,19 @@ public class EnergiDataServiceHandler extends BaseThingHandler
         config = getConfigAs(ServiceConfiguration.class);
 
         if (config.priceArea().isBlank()) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR, "@text/offline.conf-error.no-price-area");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.conf-error.no-price-area");
             return;
         }
         GlobalLocationNumber gln = config.getGridCompanyGLN();
         if (!gln.isEmpty() && !gln.isValid()) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
                     "@text/offline.conf-error.invalid-grid-company-gln");
             return;
         }
         gln = config.getEnerginetGLN();
         if (!gln.isEmpty() && !gln.isValid()) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
                     "@text/offline.conf-error.invalid-energinet-gln");
             return;
         }
@@ -273,7 +274,7 @@ public class EnergiDataServiceHandler extends BaseThingHandler
 
     @Override
     public void onCommunicationError(@Nullable String description) {
-        updateStatus(ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, description);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.COMMUNICATION_ERROR, description);
     }
 
     @Override

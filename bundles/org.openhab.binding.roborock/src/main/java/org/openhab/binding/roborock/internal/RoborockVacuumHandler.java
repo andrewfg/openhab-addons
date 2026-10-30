@@ -198,7 +198,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
         try {
             return localBridge.getToken();
         } catch (IllegalStateException e) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
             return "";
         }
     }
@@ -404,13 +404,9 @@ public class RoborockVacuumHandler extends BaseThingHandler {
         cloudMetadataRefreshDisabledLogged = false;
         mapUpdateDeduplicator.reset();
 
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
-            return;
-        }
-        if (!(bridge.getHandler() instanceof RoborockAccountHandler accountHandler)) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-bridge");
+        if (!(getBridge() instanceof Bridge bridge
+                && bridge.getHandler() instanceof RoborockAccountHandler accountHandler)) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-bridge");
             return;
         }
         bridgeHandler = accountHandler;
@@ -494,7 +490,8 @@ public class RoborockVacuumHandler extends BaseThingHandler {
                         }
                     }
                 } else {
-                    updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-token");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                            "@text/offline.conf-error.no-token");
                     return;
                 }
             }
@@ -502,7 +499,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
             scheduleNextPoll(-1);
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-token");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-token");
         }
     }
 
@@ -533,7 +530,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
             initTask.submit();
         } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
             teardown(false);
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 
@@ -553,7 +550,8 @@ public class RoborockVacuumHandler extends BaseThingHandler {
                         sendAllMqttCommands();
                     }
                 } else {
-                    updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.comm-error.vac-offline");
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "@text/offline.comm-error.vac-offline");
                 }
             }
         }
@@ -570,7 +568,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
     private void pollData() {
         RoborockAccountHandler localBridgeHandler = bridgeHandler;
         if (localBridgeHandler == null || !isBridgeSessionValid()) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-bridge");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, "@text/offline.conf-error.no-bridge");
             return;
         }
 
@@ -582,7 +580,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
 
         if (homeData == null) {
             logger.debug("pollData() received null homeData for {}. API fetch failed or token expired.", config.duid);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "API fetch failed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "API fetch failed");
 
             if (isBridgeSessionValid()) {
                 scheduleNextPoll(config.getRefreshIntervalSeconds());
@@ -1548,7 +1546,7 @@ public class RoborockVacuumHandler extends BaseThingHandler {
             }
             return requestId;
         } catch (IllegalStateException e) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, e.getMessage());
             return 0;
         }
     }

@@ -136,20 +136,22 @@ public class LgTvSerialHandler extends BaseThingHandler {
         if (portName != null) {
             SerialPortIdentifier serialPortIdentifier = serialPortManager.getIdentifier(portName);
             if (serialPortIdentifier == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Serial port does not exist: " + portName);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "Serial port does not exist: " + portName);
                 return;
             }
 
             try {
                 communicator = factory.getInstance(serialPortIdentifier);
             } catch (IOException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                 return;
             } catch (PortInUseException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Serial port already used: " + portName);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Serial port already used: " + portName);
                 return;
             } catch (UnsupportedCommOperationException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Unsupported operation on '" + portName + "': " + e.getMessage());
                 return;
             }
@@ -157,12 +159,13 @@ public class LgTvSerialHandler extends BaseThingHandler {
             if (communicator != null) {
                 communicator.register(responseListener);
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Failed to connect to serial port " + portName);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Failed to connect to serial port " + portName);
                 logger.debug("Failed to connect to serial port {}", portName);
                 return;
             }
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Serial port name not configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Serial port name not configured");
             logger.debug("Serial port name not configured");
             return;
         }

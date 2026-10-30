@@ -137,12 +137,13 @@ public class DimmerThingHandler extends DmxThingHandler {
         Bridge bridge = getBridge();
         DmxBridgeHandler bridgeHandler;
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "no bridge assigned");
+            dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
             return;
         } else {
             bridgeHandler = (DmxBridgeHandler) bridge.getHandler();
             if (bridgeHandler == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "no bridge handler available");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "no bridge handler available");
                 dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
                 return;
             }
@@ -151,7 +152,8 @@ public class DimmerThingHandler extends DmxThingHandler {
         DimmerThingHandlerConfiguration configuration = getConfig().as(DimmerThingHandlerConfiguration.class);
 
         if (configuration.dmxid.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "DMX channel configuration missing");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "DMX channel configuration missing");
             dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
             return;
         }
@@ -163,7 +165,7 @@ public class DimmerThingHandler extends DmxThingHandler {
                 channels.add(bridgeHandler.getDmxChannel(channel, this.thing));
             }
         } catch (IllegalArgumentException e) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
             return;
         }
@@ -181,7 +183,7 @@ public class DimmerThingHandler extends DmxThingHandler {
             this.turnOnValue = turnOnValue;
             logger.trace("set turnonvalue to {} in {}", turnOnValue, this.thing.getUID());
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "turn-on value malformed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "turn-on value malformed");
             dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
             return;
         }
@@ -196,7 +198,7 @@ public class DimmerThingHandler extends DmxThingHandler {
             this.turnOffValue = turnOffValue;
             logger.trace("set turnoffvalue to {} in {}", turnOffValue, this.thing.getUID());
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "turn-off value malformed");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "turn-off value malformed");
             dmxHandlerStatus = ThingStatusDetail.CONFIGURATION_ERROR;
             return;
         }
@@ -210,7 +212,7 @@ public class DimmerThingHandler extends DmxThingHandler {
             updateStatus(ThingStatus.ONLINE);
             dmxHandlerStatus = ThingStatusDetail.NONE;
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 

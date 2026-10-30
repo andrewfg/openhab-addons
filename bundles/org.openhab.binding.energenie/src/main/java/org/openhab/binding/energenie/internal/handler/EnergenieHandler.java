@@ -110,7 +110,7 @@ public class EnergenieHandler extends BaseThingHandler {
             updateStatus(ThingStatus.UNKNOWN);
             refreshJob = scheduler.scheduleWithFixedDelay(this::refreshState, 6, refreshInterval, TimeUnit.SECONDS);
         } else {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Can not access device , IP-Address or password not set");
         }
     }
@@ -137,13 +137,15 @@ public class EnergenieHandler extends BaseThingHandler {
                 }
                 return true;
             } catch (final UnknownHostException e) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Can't find host: " + e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Can't find host: " + e.getMessage());
             } catch (final IOException e) {
                 logger.debug("Couldn't get I/O for the connection to: {}:{}.", host, TCP_PORT, e);
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Couldn't get I/O for the connection");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "Couldn't get I/O for the connection");
             } catch (final RuntimeException e) {
                 logger.debug("Unexpected error", e);
-                updateStatus(ThingStatus.OFFLINE, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.NONE, e.getMessage());
             }
         }
         return false;

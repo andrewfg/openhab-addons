@@ -154,7 +154,7 @@ public abstract class AbstractMQTTThingHandler extends BaseThingHandler
         final CompletableFuture<Boolean> future = data.publishValue(command);
         future.handle((v, ex) -> {
             if (ex != null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, ex.getLocalizedMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, ex.getLocalizedMessage());
                 logger.debug("Failed publishing value {} to topic {}: {}", command, data.getCommandTopic(),
                         ex.getMessage());
             } else {
@@ -167,13 +167,13 @@ public abstract class AbstractMQTTThingHandler extends BaseThingHandler
     @Override
     public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
         if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             stop();
             connection = null;
             return;
         }
         if (bridgeStatusInfo.getStatus() != ThingStatus.ONLINE) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR);
             stop();
             return;
         }
@@ -190,7 +190,8 @@ public abstract class AbstractMQTTThingHandler extends BaseThingHandler
             connection = h.getConnectionAsync().get(500, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException ignored) {
             resetMessageReceived();
-            updateStatus(ThingStatus.UNKNOWN, "Bridge handler has no valid broker connection!");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_UNINITIALIZED,
+                    "Bridge handler has no valid broker connection!");
             return;
         }
         this.connection = connection;
@@ -201,7 +202,8 @@ public abstract class AbstractMQTTThingHandler extends BaseThingHandler
         try {
             start(connection).get(subscribeTimeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException ignored) {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "Did not receive all required topics");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Did not receive all required topics");
         }
     }
 

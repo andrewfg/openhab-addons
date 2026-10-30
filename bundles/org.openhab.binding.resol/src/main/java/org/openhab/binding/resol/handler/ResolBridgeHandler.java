@@ -88,7 +88,7 @@ public class ResolBridgeHandler extends BaseBridgeHandler {
         if (isConnected) {
             updateStatus(ThingStatus.ONLINE);
         } else {
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, unconnectedReason);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, unconnectedReason);
         }
     }
 

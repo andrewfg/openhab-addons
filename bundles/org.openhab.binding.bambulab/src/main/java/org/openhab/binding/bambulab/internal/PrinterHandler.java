@@ -27,6 +27,7 @@ import static org.openhab.binding.bambulab.internal.BambuLabBindingConstants.Ams
 import static org.openhab.binding.bambulab.internal.BambuLabBindingConstants.PrinterChannel.*;
 import static org.openhab.binding.bambulab.internal.PrinterConfiguration.CLOUD_MODE_HOSTNAME;
 import static org.openhab.binding.bambulab.internal.StateParserHelper.*;
+import static org.openhab.core.thing.ThingStatus.OFFLINE;
 import static org.openhab.core.thing.ThingStatus.ONLINE;
 import static org.openhab.core.thing.ThingStatus.UNKNOWN;
 import static org.openhab.core.thing.ThingStatusDetail.*;
@@ -176,7 +177,7 @@ public class PrinterHandler extends BaseBridgeHandler
         try {
             internalInitialize();
         } catch (InitializationException e) {
-            updateStatus(e.getThingStatusDetail(), e.getDescription());
+            updateStatus(OFFLINE, e.getThingStatusDetail(), e.getDescription());
         }
     }
 
@@ -225,9 +226,11 @@ public class PrinterHandler extends BaseBridgeHandler
             }
             var duration = between(now.toInstant(UTC), parse.toInstant(UTC));
             try {
-                validateAccessCodeSchedule = scheduler.schedule(
-                        () -> updateStatus(CONFIGURATION_ERROR, "@text/printer.handler.init.accessCodeExpired"),
-                        duration.getSeconds(), SECONDS);
+                validateAccessCodeSchedule = scheduler
+                        .schedule(
+                                () -> updateStatus(OFFLINE, CONFIGURATION_ERROR,
+                                        "@text/printer.handler.init.accessCodeExpired"),
+                                duration.getSeconds(), SECONDS);
             } catch (RejectedExecutionException ex) {
                 logger.debug("Task was rejected", ex);
                 throw new InitializationException(CONFIGURATION_ERROR, ex);
@@ -246,7 +249,7 @@ public class PrinterHandler extends BaseBridgeHandler
             // update to online done in `connectComplete`
         } catch (Exception e) {
             logger.debug("Cannot connect to MQTT client", e);
-            updateStatus(COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, e.getLocalizedMessage());
             reconnect(config);
         }
     }
@@ -265,7 +268,7 @@ public class PrinterHandler extends BaseBridgeHandler
         logger.debug("Connection lost. Restarting thing", throwable);
         var message = throwable != null ? throwable.getLocalizedMessage() : "<no message" + INTERNAL_COMMAND_PREFIX;
         var description = "@text/printer.handler.init.connectionLost [\"%s\"]".formatted(message);
-        updateStatus(COMMUNICATION_ERROR, description);
+        updateStatus(OFFLINE, COMMUNICATION_ERROR, description);
         reconnect(null);
     }
 
@@ -292,7 +295,7 @@ public class PrinterHandler extends BaseBridgeHandler
                     }, configNotNull.reconnectTime, SECONDS));
         } catch (RejectedExecutionException ex) {
             logger.debug("Task was rejected", ex);
-            updateStatus(COMMUNICATION_ERROR, ex.getLocalizedMessage());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, ex.getLocalizedMessage());
         }
     }
 
@@ -541,7 +544,7 @@ public class PrinterHandler extends BaseBridgeHandler
         try {
             localClient.getChannel().sendCommand(command);
         } catch (Exception e) {
-            updateStatus(COMMUNICATION_ERROR, e.getLocalizedMessage());
+            updateStatus(OFFLINE, COMMUNICATION_ERROR, e.getLocalizedMessage());
         }
     }
 
@@ -550,8 +553,8 @@ public class PrinterHandler extends BaseBridgeHandler
     }
 
     @Override
-    public void updateStatus(ThingStatusDetail statusDetail, @Nullable String description) {
-        super.updateStatus(statusDetail, description);
+    public void updateStatus(ThingStatus status, ThingStatusDetail statusDetail, @Nullable String description) {
+        super.updateStatus(status, statusDetail, description);
     }
 
     @Override

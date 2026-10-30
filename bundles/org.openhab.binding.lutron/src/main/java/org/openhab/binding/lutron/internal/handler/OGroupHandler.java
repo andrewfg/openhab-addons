@@ -60,7 +60,8 @@ public class OGroupHandler extends LutronHandler {
     public void initialize() {
         config = getConfigAs(OGroupConfig.class);
         if (config.integrationId <= 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "No valid integrationId configured");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "No valid integrationId configured");
             return;
         }
         logger.debug("Initializing Occupancy Group handler for integration ID {}", getIntegrationId());
@@ -72,13 +73,13 @@ public class OGroupHandler extends LutronHandler {
         logger.debug("Initializing device state for Occupancy Group {}", getIntegrationId());
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable for Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "No bridge configured");
         } else if (bridge.getStatus() == ThingStatus.ONLINE) {
-            updateStatus(ThingStatus.UNKNOWN, "Awaiting initial response");
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE, "Awaiting initial response");
             queryGroup(GroupCommand.ACTION_GROUPSTATE);
             // handleUpdate() will set thing status to online when response arrives
         } else {
-            updateStatus(ThingStatusDetail.BRIDGE_OFFLINE);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
     }
 

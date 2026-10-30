@@ -162,7 +162,7 @@ public class LGHorizonAccountHandler extends BaseBridgeHandler implements LGHori
             provider = resolveProvider(config);
         } catch (IllegalArgumentException e) {
             if (!disposed) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             }
             return;
         }
@@ -178,7 +178,8 @@ public class LGHorizonAccountHandler extends BaseBridgeHandler implements LGHori
             auth.initialize();
             String householdId = auth.getHouseholdId();
             if (householdId == null) {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, "@text/offline.account-missing-household-id");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                        "@text/offline.account-missing-household-id");
                 return;
             }
             updateProperty(PROPERTY_HOUSEHOLD_ID, householdId);
@@ -221,10 +222,10 @@ public class LGHorizonAccountHandler extends BaseBridgeHandler implements LGHori
                 return;
             }
             if (e instanceof LGHorizonApiException apiException && apiException.isAuthenticationFailure()) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         textWithArg("offline.account-configuration-error", String.valueOf(e.getMessage())));
             } else {
-                updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         textWithArg("offline.account-communication-error", String.valueOf(e.getMessage())));
                 scheduleInitializeRetry();
             }
@@ -564,7 +565,7 @@ public class LGHorizonAccountHandler extends BaseBridgeHandler implements LGHori
             if (e.isAuthenticationFailure()) {
                 logger.warn("Background LG Horizon token refresh failed authentication, going offline: {}",
                         e.getMessage());
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                         textWithArg("offline.account-configuration-error", String.valueOf(e.getMessage())));
                 ScheduledFuture<?> refresh = tokenRefreshFuture;
                 if (refresh != null) {
@@ -972,7 +973,7 @@ public class LGHorizonAccountHandler extends BaseBridgeHandler implements LGHori
 
     @Override
     public void onConnectionLost(Throwable cause) {
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR,
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                 textWithArg("offline.account-mqtt-connection-lost", String.valueOf(cause.getMessage())));
     }
 

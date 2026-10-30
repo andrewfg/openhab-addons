@@ -100,7 +100,8 @@ public class EcovacsApiHandler extends BaseBridgeHandler {
 
         String country = localeProvider.getLocale().getCountry();
         if (country.isEmpty()) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "@text/offline.config-error-no-country");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.config-error-no-country");
             return;
         }
         this.api = createApi(country);
@@ -158,7 +159,8 @@ public class EcovacsApiHandler extends BaseBridgeHandler {
             return;
         }
         logger.debug("Ecovacs API login for account '{}' expired", getThing().getUID().getId());
-        updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/offline.config-error-login-required");
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                "@text/offline.config-error-login-required");
         try {
             Files.deleteIfExists(getCredentialsCacheFile());
         } catch (IOException e) {
@@ -178,7 +180,8 @@ public class EcovacsApiHandler extends BaseBridgeHandler {
     private void checkCredentials() {
         Credentials creds = restoreCachedCredentials();
         if (creds == null || creds.isExpired()) {
-            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING, "@text/offline.config-error-login-required");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "@text/offline.config-error-login-required");
             return;
         }
 
@@ -195,7 +198,7 @@ public class EcovacsApiHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.OFFLINE);
         } catch (EcovacsApiException e) {
             logger.debug("Ecovacs API login failed", e);
-            updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
 

@@ -147,14 +147,15 @@ public abstract class MieleApplianceHandler<E extends Enum<E> & ApplianceChannel
         logger.debug("Initializing handler for thing {}", getThing().getUID());
         final String applianceId = (String) getThing().getConfiguration().getProperties().get(APPLIANCE_ID);
         if (applianceId == null || applianceId.isBlank()) {
-            updateStatus(ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
                     "@text/offline.configuration-error.uid-not-set");
             return;
         }
         this.applianceId = applianceId;
         Bridge bridge = getBridge();
         if (bridge == null) {
-            logger.debug("Bridge unavailable while initializing Thing: {}", thing.getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
+                    "@text/offline.configuration-error.bridge-missing");
             return;
         }
         initializeTranslationProvider(bridge);
@@ -404,7 +405,7 @@ public abstract class MieleApplianceHandler<E extends Enum<E> & ApplianceChannel
 
     @Override
     public void onApplianceRemoved() {
-        updateStatus(ThingStatusDetail.OFFLINE.GONE);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.GONE);
     }
 
     @Override

@@ -247,7 +247,8 @@ public class RioSystemHandler extends AbstractBridgeHandler<RioSystemProtocol> {
         }
 
         if (rioConfig.getIpAddress() == null || rioConfig.getIpAddress().trim().length() == 0) {
-            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "IP Address of Russound is missing from configuration");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "IP Address of Russound is missing from configuration");
             return;
         }
 
@@ -279,11 +280,7 @@ public class RioSystemHandler extends AbstractBridgeHandler<RioSystemProtocol> {
             final StatefulHandlerCallback callback = new StatefulHandlerCallback(new AbstractRioHandlerCallback() {
                 @Override
                 public void statusChanged(ThingStatus status, ThingStatusDetail detail, String msg) {
-                    if (detail == ThingStatusDetail.NONE) {
-                        updateStatus(status, msg);
-                    } else {
-                        updateStatus(detail, msg);
-                    }
+                    updateStatus(status, detail, msg);
                     if (status != ThingStatus.ONLINE) {
                         disconnect();
                         reconnect();
@@ -345,7 +342,7 @@ public class RioSystemHandler extends AbstractBridgeHandler<RioSystemProtocol> {
             sessionLock.unlock();
         }
 
-        updateStatus(ThingStatusDetail.COMMUNICATION_ERROR, response);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, response);
         reconnect();
     }
 
@@ -426,7 +423,7 @@ public class RioSystemHandler extends AbstractBridgeHandler<RioSystemProtocol> {
             final RioSystemConfig sysConfig = getConfigAs(RioSystemConfig.class);
 
             if (sysConfig == null) {
-                updateStatus(ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Configuration file missing");
             } else {
                 config = sysConfig;
             }
