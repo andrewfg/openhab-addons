@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * {@link BrowserAudioWebSocketServlet} accepts browser WebSocket connections at {@value #SERVLET_PATH}/{token}. The
- * token identifies the {@link BrowserAudioChannel} created for a HomeKit session and is the only credential, so an
+ * token identifies the {@link HomekitAudioSource} registered for a HomeKit session and is the only credential, so an
  * unknown token is rejected with 404.
  *
  * @author Andrew Fiddian-Green - Initial contribution
@@ -64,13 +64,13 @@ public class BrowserAudioWebSocketServlet extends WebSocketServlet {
             String path = request.getRequestURI().getPath();
             String prefix = SERVLET_PATH + "/";
             String token = path.startsWith(prefix) ? path.substring(prefix.length()) : "";
-            BrowserAudioChannel channel = token.isEmpty() ? null : registry.find(token);
-            if (channel == null) {
+            HomekitAudioSource source = token.isEmpty() ? null : registry.find(token);
+            if (source == null) {
                 logger.debug("Browser audio WebSocket rejected, unknown session");
                 response.setStatusCode(HttpStatus.NOT_FOUND_404);
                 return null;
             }
-            return new BrowserAudioSocket(channel);
+            return new BrowserAudioSocket(source);
         });
     }
 }

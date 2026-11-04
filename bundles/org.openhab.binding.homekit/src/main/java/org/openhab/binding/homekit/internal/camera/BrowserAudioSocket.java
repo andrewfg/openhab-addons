@@ -12,100 +12,93 @@
  */
 package org.openhab.binding.homekit.internal.camera;
 
+import static org.openhab.binding.homekit.internal.HomekitBindingConstants.BINDING_ID;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
+import org.openhab.core.audio.AudioException;
+import org.openhab.core.audio.AudioStream;
+import org.openhab.core.common.ThreadPoolManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link BrowserAudioSocket} is the browser end of a {@link BrowserAudioChannel}. Binary frames received from the
- * browser are passed to the channel, and frames from the channel are sent back as binary frames.
+ * {@link BrowserAudioSocket} streams the listen audio of one {@link HomekitAudioSource} to one browser as binary
+ * WebSocket frames of raw PCM ({@link HomekitAudioSource#FORMAT}). Each connection opens its own {@link AudioStream}
+ * and closes it when the browser disconnects.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
 @WebSocket
-public class BrowserAudioSocket implements BrowserAudioChannel.Sender {
+public class BrowserAudioSocket {
+
+    private static final int CHUNK_SIZE = 4096;
 
     private final Logger logger = LoggerFactory.getLogger(BrowserAudioSocket.class);
+    private final HomekitAudioSource source;
 
-    private final BrowserAudioChannel channel;
+    private @Nullable AudioStream stream;
+    private volatile boolean closed = false;
 
-    // All access must be guarded by "this"
-    private @Nullable Session session;
-
-    public BrowserAudioSocket(BrowserAudioChannel channel) {
-        this.channel = channel;
+    public BrowserAudioSocket(HomekitAudioSource source) {
+        this.source = source;
     }
 
     @OnWebSocketConnect
     public void onConnect(Session session) {
-        synchronized (this) {
-            this.session = session;
+        try {
+            AudioStream audioStream = source.getInputStream(HomekitAudioSource.FORMAT);
+            stream = audioStream;
+            ThreadPoolManager.getPool(BINDING_ID).submit(() -> pump(session, audioStream));
+        } catch (AudioException e) {
+            logger.debug("Browser audio stream could not be opened: {}", e.getMessage());
+            session.close();
         }
-        if (!channel.attach(this)) {
-            logger.debug("Rejecting browser audio connection, channel already in use");
-            session.close(StatusCode.POLICY_VIOLATION, "Audio session already in use");
-            synchronized (this) {
-                this.session = null;
+    }
+
+    private void pump(Session session, AudioStream audioStream) {
+        byte[] buffer = new byte[CHUNK_SIZE];
+        try {
+            while (!closed && session.isOpen()) {
+                int n = audioStream.read(buffer);
+                if (n < 0) {
+                    break;
+                }
+                if (n > 0) {
+                    session.getRemote().sendBytes(ByteBuffer.wrap(buffer, 0, n));
+                }
+            }
+        } catch (IOException e) {
+            if (!closed) {
+                logger.debug("Browser audio stream ended: {}", e.getMessage());
             }
         }
     }
 
-    @OnWebSocketMessage
-    public void onBinaryMessage(byte[] payload, int offset, int length) {
-        channel.onBrowserAudio(Arrays.copyOfRange(payload, offset, offset + length));
-    }
-
     @OnWebSocketClose
-    public void onClose(int statusCode, String reason) {
-        synchronized (this) {
-            session = null;
+    public void onClose(int statusCode, @Nullable String reason) {
+        closed = true;
+        AudioStream audioStream = stream;
+        if (audioStream != null) {
+            try {
+                audioStream.close();
+            } catch (IOException e) {
+                logger.debug("Error closing browser audio stream: {}", e.getMessage());
+            }
         }
-        channel.detach(this);
     }
 
     @OnWebSocketError
     public void onError(Throwable cause) {
         logger.debug("Browser audio WebSocket error: {}", cause.getMessage());
-    }
-
-    @Override
-    public void send(byte[] frame) {
-        Session current;
-        synchronized (this) {
-            current = session;
-        }
-        if (current == null || !current.isOpen()) {
-            return;
-        }
-        try {
-            current.getRemote().sendBytes(ByteBuffer.wrap(frame));
-        } catch (IOException e) {
-            logger.debug("Failed to send audio frame to browser: {}", e.getMessage());
-        }
-    }
-
-    @Override
-    public void close() {
-        Session current;
-        synchronized (this) {
-            current = session;
-            session = null;
-        }
-        if (current != null && current.isOpen()) {
-            current.close(StatusCode.NORMAL, "Audio session ended");
-        }
     }
 }

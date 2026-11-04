@@ -16,14 +16,13 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.osgi.service.component.annotations.Component;
 
 /**
- * {@link BrowserAudioRegistry} creates {@link BrowserAudioChannel}s and looks them up by their unguessable token. The
+ * {@link BrowserAudioRegistry} maps unguessable tokens to {@link HomekitAudioSource}s for the browser WebSocket. The
  * token is the only credential for the browser WebSocket, so it carries 128 bits of randomness.
  *
  * @author Andrew Fiddian-Green - Initial contribution
@@ -35,26 +34,24 @@ public class BrowserAudioRegistry {
     private static final int TOKEN_BYTES = 16;
 
     private final SecureRandom random = new SecureRandom();
-    private final Map<String, BrowserAudioChannel> channels = new ConcurrentHashMap<>();
+    private final Map<String, HomekitAudioSource> sources = new ConcurrentHashMap<>();
 
-    public BrowserAudioChannel create(Consumer<byte[]> inbound) {
+    /**
+     * Registers the source and returns the token that the browser uses to reach it.
+     */
+    public String register(HomekitAudioSource source) {
         byte[] bytes = new byte[TOKEN_BYTES];
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        BrowserAudioChannel channel = new BrowserAudioChannel(token, inbound);
-        channels.put(token, channel);
-        return channel;
+        sources.put(token, source);
+        return token;
     }
 
-    public @Nullable BrowserAudioChannel find(String token) {
-        return channels.get(token);
+    public @Nullable HomekitAudioSource find(String token) {
+        return sources.get(token);
     }
 
-    /**
-     * Removes the channel and closes any browser still attached to it.
-     */
-    public void release(BrowserAudioChannel channel) {
-        channels.remove(channel.getToken());
-        channel.close();
+    public void unregister(String token) {
+        sources.remove(token);
     }
 }
