@@ -97,14 +97,29 @@ class CameraTlvTest {
     }
 
     @Test
-    void setupEndpointsResponseSuccessCarriesAudioSsrc() {
+    void setupEndpointsResponseSuccessCarriesAudioSsrcAndSrtp() {
+        SrtpParameters srtp = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16], new byte[14]);
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(0x01, SESSION_ID);
         tlv.put(0x02, new byte[] { 0 });
+        tlv.put(0x05, srtp.encode());
         tlv.put(0x07, new byte[] { 0x78, 0x56, 0x34, 0x12 });
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(SetupEndpointsStatus.SUCCESS, response.status());
         assertEquals(0x12345678L, response.audioSsrc());
+        assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, response.audioSrtp().cryptoSuite());
+        assertArrayEquals(srtp.masterKey(), response.audioSrtp().masterKey());
+        assertArrayEquals(srtp.masterSalt(), response.audioSrtp().masterSalt());
+    }
+
+    @Test
+    void setupEndpointsResponseSuccessWithoutSrtpIsRejected() {
+        Map<Integer, byte[]> tlv = new LinkedHashMap<>();
+        tlv.put(0x01, SESSION_ID);
+        tlv.put(0x02, new byte[] { 0 });
+        tlv.put(0x07, new byte[] { 0x78, 0x56, 0x34, 0x12 });
+        byte[] encoded = Tlv8Codec.encode(tlv);
+        assertThrows(IllegalArgumentException.class, () -> SetupEndpointsResponse.decode(encoded));
     }
 
     @Test

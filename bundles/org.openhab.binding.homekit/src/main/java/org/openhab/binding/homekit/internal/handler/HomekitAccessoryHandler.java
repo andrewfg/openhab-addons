@@ -37,6 +37,9 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.BrowserAudioChannel;
+import org.openhab.binding.homekit.internal.camera.BrowserAudioRegistry;
+import org.openhab.binding.homekit.internal.camera.ListenSession;
 import org.openhab.binding.homekit.internal.camera.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
@@ -177,22 +180,27 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * Assets used for camera talk-back (two-way audio)
      */
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final int TALKBACK_PAYLOAD_TYPE = 110;
     private static final SelectedAudioParameters TALKBACK_AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1,
-            false, 24, 20, 110, 0x12345678L, 24, 0.5f, false, 13);
+            false, 24, 20, TALKBACK_PAYLOAD_TYPE, 0x12345678L, 24, 0.5f, false, 13);
     private @Nullable Long talkbackSetupIid = null;
     private @Nullable Long talkbackSelectedIid = null;
     private @Nullable TalkbackReceiver talkbackReceiver = null;
+    private @Nullable ListenSession talkbackListen = null;
+    private @Nullable BrowserAudioChannel talkbackBrowserChannel = null;
+    private final BrowserAudioRegistry browserAudioRegistry;
     private byte[] talkbackSessionId = new byte[16];
 
     public HomekitAccessoryHandler(Thing thing, HomekitTypeProvider typeProvider,
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver) {
+            MacResolver macResolver, BrowserAudioRegistry browserAudioRegistry) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
+        this.browserAudioRegistry = browserAudioRegistry;
     }
 
     /**
@@ -632,12 +640,30 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             if (response.status() != SetupEndpointsStatus.SUCCESS) {
                 throw new IllegalStateException("Camera rejected talk-back setup: " + response.status());
             }
-            writeTlvCharacteristic(aid, selectedIid,
-                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, TALKBACK_AUDIO).encode(),
-                    false);
+            SrtpParameters audioSrtp = response.audioSrtp();
+            if (audioSrtp == null) {
+                throw new IllegalStateException("Camera did not return audio SRTP parameters");
+            }
+            BrowserAudioChannel channel = browserAudioRegistry.create(frame -> {
+                // browser microphone audio is not sent to the camera yet
+            });
+            ListenSession listen = new ListenSession(channel, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE);
+            try {
+                listen.start();
+                writeTlvCharacteristic(aid, selectedIid,
+                        new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, TALKBACK_AUDIO).encode(),
+                        false);
+            } catch (Exception e) {
+                listen.close();
+                browserAudioRegistry.release(channel);
+                throw e;
+            }
             talkbackSessionId = sessionId;
             talkbackReceiver = receiver;
+            talkbackListen = listen;
+            talkbackBrowserChannel = channel;
             ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
+            ThreadPoolManager.getPool(BINDING_ID).submit(listen);
         } catch (Exception e) {
             receiver.close();
             throw e;
@@ -656,6 +682,16 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
         talkbackReceiver = null;
         receiver.close();
+        ListenSession listen = talkbackListen;
+        talkbackListen = null;
+        if (listen != null) {
+            listen.close();
+        }
+        BrowserAudioChannel channel = talkbackBrowserChannel;
+        talkbackBrowserChannel = null;
+        if (channel != null) {
+            browserAudioRegistry.release(channel);
+        }
         Long aid = getAccessoryId();
         Long selectedIid = talkbackSelectedIid;
         if (notifyCamera && aid != null && selectedIid != null) {
