@@ -18,6 +18,7 @@ import java.net.DatagramSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -25,8 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Decrypts the camera's audio with ffmpeg and streams it as 16 kHz PCM to a browser channel. The camera's RTP is
- * relayed by a {@link TalkbackReceiver} to a loopback port that ffmpeg reads through a generated SDP file.
+ * Decrypts the camera's audio with ffmpeg and passes it as 16 kHz PCM to a consumer. The camera's RTP is relayed by a
+ * {@link TalkbackReceiver} to a loopback port that ffmpeg reads through a generated SDP file.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -37,7 +38,7 @@ public class ListenSession implements Runnable {
 
     private static final int BUFFER_SIZE = 4096;
 
-    private final BrowserAudioChannel channel;
+    private final Consumer<byte[]> pcmConsumer;
     private final TalkbackReceiver receiver;
     private final SrtpParameters srtp;
     private final int payloadType;
@@ -47,13 +48,14 @@ public class ListenSession implements Runnable {
     private volatile boolean closed = false;
 
     /**
-     * @param channel the browser channel that receives the decoded PCM
+     * @param pcmConsumer receives each chunk of decoded 16 kHz PCM
      * @param receiver the receiver that already accepts the camera's RTP for this session
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its Opus audio
      */
-    public ListenSession(BrowserAudioChannel channel, TalkbackReceiver receiver, SrtpParameters srtp, int payloadType) {
-        this.channel = channel;
+    public ListenSession(Consumer<byte[]> pcmConsumer, TalkbackReceiver receiver, SrtpParameters srtp,
+            int payloadType) {
+        this.pcmConsumer = pcmConsumer;
         this.receiver = receiver;
         this.srtp = srtp;
         this.payloadType = payloadType;
@@ -79,7 +81,7 @@ public class ListenSession implements Runnable {
     }
 
     /**
-     * Copies decoded PCM from ffmpeg to the browser until ffmpeg ends or {@link #close()} is called.
+     * Copies decoded PCM from ffmpeg to the consumer until ffmpeg ends or {@link #close()} is called.
      */
     @Override
     public void run() {
@@ -93,7 +95,7 @@ public class ListenSession implements Runnable {
             while ((read = pcm.read(buffer)) != -1) {
                 byte[] chunk = new byte[read];
                 System.arraycopy(buffer, 0, chunk, 0, read);
-                channel.sendToBrowser(chunk);
+                pcmConsumer.accept(chunk);
             }
         } catch (IOException e) {
             if (!closed) {
