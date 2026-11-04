@@ -15,12 +15,16 @@ package org.openhab.binding.homekit.internal.camera;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * Receives talk-back RTP datagrams on an ephemeral UDP port and discards them. The payload is not decrypted or
- * played, so this only keeps the camera's sender from targeting an unbound port.
+ * Receives talk-back RTP datagrams on an ephemeral UDP port. Datagrams are discarded unless a local forward target is
+ * set, in which case they are relayed unchanged so that an ffmpeg process can decrypt them. The payload is not
+ * decrypted here.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -31,6 +35,7 @@ public class TalkbackReceiver implements Runnable {
 
     private final DatagramSocket socket;
     private final byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
+    private volatile @Nullable InetSocketAddress forwardTo;
 
     public TalkbackReceiver() throws IOException {
         socket = new DatagramSocket(0);
@@ -41,16 +46,28 @@ public class TalkbackReceiver implements Runnable {
     }
 
     /**
-     * Blocks, discarding received datagrams, until {@link #close()} is called.
+     * Relays subsequent datagrams to the given loopback UDP port. Pass {@code null} to resume discarding them.
+     */
+    public void setForwardPort(@Nullable Integer port) {
+        forwardTo = port == null ? null : new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
+    }
+
+    /**
+     * Blocks, discarding or relaying received datagrams, until {@link #close()} is called.
      */
     @Override
     public void run() {
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
         while (!socket.isClosed()) {
             try {
+                packet.setLength(buffer.length);
                 socket.receive(packet);
+                InetSocketAddress target = forwardTo;
+                if (target != null) {
+                    socket.send(new DatagramPacket(buffer, packet.getLength(), target));
+                }
             } catch (IOException e) {
-                // a closed socket ends the loop; anything else is a transient read failure and is ignored
+                // a closed socket ends the loop; anything else is a transient read or relay failure and is ignored
                 if (socket.isClosed()) {
                     return;
                 }
