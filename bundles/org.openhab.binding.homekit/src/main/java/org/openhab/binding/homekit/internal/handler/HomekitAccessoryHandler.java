@@ -15,7 +15,11 @@ package org.openhab.binding.homekit.internal.handler;
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
 import java.math.BigDecimal;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,18 +37,29 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.camera.SetupEndpointsRequest;
+import org.openhab.binding.homekit.internal.camera.SetupEndpointsResponse;
+import org.openhab.binding.homekit.internal.camera.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.TalkbackReceiver;
 import org.openhab.binding.homekit.internal.discovery.HomekitMdnsDiscoveryParticipant;
 import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
 import org.openhab.binding.homekit.internal.dto.Service;
 import org.openhab.binding.homekit.internal.enums.AccessoryCategory;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.CharacteristicType;
 import org.openhab.binding.homekit.internal.enums.DataFormatType;
 import org.openhab.binding.homekit.internal.enums.ServiceType;
+import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
+import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 import org.openhab.binding.homekit.internal.enums.StatusCode;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
+import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
@@ -92,7 +107,10 @@ import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
 /**
@@ -104,6 +122,7 @@ import com.google.gson.JsonPrimitive;
  * allowing combined control of hue, saturation, brightness, and color temperature.
  *
  * @author Andrew Fiddian-Green - Initial contribution
+ * @author Andrew Fiddian-Green - Camera talk-back channel
  */
 @NonNullByDefault
 public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
@@ -153,6 +172,17 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static final int MIGRATION_DELAY_SECONDS = 1;
     private final AtomicBoolean migrating = new AtomicBoolean(false);
     private final AtomicBoolean disposing = new AtomicBoolean(false);
+
+    /*
+     * Assets used for camera talk-back (two-way audio)
+     */
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SelectedAudioParameters TALKBACK_AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1,
+            false, 24, 20, 110, 0x12345678L, 24, 0.5f, false, 13);
+    private @Nullable Long talkbackSetupIid = null;
+    private @Nullable Long talkbackSelectedIid = null;
+    private @Nullable TalkbackReceiver talkbackReceiver = null;
+    private byte[] talkbackSessionId = new byte[16];
 
     public HomekitAccessoryHandler(Thing thing, HomekitTypeProvider typeProvider,
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
@@ -446,6 +476,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             uniqueChannelsMap.put(CHANNEL_SNAPSHOT, channel);
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
+            findTalkbackCharacteristics(accessory);
+            if (talkbackSetupIid != null && talkbackSelectedIid != null) {
+                Channel talkbackChannel = ChannelBuilder
+                        .create(new ChannelUID(thing.getUID(), CHANNEL_TALKBACK), CoreItemFactory.SWITCH)
+                        .withType(CHANNEL_TYPE_TALKBACK).build();
+                uniqueChannelsMap.put(CHANNEL_TALKBACK, talkbackChannel);
+                logChannelInformation(talkbackChannel);
+            }
         }
 
         String oldLabel = thing.getLabel();
@@ -490,6 +528,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     writeChannel(stopMoveChannel, OnOffType.ON);
                 } else if (readChannel(channel) instanceof Command actualPosition) {
                     writeChannel(channel, actualPosition);
+                }
+            } else if (CHANNEL_TALKBACK.equals(channelUID.getId())) {
+                if (command == OnOffType.ON) {
+                    startTalkback();
+                } else if (command == OnOffType.OFF) {
+                    stopTalkback(true);
                 }
             } else if (channelUID.equals(lightModelClientHSBTypeChannel)) {
                 lightModelHandleCommand(command);
@@ -551,6 +595,142 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
     }
 
+    /**
+     * Starts camera talk-back. The camera is told to send to a local UDP port that discards its audio. This is
+     * idempotent: calling it while a session is active does nothing.
+     *
+     * @throws Exception if the camera does not support talk-back or the exchange fails
+     */
+    private synchronized void startTalkback() throws Exception {
+        if (talkbackReceiver != null) {
+            return;
+        }
+        Long aid = getAccessoryId();
+        Long setupIid = talkbackSetupIid;
+        Long selectedIid = talkbackSelectedIid;
+        if (aid == null || setupIid == null || selectedIid == null) {
+            throw new IllegalStateException("Camera talk-back characteristics not available");
+        }
+        if (!(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
+            throw new IllegalStateException("Camera IP address not configured");
+        }
+        String controllerAddress;
+        try (DatagramSocket probe = new DatagramSocket()) {
+            probe.connect(InetAddress.getByName(ipAddress), 80); // no packets are sent; only selects the local address
+            controllerAddress = probe.getLocalAddress().getHostAddress();
+        }
+        TalkbackReceiver receiver = new TalkbackReceiver();
+        try {
+            byte[] sessionId = new byte[16];
+            RANDOM.nextBytes(sessionId);
+            int port = receiver.getPort();
+            // no video is selected, so the camera never sends to the video endpoint; it reuses the audio port
+            SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, port, port,
+                    randomSrtp(), randomSrtp());
+            SetupEndpointsResponse response = SetupEndpointsResponse
+                    .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
+            if (response.status() != SetupEndpointsStatus.SUCCESS) {
+                throw new IllegalStateException("Camera rejected talk-back setup: " + response.status());
+            }
+            writeTlvCharacteristic(aid, selectedIid,
+                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, TALKBACK_AUDIO).encode(),
+                    false);
+            talkbackSessionId = sessionId;
+            talkbackReceiver = receiver;
+            ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
+        } catch (Exception e) {
+            receiver.close();
+            throw e;
+        }
+    }
+
+    /**
+     * Ends the active camera talk-back session, if any.
+     *
+     * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
+     */
+    private synchronized void stopTalkback(boolean notifyCamera) {
+        TalkbackReceiver receiver = talkbackReceiver;
+        if (receiver == null) {
+            return;
+        }
+        talkbackReceiver = null;
+        receiver.close();
+        Long aid = getAccessoryId();
+        Long selectedIid = talkbackSelectedIid;
+        if (notifyCamera && aid != null && selectedIid != null) {
+            try {
+                writeTlvCharacteristic(aid, selectedIid, new SelectedRtpStreamConfiguration(talkbackSessionId,
+                        SessionCommand.END, TALKBACK_AUDIO).encode(), false);
+            } catch (Exception e) {
+                logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Writes a TLV8 value to a characteristic, optionally requesting the response value back.
+     *
+     * @return the response TLV8 bytes, or an empty array if no response was requested
+     */
+    private byte[] writeTlvCharacteristic(long aid, long iid, byte[] tlv, boolean withResponse) throws Exception {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("aid", aid);
+        entry.addProperty("iid", iid);
+        entry.addProperty("value", Base64.getEncoder().encodeToString(tlv));
+        if (withResponse) {
+            entry.addProperty("r", true);
+        }
+        JsonArray characteristics = new JsonArray();
+        characteristics.add(entry);
+        JsonObject body = new JsonObject();
+        body.add("characteristics", characteristics);
+        String response = writeCharacteristics(GSON.toJson(body));
+        if (!withResponse) {
+            return new byte[0];
+        }
+        JsonObject result = JsonParser.parseString(response).getAsJsonObject().getAsJsonArray("characteristics").get(0)
+                .getAsJsonObject();
+        if (!(result.get("value") instanceof JsonPrimitive value)) {
+            throw new IllegalStateException("Camera returned no value for characteristic " + iid + ": " + result);
+        }
+        return Base64.getDecoder().decode(value.getAsString());
+    }
+
+    private static SrtpParameters randomSrtp() {
+        byte[] key = new byte[16];
+        byte[] salt = new byte[14];
+        RANDOM.nextBytes(key);
+        RANDOM.nextBytes(salt);
+        return new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt);
+    }
+
+    private void findTalkbackCharacteristics(Accessory accessory) {
+        talkbackSetupIid = null;
+        talkbackSelectedIid = null;
+        final List<Service> services = accessory.services;
+        if (services == null) {
+            return;
+        }
+        for (Service service : services) {
+            final List<Characteristic> characteristics = service.characteristics;
+            if (characteristics == null) {
+                continue;
+            }
+            for (Characteristic characteristic : characteristics) {
+                if (characteristic.iid == null) {
+                    continue;
+                }
+                switch (Characteristic.getCharacteristicType(characteristic.type)) {
+                    case SETUP_ENDPOINTS -> talkbackSetupIid = characteristic.iid;
+                    case SELECTED_RTP_STREAM_CONFIGURATION -> talkbackSelectedIid = characteristic.iid;
+                    default -> {
+                    }
+                }
+            }
+        }
+    }
+
     @Override
     public void dispose() {
         disposing.set(true);
@@ -558,6 +738,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         lightModelLinks.clear();
         lightModelClientHSBTypeChannel = null;
         stopMoveChannel = null;
+        stopTalkback(false);
         super.dispose();
     }
 
