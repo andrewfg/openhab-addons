@@ -176,6 +176,14 @@ then
 end
 ```
 
+### Special Talk-back Switch Channel
+
+Camera and video doorbell devices that support two-way audio expose a `talkback` Switch Channel.
+Switching it `ON` asks the camera to open a talk-back audio session, and switching it `OFF` ends the session.
+
+The binding negotiates the session with the camera and listens on a local UDP port.
+Audio received on that port is discarded, and no microphone audio is sent to the camera yet, so the talk-back Channel does not provide working two-way audio.
+
 ## Integration with Apple Home App / Ecosystem
 
 Many HomeKit accessories are able only to be paired with one client.

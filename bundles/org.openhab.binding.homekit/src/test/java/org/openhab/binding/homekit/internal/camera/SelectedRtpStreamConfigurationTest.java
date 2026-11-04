@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+package org.openhab.binding.homekit.internal.camera;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Arrays;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
+
+/**
+ * Tests for {@link SelectedRtpStreamConfiguration} TLV encoding.
+ *
+ * @author Andrew Fiddian-Green - Initial contribution
+ */
+class SelectedRtpStreamConfigurationTest {
+
+    private static final byte[] SESSION_ID = new byte[16];
+    private static final SelectedAudioParameters AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1, false, 24,
+            20, 110, 0x12345678L, 24, 0.5f, false, 13);
+
+    static {
+        Arrays.fill(SESSION_ID, (byte) 0x11);
+    }
+
+    @Test
+    void testStartEncodesSessionControlAndAudio() {
+        Map<Integer, byte[]> root = Tlv8Codec.decode(
+                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
+
+        assertArrayEquals(AUDIO.encode(), root.get(0x02));
+
+        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        assertArrayEquals(SESSION_ID, control.get(0x01));
+        assertArrayEquals(new byte[] { 1 }, control.get(0x02));
+    }
+
+    @Test
+    void testEndEncodesCommandZero() {
+        Map<Integer, byte[]> root = Tlv8Codec.decode(
+                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.END, AUDIO).encode());
+
+        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        assertArrayEquals(new byte[] { 0 }, control.get(0x02));
+    }
+
+    @Test
+    void testReconfigureEncodesCommandTwo() {
+        Map<Integer, byte[]> root = Tlv8Codec.decode(
+                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.RECONFIGURE, AUDIO).encode());
+
+        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        assertArrayEquals(new byte[] { 2 }, control.get(0x02));
+    }
+
+    @Test
+    void testRejectsSessionIdOfWrongLength() {
+        assertThrows(IllegalArgumentException.class, () -> new SelectedRtpStreamConfiguration(new byte[15],
+                SessionCommand.START, AUDIO));
+    }
+}
