@@ -12,12 +12,12 @@
  */
 package org.openhab.binding.homekit.internal.camera;
 
-import static org.openhab.binding.homekit.internal.camera.HomekitAudioSource.FORMAT;
-
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -32,8 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link HomekitAudioSink} sends openHAB audio to a HomeKit camera's speaker. The audio must be native Opus in an Ogg
- * container ({@link HomekitAudioSource#FORMAT}), which is repackaged as SRTP without transcoding. Each
+ * {@link HomekitAudioSink} sends openHAB audio to a HomeKit camera's speaker. The audio must be in one of the
+ * formats that the camera declares, and is repackaged as SRTP without transcoding. Each
  * {@link #process(AudioStream)} call holds the talk-back session for its duration.
  *
  * @author Andrew Fiddian-Green - Initial contribution
@@ -44,10 +44,18 @@ public class HomekitAudioSink implements AudioSink {
     private static final Logger LOGGER = LoggerFactory.getLogger(HomekitAudioSink.class);
 
     private final TalkbackRoute.Host host;
+    private volatile List<HomekitAudioCodec> codecs = List.of();
     private PercentType volume = new PercentType(100);
 
     public HomekitAudioSink(TalkbackRoute.Host host) {
         this.host = host;
+    }
+
+    /**
+     * Sets the codecs that the camera declares, which determine the formats this sink accepts.
+     */
+    public void setCodecs(List<HomekitAudioCodec> codecs) {
+        this.codecs = List.copyOf(codecs);
     }
 
     @Override
@@ -62,7 +70,7 @@ public class HomekitAudioSink implements AudioSink {
 
     @Override
     public Set<AudioFormat> getSupportedFormats() {
-        return Set.of(FORMAT);
+        return codecs.stream().map(HomekitAudioSource::formatOf).collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
@@ -79,21 +87,20 @@ public class HomekitAudioSink implements AudioSink {
         if (audioStream == null) {
             return;
         }
-        if (!FORMAT.equals(audioStream.getFormat())) {
-            throw new UnsupportedAudioFormatException("Unsupported audio format", audioStream.getFormat());
-        }
+        HomekitAudioCodec codec = HomekitAudioSource.codecFor(codecs, audioStream.getFormat()).orElseThrow(
+                () -> new UnsupportedAudioFormatException("Unsupported audio format", audioStream.getFormat()));
         TalkbackRoute route;
         try {
-            route = host.acquire();
+            route = host.acquire(codec);
         } catch (AudioException e) {
             throw new UnsupportedAudioStreamException("Camera talk-back unavailable", audioStream.getClass(), e);
         }
         try {
             Process process = new ProcessBuilder(FfmpegAudioBridge.talkCommand(route.cameraHost(),
-                    route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc()))
+                    route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc(), codec))
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            try (OutputStream ogg = process.getOutputStream()) {
-                audioStream.transferTo(ogg);
+            try (OutputStream output = process.getOutputStream()) {
+                audioStream.transferTo(output);
             } catch (IOException e) {
                 LOGGER.debug("Camera talk-back stream ended: {}", e.getMessage());
             } finally {
