@@ -606,335 +606,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
     }
 
-    /**
-     * Starts camera talk-back. The camera is told to send to a local UDP port that discards its audio. This is
-     * idempotent: calling it while a session is active does nothing.
-     *
-     * @throws Exception if the camera does not support talk-back or the exchange fails
-     */
-    private synchronized void startTalkback(HomekitAudioCodec codec) throws Exception {
-        if (talkbackReceiver != null) {
-            return;
-        }
-        Long aid = getAccessoryId();
-        Long setupIid = talkbackSetupIid;
-        Long selectedIid = talkbackSelectedIid;
-        if (aid == null || setupIid == null || selectedIid == null) {
-            throw new IllegalStateException("Camera talk-back characteristics not available");
-        }
-        if (!(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
-            throw new IllegalStateException("Camera IP address not configured");
-        }
-        String controllerAddress;
-        try (DatagramSocket probe = new DatagramSocket()) {
-            probe.connect(InetAddress.getByName(ipAddress), 80); // no packets are sent; only selects the local address
-            controllerAddress = probe.getLocalAddress().getHostAddress();
-        }
-        TalkbackReceiver receiver = new TalkbackReceiver();
-        try {
-            byte[] sessionId = new byte[16];
-            RANDOM.nextBytes(sessionId);
-            int port = receiver.getPort();
-            // no video is selected, so the camera never sends to the video endpoint; it reuses the audio port
-            SrtpParameters talkSrtp = randomSrtp();
-            SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, port, port,
-                    randomSrtp(), talkSrtp);
-            SetupEndpointsResponse response = SetupEndpointsResponse
-                    .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
-            if (response.status() != SetupEndpointsStatus.SUCCESS) {
-                throw new IllegalStateException("Camera rejected talk-back setup: " + response.status());
-            }
-            SrtpParameters audioSrtp = response.audioSrtp();
-            if (audioSrtp == null) {
-                throw new IllegalStateException("Camera did not return audio SRTP parameters");
-            }
-            Integer cameraAudioPort = response.audioPort();
-            if (cameraAudioPort == null) {
-                throw new IllegalStateException("Camera did not return an audio port");
-            }
-            int talkLocalPort;
-            try (DatagramSocket talkPort = new DatagramSocket()) {
-                talkLocalPort = talkPort.getLocalPort();
-            }
-            TalkbackRoute route = new TalkbackRoute(ipAddress, cameraAudioPort, talkLocalPort, talkSrtp, TALKBACK_SSRC,
-                    TALKBACK_PAYLOAD_TYPE, codec);
-            writeTlvCharacteristic(aid, selectedIid,
-                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedAudio(codec)).encode(),
-                    false);
-            talkbackSessionId = sessionId;
-            talkbackCodec = codec;
-            talkbackReceiver = receiver;
-            talkbackAudioSrtp = audioSrtp;
-            talkbackRoute = route;
-            ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
-        } catch (Exception e) {
-            receiver.close();
-            throw e;
-        }
-    }
-
-    /**
-     * Ends the active camera talk-back session, if any.
-     *
-     * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
-     */
-    private synchronized void stopTalkback(boolean notifyCamera) {
-        TalkbackReceiver receiver = talkbackReceiver;
-        if (receiver == null) {
-            return;
-        }
-        talkbackReceiver = null;
-        receiver.close();
-        ListenSession listen = talkbackListen;
-        talkbackListen = null;
-        talkbackAudioSrtp = null;
-        if (listen != null) {
-            listen.close();
-        }
-        talkbackRoute = null;
-        HomekitAudioCodec codec = talkbackCodec;
-        talkbackCodec = null;
-        Long aid = getAccessoryId();
-        Long selectedIid = talkbackSelectedIid;
-        if (notifyCamera && codec != null && aid != null && selectedIid != null) {
-            try {
-                writeTlvCharacteristic(aid, selectedIid,
-                        new SelectedRtpStreamConfiguration(talkbackSessionId, SessionCommand.END, selectedAudio(codec))
-                                .encode(),
-                        false);
-            } catch (Exception e) {
-                logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Talk-back runs while any holder needs it: an open listen stream or a talk process. The first holder starts the
-     * session and the last holder ends it.
-     */
-    private synchronized void acquireTalkbackHold(HomekitAudioCodec codec) throws Exception {
-        if (talkbackHolds == 0) {
-            startTalkback(codec);
-        } else if (!codec.equals(talkbackCodec)) {
-            throw new IllegalStateException("Camera talk-back is active with " + talkbackCodec);
-        }
-        talkbackHolds++;
-    }
-
-    private synchronized void releaseTalkbackHold() {
-        if (talkbackHolds > 0 && --talkbackHolds == 0) {
-            stopTalkback(true);
-        }
-    }
-
-    /**
-     * Registers the openHAB audio source and sink. Only called once the camera exposes talk-back.
-     */
-    private synchronized void registerAudioServices() {
-        BundleContext context = bundle.getBundleContext();
-        if (audioSourceRegistration != null || context == null) {
-            return;
-        }
-        audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
-        audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
-    }
-
-    private synchronized void unregisterAudioServices() {
-        ServiceRegistration<?> sink = audioSinkRegistration;
-        audioSinkRegistration = null;
-        if (sink != null) {
-            sink.unregister();
-        }
-        ServiceRegistration<?> source = audioSourceRegistration;
-        audioSourceRegistration = null;
-        if (source != null) {
-            source.unregister();
-        }
-    }
-
-    /**
-     * Replaces the running listen ffmpeg with a fresh one. Ogg Opus can only be decoded from its header pages, so each
-     * stream that opens restarts ffmpeg to emit them. The camera session is not changed.
-     */
-    private synchronized void startListen(HomekitAudioCodec codec) throws IOException {
-        TalkbackReceiver receiver = talkbackReceiver;
-        SrtpParameters audioSrtp = talkbackAudioSrtp;
-        if (receiver == null || audioSrtp == null || !codec.equals(talkbackCodec)) {
-            throw new IllegalStateException("Camera talk-back is not active with " + codec);
-        }
-        stopListen();
-        ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE,
-                codec);
-        listen.start();
-        talkbackListen = listen;
-        ThreadPoolManager.getPool(BINDING_ID).submit(listen);
-    }
-
-    private synchronized void stopListen() {
-        ListenSession listen = talkbackListen;
-        talkbackListen = null;
-        if (listen != null) {
-            listen.close();
-        }
-    }
-
-    /**
-     * Opens the camera's audio for one openHAB stream. Each open stream holds talk-back, and the listen process runs
-     * while at least one stream is open.
-     */
-    private synchronized void openListenStream(HomekitAudioCodec codec) throws Exception {
-        acquireTalkbackHold(codec);
-        try {
-            startListen(codec);
-        } catch (IOException | RuntimeException e) {
-            releaseTalkbackHold();
-            throw e;
-        }
-        listenStreams++;
-    }
-
-    private synchronized void closeListenStream() {
-        if (listenStreams > 0 && --listenStreams == 0) {
-            stopListen();
-        }
-        releaseTalkbackHold();
-    }
-
-    /**
-     * Holds talk-back open while an openHAB audio stream from the camera source is open.
-     */
-    private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
-        @Override
-        public void streamOpening(HomekitAudioCodec codec) throws AudioException {
-            try {
-                openListenStream(codec);
-            } catch (Exception e) {
-                throw new AudioException("Camera audio unavailable: " + e.getMessage(), e);
-            }
-        }
-
-        @Override
-        public void streamClosed() {
-            closeListenStream();
-        }
-    }
-
-    /**
-     * Holds talk-back open while the talk process of an openHAB audio sink runs.
-     */
-    private final class TalkbackHost implements TalkbackRoute.Host {
-        @Override
-        public TalkbackRoute acquire(HomekitAudioCodec codec) throws AudioException {
-            try {
-                acquireTalkbackHold(codec);
-            } catch (Exception e) {
-                throw new AudioException("Camera talk-back unavailable: " + e.getMessage(), e);
-            }
-            TalkbackRoute route = talkbackRoute;
-            if (route == null) {
-                releaseTalkbackHold();
-                throw new AudioException("Camera talk-back route not available");
-            }
-            return route;
-        }
-
-        @Override
-        public void release() {
-            releaseTalkbackHold();
-        }
-    }
-
-    /**
-     * Writes a TLV8 value to a characteristic, optionally requesting the response value back.
-     *
-     * @return the response TLV8 bytes, or an empty array if no response was requested
-     */
-    private byte[] writeTlvCharacteristic(long aid, long iid, byte[] tlv, boolean withResponse) throws Exception {
-        JsonObject entry = new JsonObject();
-        entry.addProperty("aid", aid);
-        entry.addProperty("iid", iid);
-        entry.addProperty("value", Base64.getEncoder().encodeToString(tlv));
-        if (withResponse) {
-            entry.addProperty("r", true);
-        }
-        JsonArray characteristics = new JsonArray();
-        characteristics.add(entry);
-        JsonObject body = new JsonObject();
-        body.add("characteristics", characteristics);
-        String response = writeCharacteristics(GSON.toJson(body));
-        if (!withResponse) {
-            return new byte[0];
-        }
-        JsonObject result = JsonParser.parseString(response).getAsJsonObject().getAsJsonArray("characteristics").get(0)
-                .getAsJsonObject();
-        if (!(result.get("value") instanceof JsonPrimitive value)) {
-            throw new IllegalStateException("Camera returned no value for characteristic " + iid + ": " + result);
-        }
-        return Base64.getDecoder().decode(value.getAsString());
-    }
-
-    private static SrtpParameters randomSrtp() {
-        byte[] key = new byte[16];
-        byte[] salt = new byte[14];
-        RANDOM.nextBytes(key);
-        RANDOM.nextBytes(salt);
-        return new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt);
-    }
-
-    private void findTalkbackCharacteristics(Accessory accessory) {
-        talkbackSetupIid = null;
-        talkbackSelectedIid = null;
-        talkbackCodecs = List.of();
-        final List<Service> services = accessory.services;
-        if (services == null) {
-            return;
-        }
-        for (Service service : services) {
-            final List<Characteristic> characteristics = service.characteristics;
-            if (characteristics == null) {
-                continue;
-            }
-            for (Characteristic characteristic : characteristics) {
-                if (characteristic.iid == null) {
-                    continue;
-                }
-                switch (Characteristic.getCharacteristicType(characteristic.type)) {
-                    case SETUP_ENDPOINTS -> talkbackSetupIid = characteristic.iid;
-                    case SELECTED_RTP_STREAM_CONFIGURATION -> talkbackSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION -> talkbackCodecs = decodeSupportedAudio(characteristic.value);
-                    default -> {
-                    }
-                }
-            }
-        }
-        if (isTalkbackAvailable()) {
-            audioSource.setCodecs(talkbackCodecs);
-            audioSink.setCodecs(talkbackCodecs);
-            registerAudioServices();
-        }
-    }
-
-    private boolean isTalkbackAvailable() {
-        return talkbackSetupIid != null && talkbackSelectedIid != null && !talkbackCodecs.isEmpty();
-    }
-
-    private static SelectedAudioParameters selectedAudio(HomekitAudioCodec codec) {
-        return new SelectedAudioParameters(codec.codec(), codec.channels(), false, codec.sampleRateKhz(), 20,
-                TALKBACK_PAYLOAD_TYPE, TALKBACK_SSRC, codec.maxBitrateKbps(), 0.5f, false, 13);
-    }
-
-    private List<HomekitAudioCodec> decodeSupportedAudio(@Nullable JsonElement value) {
-        if (value instanceof JsonPrimitive primitive) {
-            try {
-                byte[] tlv = Base64.getDecoder().decode(primitive.getAsString());
-                return HomekitAudioCodec.decodeSupportedConfiguration(tlv);
-            } catch (IllegalArgumentException e) {
-                logger.debug("{} invalid supported audio configuration: {}", thing.getUID(), e.getMessage());
-            }
-        }
-        return List.of();
-    }
-
     @Override
     public void dispose() {
         disposing.set(true);
@@ -1732,5 +1403,336 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         // prevent un-pairing (which would erase the pairing keys) while migration is in progress
         return migrating.get() ? ACTION_RESULT_ERROR_FORMAT.formatted("auto-migration in progress")
                 : super.unpairInner();
+    }
+
+    // ========================= Camera talk-back support =================================
+
+    /**
+     * Starts camera talk-back. The camera is told to send to a local UDP port. This is
+     * idempotent: calling it while a session is active does nothing.
+     *
+     * @throws Exception if the camera does not support talk-back or the exchange fails
+     */
+    private synchronized void startTalkback(HomekitAudioCodec codec) throws Exception {
+        if (talkbackReceiver != null) {
+            return;
+        }
+        Long aid = getAccessoryId();
+        Long setupIid = talkbackSetupIid;
+        Long selectedIid = talkbackSelectedIid;
+        if (aid == null || setupIid == null || selectedIid == null) {
+            throw new IllegalStateException("Camera talk-back characteristics not available");
+        }
+        if (!(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
+            throw new IllegalStateException("Camera IP address not configured");
+        }
+        String controllerAddress;
+        try (DatagramSocket probe = new DatagramSocket()) {
+            probe.connect(InetAddress.getByName(ipAddress), 80); // no packets are sent; only selects the local address
+            controllerAddress = probe.getLocalAddress().getHostAddress();
+        }
+        TalkbackReceiver receiver = new TalkbackReceiver();
+        try {
+            byte[] sessionId = new byte[16];
+            RANDOM.nextBytes(sessionId);
+            int port = receiver.getPort();
+            // no video is selected, so the camera never sends to the video endpoint; it reuses the audio port
+            SrtpParameters talkSrtp = randomSrtp();
+            SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, port, port,
+                    randomSrtp(), talkSrtp);
+            SetupEndpointsResponse response = SetupEndpointsResponse
+                    .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
+            if (response.status() != SetupEndpointsStatus.SUCCESS) {
+                throw new IllegalStateException("Camera rejected talk-back setup: " + response.status());
+            }
+            SrtpParameters audioSrtp = response.audioSrtp();
+            if (audioSrtp == null) {
+                throw new IllegalStateException("Camera did not return audio SRTP parameters");
+            }
+            Integer cameraAudioPort = response.audioPort();
+            if (cameraAudioPort == null) {
+                throw new IllegalStateException("Camera did not return an audio port");
+            }
+            int talkLocalPort;
+            try (DatagramSocket talkPort = new DatagramSocket()) {
+                talkLocalPort = talkPort.getLocalPort();
+            }
+            TalkbackRoute route = new TalkbackRoute(ipAddress, cameraAudioPort, talkLocalPort, talkSrtp, TALKBACK_SSRC,
+                    TALKBACK_PAYLOAD_TYPE, codec);
+            writeTlvCharacteristic(aid, selectedIid,
+                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedAudio(codec)).encode(),
+                    false);
+            talkbackSessionId = sessionId;
+            talkbackCodec = codec;
+            talkbackReceiver = receiver;
+            talkbackAudioSrtp = audioSrtp;
+            talkbackRoute = route;
+            ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
+        } catch (Exception e) {
+            receiver.close();
+            throw e;
+        }
+    }
+
+    /**
+     * Ends the active camera talk-back session, if any.
+     *
+     * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
+     */
+    private synchronized void stopTalkback(boolean notifyCamera) {
+        TalkbackReceiver receiver = talkbackReceiver;
+        if (receiver == null) {
+            return;
+        }
+        talkbackReceiver = null;
+        receiver.close();
+        ListenSession listen = talkbackListen;
+        talkbackListen = null;
+        talkbackAudioSrtp = null;
+        if (listen != null) {
+            listen.close();
+        }
+        talkbackRoute = null;
+        HomekitAudioCodec codec = talkbackCodec;
+        talkbackCodec = null;
+        Long aid = getAccessoryId();
+        Long selectedIid = talkbackSelectedIid;
+        if (notifyCamera && codec != null && aid != null && selectedIid != null) {
+            try {
+                writeTlvCharacteristic(aid, selectedIid,
+                        new SelectedRtpStreamConfiguration(talkbackSessionId, SessionCommand.END, selectedAudio(codec))
+                                .encode(),
+                        false);
+            } catch (Exception e) {
+                logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Talk-back runs while any holder needs it: an open listen stream or a talk process. The first holder starts the
+     * session and the last holder ends it.
+     */
+    private synchronized void acquireTalkbackHold(HomekitAudioCodec codec) throws Exception {
+        if (talkbackHolds == 0) {
+            startTalkback(codec);
+        } else if (!codec.equals(talkbackCodec)) {
+            throw new IllegalStateException("Camera talk-back is active with " + talkbackCodec);
+        }
+        talkbackHolds++;
+    }
+
+    private synchronized void releaseTalkbackHold() {
+        if (talkbackHolds > 0 && --talkbackHolds == 0) {
+            stopTalkback(true);
+        }
+    }
+
+    /**
+     * Registers the openHAB audio source and sink. Only called once the camera exposes talk-back.
+     */
+    private synchronized void registerAudioServices() {
+        BundleContext context = bundle.getBundleContext();
+        if (audioSourceRegistration != null || context == null) {
+            return;
+        }
+        audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
+        audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
+    }
+
+    private synchronized void unregisterAudioServices() {
+        ServiceRegistration<?> sink = audioSinkRegistration;
+        audioSinkRegistration = null;
+        if (sink != null) {
+            sink.unregister();
+        }
+        ServiceRegistration<?> source = audioSourceRegistration;
+        audioSourceRegistration = null;
+        if (source != null) {
+            source.unregister();
+        }
+    }
+
+    /**
+     * Replaces the running listen ffmpeg with a fresh one. Ogg Opus can only be decoded from its header pages, so each
+     * stream that opens restarts ffmpeg to emit them. The camera session is not changed.
+     */
+    private synchronized void startListen(HomekitAudioCodec codec) throws IOException {
+        TalkbackReceiver receiver = talkbackReceiver;
+        SrtpParameters audioSrtp = talkbackAudioSrtp;
+        if (receiver == null || audioSrtp == null || !codec.equals(talkbackCodec)) {
+            throw new IllegalStateException("Camera talk-back is not active with " + codec);
+        }
+        stopListen();
+        ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE,
+                codec);
+        listen.start();
+        talkbackListen = listen;
+        ThreadPoolManager.getPool(BINDING_ID).submit(listen);
+    }
+
+    private synchronized void stopListen() {
+        ListenSession listen = talkbackListen;
+        talkbackListen = null;
+        if (listen != null) {
+            listen.close();
+        }
+    }
+
+    /**
+     * Opens the camera's audio for one openHAB stream. Each open stream holds talk-back, and the listen process runs
+     * while at least one stream is open.
+     */
+    private synchronized void openListenStream(HomekitAudioCodec codec) throws Exception {
+        acquireTalkbackHold(codec);
+        try {
+            startListen(codec);
+        } catch (IOException | RuntimeException e) {
+            releaseTalkbackHold();
+            throw e;
+        }
+        listenStreams++;
+    }
+
+    private synchronized void closeListenStream() {
+        if (listenStreams > 0 && --listenStreams == 0) {
+            stopListen();
+        }
+        releaseTalkbackHold();
+    }
+
+    /**
+     * Holds talk-back open while an openHAB audio stream from the camera source is open.
+     */
+    private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
+        @Override
+        public void streamOpening(HomekitAudioCodec codec) throws AudioException {
+            try {
+                openListenStream(codec);
+            } catch (Exception e) {
+                throw new AudioException("Camera audio unavailable: " + e.getMessage(), e);
+            }
+        }
+
+        @Override
+        public void streamClosed() {
+            closeListenStream();
+        }
+    }
+
+    /**
+     * Holds talk-back open while the talk process of an openHAB audio sink runs.
+     */
+    private final class TalkbackHost implements TalkbackRoute.Host {
+        @Override
+        public TalkbackRoute acquire(HomekitAudioCodec codec) throws AudioException {
+            try {
+                acquireTalkbackHold(codec);
+            } catch (Exception e) {
+                throw new AudioException("Camera talk-back unavailable: " + e.getMessage(), e);
+            }
+            TalkbackRoute route = talkbackRoute;
+            if (route == null) {
+                releaseTalkbackHold();
+                throw new AudioException("Camera talk-back route not available");
+            }
+            return route;
+        }
+
+        @Override
+        public void release() {
+            releaseTalkbackHold();
+        }
+    }
+
+    /**
+     * Writes a TLV8 value to a characteristic, optionally requesting the response value back.
+     *
+     * @return the response TLV8 bytes, or an empty array if no response was requested
+     */
+    private byte[] writeTlvCharacteristic(long aid, long iid, byte[] tlv, boolean withResponse) throws Exception {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("aid", aid);
+        entry.addProperty("iid", iid);
+        entry.addProperty("value", Base64.getEncoder().encodeToString(tlv));
+        if (withResponse) {
+            entry.addProperty("r", true);
+        }
+        JsonArray characteristics = new JsonArray();
+        characteristics.add(entry);
+        JsonObject body = new JsonObject();
+        body.add("characteristics", characteristics);
+        String response = writeCharacteristics(GSON.toJson(body));
+        if (!withResponse) {
+            return new byte[0];
+        }
+        JsonObject result = JsonParser.parseString(response).getAsJsonObject().getAsJsonArray("characteristics").get(0)
+                .getAsJsonObject();
+        if (!(result.get("value") instanceof JsonPrimitive value)) {
+            throw new IllegalStateException("Camera returned no value for characteristic " + iid + ": " + result);
+        }
+        return Base64.getDecoder().decode(value.getAsString());
+    }
+
+    private static SrtpParameters randomSrtp() {
+        byte[] key = new byte[16];
+        byte[] salt = new byte[14];
+        RANDOM.nextBytes(key);
+        RANDOM.nextBytes(salt);
+        return new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt);
+    }
+
+    private void findTalkbackCharacteristics(Accessory accessory) {
+        talkbackSetupIid = null;
+        talkbackSelectedIid = null;
+        talkbackCodecs = List.of();
+        final List<Service> services = accessory.services;
+        if (services == null) {
+            return;
+        }
+        for (Service service : services) {
+            final List<Characteristic> characteristics = service.characteristics;
+            if (characteristics == null) {
+                continue;
+            }
+            for (Characteristic characteristic : characteristics) {
+                if (characteristic.iid == null) {
+                    continue;
+                }
+                switch (Characteristic.getCharacteristicType(characteristic.type)) {
+                    case SETUP_ENDPOINTS -> talkbackSetupIid = characteristic.iid;
+                    case SELECTED_RTP_STREAM_CONFIGURATION -> talkbackSelectedIid = characteristic.iid;
+                    case SUPPORTED_AUDIO_CONFIGURATION -> talkbackCodecs = decodeSupportedAudio(characteristic.value);
+                    default -> {
+                    }
+                }
+            }
+        }
+        if (isTalkbackAvailable()) {
+            audioSource.setCodecs(talkbackCodecs);
+            audioSink.setCodecs(talkbackCodecs);
+            registerAudioServices();
+        }
+    }
+
+    private boolean isTalkbackAvailable() {
+        return talkbackSetupIid != null && talkbackSelectedIid != null && !talkbackCodecs.isEmpty();
+    }
+
+    private static SelectedAudioParameters selectedAudio(HomekitAudioCodec codec) {
+        return new SelectedAudioParameters(codec.codec(), codec.channels(), false, codec.sampleRateKhz(), 20,
+                TALKBACK_PAYLOAD_TYPE, TALKBACK_SSRC, codec.maxBitrateKbps(), 0.5f, false, 13);
+    }
+
+    private List<HomekitAudioCodec> decodeSupportedAudio(@Nullable JsonElement value) {
+        if (value instanceof JsonPrimitive primitive) {
+            try {
+                byte[] tlv = Base64.getDecoder().decode(primitive.getAsString());
+                return HomekitAudioCodec.decodeSupportedConfiguration(tlv);
+            } catch (IllegalArgumentException e) {
+                logger.debug("{} invalid supported audio configuration: {}", thing.getUID(), e.getMessage());
+            }
+        }
+        return List.of();
     }
 }
