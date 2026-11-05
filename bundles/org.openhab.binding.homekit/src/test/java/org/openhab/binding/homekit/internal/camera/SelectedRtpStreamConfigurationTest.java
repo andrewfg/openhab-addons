@@ -18,7 +18,9 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration.SessionCommand;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 

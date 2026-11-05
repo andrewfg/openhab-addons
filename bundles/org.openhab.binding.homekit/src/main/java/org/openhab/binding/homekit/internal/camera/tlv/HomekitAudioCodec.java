@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.camera.tlv;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,8 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * One audio codec configuration that a HomeKit camera declares it can send and receive, as found in its
- * SupportedAudioStreamConfiguration characteristic.
+ * An audio codec configuration that a HomeKit camera declares it can send and receive,
+ * as found in its SupportedAudioStreamConfiguration characteristic.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */

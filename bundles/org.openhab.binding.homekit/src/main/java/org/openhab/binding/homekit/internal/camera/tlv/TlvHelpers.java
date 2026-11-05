@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.camera.tlv;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -19,15 +19,15 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * Little-endian value helpers for HomeKit camera TLV8 payloads. Numeric TLV values are little-endian per the HAP
- * specification.
+ * Little-endian value helpers for HomeKit camera TLV8 payloads.
+ * Numeric TLV values are little-endian per the HAP specification.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-final class CameraTlv {
+final class TlvHelpers {
 
-    private CameraTlv() {
+    private TlvHelpers() {
     }
 
     static byte[] u8(int value) {

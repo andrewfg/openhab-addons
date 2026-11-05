@@ -20,6 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
+import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;

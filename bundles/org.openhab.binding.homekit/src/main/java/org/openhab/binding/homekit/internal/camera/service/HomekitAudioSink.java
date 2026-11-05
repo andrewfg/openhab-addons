@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.camera.service;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.AudioTalkRoute;
+import org.openhab.binding.homekit.internal.camera.FfmpegAudioBridge;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
 import org.openhab.core.audio.AudioException;
 import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioSink;
@@ -43,11 +46,11 @@ public class HomekitAudioSink implements AudioSink {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HomekitAudioSink.class);
 
-    private final TalkbackRoute.Host host;
+    private final AudioTalkRoute.Host host;
     private volatile List<HomekitAudioCodec> codecs = List.of();
     private PercentType volume = new PercentType(100);
 
-    public HomekitAudioSink(TalkbackRoute.Host host) {
+    public HomekitAudioSink(AudioTalkRoute.Host host) {
         this.host = host;
     }
 
@@ -89,7 +92,7 @@ public class HomekitAudioSink implements AudioSink {
         }
         HomekitAudioCodec codec = HomekitAudioSource.codecFor(codecs, audioStream.getFormat()).orElseThrow(
                 () -> new UnsupportedAudioFormatException("Unsupported audio format", audioStream.getFormat()));
-        TalkbackRoute route;
+        AudioTalkRoute route;
         try {
             route = host.acquire(codec);
         } catch (AudioException e) {

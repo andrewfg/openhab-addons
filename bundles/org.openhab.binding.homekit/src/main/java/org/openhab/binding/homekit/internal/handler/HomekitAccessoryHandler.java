@@ -39,18 +39,18 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.HomekitAudioCodec;
-import org.openhab.binding.homekit.internal.camera.HomekitAudioSink;
-import org.openhab.binding.homekit.internal.camera.HomekitAudioSource;
-import org.openhab.binding.homekit.internal.camera.ListenSession;
-import org.openhab.binding.homekit.internal.camera.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration;
-import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
-import org.openhab.binding.homekit.internal.camera.SetupEndpointsRequest;
-import org.openhab.binding.homekit.internal.camera.SetupEndpointsResponse;
-import org.openhab.binding.homekit.internal.camera.SrtpParameters;
-import org.openhab.binding.homekit.internal.camera.TalkbackReceiver;
-import org.openhab.binding.homekit.internal.camera.TalkbackRoute;
+import org.openhab.binding.homekit.internal.camera.AudioListenSession;
+import org.openhab.binding.homekit.internal.camera.AudioTalkReceiver;
+import org.openhab.binding.homekit.internal.camera.AudioTalkRoute;
+import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSink;
+import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSource;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
+import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.discovery.HomekitMdnsDiscoveryParticipant;
 import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
@@ -194,13 +194,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable HomekitAudioCodec talkbackCodec = null;
     private @Nullable Long talkbackSetupIid = null;
     private @Nullable Long talkbackSelectedIid = null;
-    private @Nullable TalkbackReceiver talkbackReceiver = null;
-    private @Nullable ListenSession talkbackListen = null;
+    private @Nullable AudioTalkReceiver talkbackReceiver = null;
+    private @Nullable AudioListenSession talkbackListen = null;
     private @Nullable SrtpParameters talkbackAudioSrtp = null;
-    private volatile @Nullable TalkbackRoute talkbackRoute = null;
+    private volatile @Nullable AudioTalkRoute talkbackRoute = null;
     private byte[] talkbackSessionId = new byte[16];
     private final Bundle bundle;
-    private final HomekitAudioSource audioSource = new HomekitAudioSource(new TalkbackHoldListener());
+    private final HomekitAudioSource audioSource = new HomekitAudioSource(new SourceListener());
     private final HomekitAudioSink audioSink = new HomekitAudioSink(new TalkbackHost());
     private @Nullable ServiceRegistration<?> audioSourceRegistration = null;
     private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
@@ -1431,7 +1431,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             probe.connect(InetAddress.getByName(ipAddress), 80); // no packets are sent; only selects the local address
             controllerAddress = probe.getLocalAddress().getHostAddress();
         }
-        TalkbackReceiver receiver = new TalkbackReceiver();
+        AudioTalkReceiver receiver = new AudioTalkReceiver();
         try {
             byte[] sessionId = new byte[16];
             RANDOM.nextBytes(sessionId);
@@ -1457,8 +1457,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             try (DatagramSocket talkPort = new DatagramSocket()) {
                 talkLocalPort = talkPort.getLocalPort();
             }
-            TalkbackRoute route = new TalkbackRoute(ipAddress, cameraAudioPort, talkLocalPort, talkSrtp, TALKBACK_SSRC,
-                    TALKBACK_PAYLOAD_TYPE, codec);
+            AudioTalkRoute route = new AudioTalkRoute(ipAddress, cameraAudioPort, talkLocalPort, talkSrtp,
+                    TALKBACK_SSRC, TALKBACK_PAYLOAD_TYPE, codec);
             writeTlvCharacteristic(aid, selectedIid,
                     new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedAudio(codec)).encode(),
                     false);
@@ -1480,13 +1480,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
      */
     private synchronized void stopTalkback(boolean notifyCamera) {
-        TalkbackReceiver receiver = talkbackReceiver;
+        AudioTalkReceiver receiver = talkbackReceiver;
         if (receiver == null) {
             return;
         }
         talkbackReceiver = null;
         receiver.close();
-        ListenSession listen = talkbackListen;
+        AudioListenSession listen = talkbackListen;
         talkbackListen = null;
         talkbackAudioSrtp = null;
         if (listen != null) {
@@ -1554,25 +1554,26 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Replaces the running listen ffmpeg with a fresh one. Ogg Opus can only be decoded from its header pages, so each
-     * stream that opens restarts ffmpeg to emit them. The camera session is not changed.
+     * Replaces the running listen ffmpeg with a fresh one.
+     * Ogg Opus can only be decoded from its header pages, so each stream that opens restarts ffmpeg to emit them.
+     * The camera session is not changed.
      */
     private synchronized void startListen(HomekitAudioCodec codec) throws IOException {
-        TalkbackReceiver receiver = talkbackReceiver;
+        AudioTalkReceiver receiver = talkbackReceiver;
         SrtpParameters audioSrtp = talkbackAudioSrtp;
         if (receiver == null || audioSrtp == null || !codec.equals(talkbackCodec)) {
             throw new IllegalStateException("Camera talk-back is not active with " + codec);
         }
         stopListen();
-        ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE,
-                codec);
+        AudioListenSession listen = new AudioListenSession(audioSource::publish, receiver, audioSrtp,
+                TALKBACK_PAYLOAD_TYPE, codec);
         listen.start();
         talkbackListen = listen;
         ThreadPoolManager.getPool(BINDING_ID).submit(listen);
     }
 
     private synchronized void stopListen() {
-        ListenSession listen = talkbackListen;
+        AudioListenSession listen = talkbackListen;
         talkbackListen = null;
         if (listen != null) {
             listen.close();
@@ -1602,9 +1603,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Holds talk-back open while an openHAB audio stream from the camera source is open.
+     * 
      */
-    private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
+    private final class SourceListener implements HomekitAudioSource.Listener {
         @Override
         public void streamOpening(HomekitAudioCodec codec) throws AudioException {
             try {
@@ -1623,15 +1624,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * Holds talk-back open while the talk process of an openHAB audio sink runs.
      */
-    private final class TalkbackHost implements TalkbackRoute.Host {
+    private final class TalkbackHost implements AudioTalkRoute.Host {
         @Override
-        public TalkbackRoute acquire(HomekitAudioCodec codec) throws AudioException {
+        public AudioTalkRoute acquire(HomekitAudioCodec codec) throws AudioException {
             try {
                 acquireTalkbackHold(codec);
             } catch (Exception e) {
                 throw new AudioException("Camera talk-back unavailable: " + e.getMessage(), e);
             }
-            TalkbackRoute route = talkbackRoute;
+            AudioTalkRoute route = talkbackRoute;
             if (route == null) {
                 releaseTalkbackHold();
                 throw new AudioException("Camera talk-back route not available");

@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link TalkbackReceiver}.
+ * Tests for {@link AudioTalkReceiver}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -37,7 +37,7 @@ class TalkbackReceiverTest {
 
     @Test
     void testDiscardsDatagramsAndStopsOnClose() throws Exception {
-        TalkbackReceiver receiver = new TalkbackReceiver();
+        AudioTalkReceiver receiver = new AudioTalkReceiver();
         assertTrue(receiver.getPort() > 0);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -62,7 +62,7 @@ class TalkbackReceiverTest {
 
     @Test
     void testRelaysDatagramsToForwardPortWhenSet() throws Exception {
-        TalkbackReceiver receiver = new TalkbackReceiver();
+        AudioTalkReceiver receiver = new AudioTalkReceiver();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress());
                 DatagramSocket sender = new DatagramSocket()) {

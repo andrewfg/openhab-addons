@@ -18,17 +18,19 @@ import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
- * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes. ffmpeg never decodes
- * or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP and a container, copying the native
- * packets of the declared codec.
+ * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes.
+ * ffmpeg never decodes or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP
+ * and a container, copying the native packets of the declared codec.
  * <p>
- * Listen: ffmpeg reads the camera's SRTP audio (described by an SDP file) and writes it to stdout in the codec's
- * container.
- * Talk: ffmpeg reads the codec's container from stdin and writes it as SRTP audio to the camera endpoint.
+ * Listen: ffmpeg reads the camera's SRTP audio (described by an SDP file) and writes it to stdout in
+ * the codec's container.
+ * Talk: ffmpeg reads the codec's container from stdin and writes it as SRTP audio to the camera end-point.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */

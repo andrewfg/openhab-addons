@@ -18,6 +18,8 @@ import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 

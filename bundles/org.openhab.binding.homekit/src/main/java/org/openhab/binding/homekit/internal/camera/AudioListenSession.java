@@ -22,25 +22,25 @@ import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Decrypts the camera's Opus audio with ffmpeg and passes it to a consumer as Ogg Opus, without transcoding. The
- * camera's RTP is relayed by a {@link TalkbackReceiver} to a loopback port that ffmpeg reads through a generated SDP
- * file.
+ * Decrypts the camera's audio with ffmpeg and passes it to a consumer without transcoding.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class ListenSession implements Runnable {
+public class AudioListenSession implements Runnable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ListenSession.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioListenSession.class);
 
     private static final int BUFFER_SIZE = 4096;
 
     private final Consumer<byte[]> audioConsumer;
-    private final TalkbackReceiver receiver;
+    private final AudioTalkReceiver receiver;
     private final SrtpParameters srtp;
     private final int payloadType;
     private final HomekitAudioCodec codec;
@@ -56,7 +56,7 @@ public class ListenSession implements Runnable {
      * @param payloadType the RTP payload type that the camera uses for its audio
      * @param codec the declared audio codec of the camera's stream
      */
-    public ListenSession(Consumer<byte[]> audioConsumer, TalkbackReceiver receiver, SrtpParameters srtp,
+    public AudioListenSession(Consumer<byte[]> audioConsumer, AudioTalkReceiver receiver, SrtpParameters srtp,
             int payloadType, HomekitAudioCodec codec) {
         this.audioConsumer = audioConsumer;
         this.receiver = receiver;
@@ -94,9 +94,9 @@ public class ListenSession implements Runnable {
             return;
         }
         byte[] buffer = new byte[BUFFER_SIZE];
-        try (InputStream ogg = current.getInputStream()) {
+        try (InputStream input = current.getInputStream()) {
             int read;
-            while ((read = ogg.read(buffer)) != -1) {
+            while ((read = input.read(buffer)) != -1) {
                 byte[] chunk = new byte[read];
                 System.arraycopy(buffer, 0, chunk, 0, read);
                 audioConsumer.accept(chunk);

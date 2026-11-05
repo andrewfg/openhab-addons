@@ -13,6 +13,8 @@
 package org.openhab.binding.homekit.internal.camera;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.core.audio.AudioException;
 
 /**
@@ -22,7 +24,7 @@ import org.openhab.core.audio.AudioException;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record TalkbackRoute(String cameraHost, int cameraAudioPort, int localPort, SrtpParameters srtp, long ssrc,
+public record AudioTalkRoute(String cameraHost, int cameraAudioPort, int localPort, SrtpParameters srtp, long ssrc,
         int payloadType, HomekitAudioCodec codec) {
 
     /**
@@ -34,7 +36,7 @@ public record TalkbackRoute(String cameraHost, int cameraAudioPort, int localPor
          *
          * @throws AudioException if the session cannot be started or is already running with a different codec
          */
-        TalkbackRoute acquire(HomekitAudioCodec codec) throws AudioException;
+        AudioTalkRoute acquire(HomekitAudioCodec codec) throws AudioException;
 
         /**
          * Releases a hold taken by {@link #acquire(HomekitAudioCodec)}. The session ends when the last hold is

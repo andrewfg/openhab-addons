@@ -22,14 +22,14 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * Receives talk-back RTP datagrams on an ephemeral UDP port. Datagrams are discarded unless a local forward target is
- * set, in which case they are relayed unchanged so that an ffmpeg process can decrypt them. The payload is not
- * decrypted here.
+ * Receives talk-back RTP datagrams on an ephemeral UDP port. Datagrams are discarded unless a local
+ * forward target is set, in which case they are relayed unchanged so that an ffmpeg process can
+ * decrypt them. The payload is not decrypted here.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class TalkbackReceiver implements Runnable {
+public class AudioTalkReceiver implements Runnable {
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
 
@@ -37,7 +37,7 @@ public class TalkbackReceiver implements Runnable {
     private final byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
     private volatile @Nullable InetSocketAddress forwardTo;
 
-    public TalkbackReceiver() throws IOException {
+    public AudioTalkReceiver() throws IOException {
         socket = new DatagramSocket(0);
     }
 
