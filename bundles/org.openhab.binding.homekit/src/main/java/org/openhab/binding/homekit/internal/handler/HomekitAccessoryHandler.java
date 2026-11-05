@@ -14,6 +14,7 @@ package org.openhab.binding.homekit.internal.handler;
 
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -38,7 +39,6 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.BrowserAudioRegistry;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSink;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSource;
 import org.openhab.binding.homekit.internal.camera.ListenSession;
@@ -196,13 +196,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Long talkbackSelectedIid = null;
     private @Nullable TalkbackReceiver talkbackReceiver = null;
     private @Nullable ListenSession talkbackListen = null;
+    private @Nullable SrtpParameters talkbackAudioSrtp = null;
     private volatile @Nullable TalkbackRoute talkbackRoute = null;
     private byte[] talkbackSessionId = new byte[16];
-    private final BrowserAudioRegistry browserAudioRegistry;
     private final Bundle bundle;
     private final HomekitAudioSource audioSource = new HomekitAudioSource(new TalkbackHoldListener());
     private final HomekitAudioSink audioSink = new HomekitAudioSink(new TalkbackHost());
-    private @Nullable String browserAudioToken = null;
     private @Nullable ServiceRegistration<?> audioSourceRegistration = null;
     private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
     private int talkbackHolds = 0;
@@ -212,12 +211,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver, BrowserAudioRegistry browserAudioRegistry) {
+            MacResolver macResolver) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
-        this.browserAudioRegistry = browserAudioRegistry;
         this.bundle = bundle;
     }
 
@@ -689,6 +687,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             talkbackSessionId = sessionId;
             talkbackReceiver = receiver;
             talkbackListen = listen;
+            talkbackAudioSrtp = audioSrtp;
             talkbackRoute = route;
             ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
             ThreadPoolManager.getPool(BINDING_ID).submit(listen);
@@ -712,6 +711,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         receiver.close();
         ListenSession listen = talkbackListen;
         talkbackListen = null;
+        talkbackAudioSrtp = null;
         if (listen != null) {
             listen.close();
         }
@@ -750,14 +750,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Registers the openHAB audio services and the browser listen token. Only called once the camera exposes talk-back.
+     * Registers the openHAB audio source and sink. Only called once the camera exposes talk-back.
      */
     private synchronized void registerAudioServices() {
         BundleContext context = bundle.getBundleContext();
         if (audioSourceRegistration != null || context == null) {
             return;
         }
-        browserAudioToken = browserAudioRegistry.register(audioSource);
         audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
         audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
     }
@@ -773,23 +772,47 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (source != null) {
             source.unregister();
         }
-        String token = browserAudioToken;
-        browserAudioToken = null;
-        if (token != null) {
-            browserAudioRegistry.unregister(token);
-        }
     }
 
     /**
-     * Holds talk-back open while a browser listen stream is connected.
+     * Replaces the running listen ffmpeg with a fresh one. Ogg Opus can only be decoded from its header pages, so a
+     * stream that joins a running session needs ffmpeg to restart and emit them. The camera session is not changed.
+     */
+    private synchronized void restartListen() {
+        TalkbackReceiver receiver = talkbackReceiver;
+        SrtpParameters audioSrtp = talkbackAudioSrtp;
+        ListenSession old = talkbackListen;
+        if (receiver == null || audioSrtp == null || old == null) {
+            return;
+        }
+        old.close();
+        ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE);
+        try {
+            listen.start();
+        } catch (IOException e) {
+            talkbackListen = null;
+            logger.debug("{} failed to restart audio listen: {}", thing.getUID(), e.getMessage());
+            return;
+        }
+        talkbackListen = listen;
+        ThreadPoolManager.getPool(BINDING_ID).submit(listen);
+    }
+
+    /**
+     * Holds talk-back open while an openHAB audio stream from the camera source is open. A stream that joins a running
+     * session restarts the listen ffmpeg so that it starts with the Ogg headers.
      */
     private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
         @Override
-        public void streamOpened() {
+        public void streamOpening(int openStreams) {
             try {
-                acquireTalkbackHold();
+                if (openStreams > 0) {
+                    restartListen();
+                } else {
+                    acquireTalkbackHold();
+                }
             } catch (Exception e) {
-                logger.debug("{} browser listen unavailable: {}", thing.getUID(), e.getMessage());
+                logger.debug("{} audio listen unavailable: {}", thing.getUID(), e.getMessage());
             }
         }
 

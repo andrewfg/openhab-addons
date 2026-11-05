@@ -14,10 +14,6 @@
 
   <name>openHAB Add-ons :: Bundles :: HomeKit Client Binding</name>
 
-  <properties>
-    <bnd.importpackage>org.eclipse.jetty.websocket.server</bnd.importpackage>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.bouncycastle</groupId>

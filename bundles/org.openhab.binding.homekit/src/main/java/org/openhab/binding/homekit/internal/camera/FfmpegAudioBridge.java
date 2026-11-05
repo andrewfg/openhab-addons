@@ -20,17 +20,16 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
- * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes.
+ * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes. ffmpeg never decodes
+ * or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP and Ogg, copying the native Opus packets.
  * <p>
- * Listen: ffmpeg reads the camera's SRTP audio (described by an SDP file) and writes 16 kHz PCM to stdout.
- * Talk: ffmpeg reads 16 kHz mono PCM from stdin, encodes Opus and writes it as SRTP to the camera endpoint.
+ * Listen: ffmpeg reads the camera's SRTP Opus (described by an SDP file) and writes it as Ogg Opus to stdout.
+ * Talk: ffmpeg reads Ogg Opus from stdin and writes it as SRTP Opus to the camera endpoint.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
 public final class FfmpegAudioBridge {
-
-    static final int SAMPLE_RATE = 16000;
 
     private static final String FFMPEG = "ffmpeg";
 
@@ -66,8 +65,8 @@ public final class FfmpegAudioBridge {
     }
 
     /**
-     * Builds the listen command: SRTP camera audio described by {@code sdpFile} in, 16 kHz mono signed 16-bit little
-     * endian PCM out on stdout. PCM is used rather than a container so a browser can schedule it with Web Audio.
+     * Builds the listen command: SRTP camera Opus described by {@code sdpFile} in, Ogg Opus out on stdout with the
+     * packets copied unchanged.
      *
      * @param sdpFile path to an SDP file describing the camera's RTP audio stream and its UDP port
      * @param srtp the camera's SRTP parameters for this audio stream
@@ -75,11 +74,12 @@ public final class FfmpegAudioBridge {
     public static List<String> listenCommand(String sdpFile, SrtpParameters srtp) {
         return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
                 "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
-                sdpFile, "-vn", "-ar", String.valueOf(SAMPLE_RATE), "-ac", "1", "-f", "s16le", "pipe:1");
+                sdpFile, "-vn", "-c:a", "copy", "-f", "ogg", "pipe:1");
     }
 
     /**
-     * Builds the talk command: 16 kHz mono PCM on stdin in, SRTP Opus to the camera endpoint.
+     * Builds the talk command: Ogg Opus on stdin in, SRTP Opus to the camera endpoint with the packets copied
+     * unchanged.
      *
      * @param remoteHost the camera's IP address
      * @param remotePort the camera's audio RTP port
@@ -90,11 +90,9 @@ public final class FfmpegAudioBridge {
      */
     public static List<String> talkCommand(String remoteHost, int remotePort, int localPort, SrtpParameters srtp,
             int payloadType, long ssrc) {
-        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-f", "s16le", "-ar",
-                String.valueOf(SAMPLE_RATE), "-ac", "1", "-i", "pipe:0", "-c:a", "libopus", "-ar",
-                String.valueOf(SAMPLE_RATE), "-ac", "1", "-b:a", "24k", "-payload_type", String.valueOf(payloadType),
-                "-ssrc", String.valueOf(ssrc), "-srtp_out_suite", toFfmpegSuite(srtp.cryptoSuite()),
-                "-srtp_out_params", toFfmpegParams(srtp), "-f", "rtp",
-                "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort);
+        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-f", "ogg", "-i", "pipe:0", "-vn", "-c:a",
+                "copy", "-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc),
+                "-srtp_out_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f",
+                "rtp", "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort);
     }
 }

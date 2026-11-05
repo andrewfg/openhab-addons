@@ -26,16 +26,20 @@ import org.openhab.core.audio.PipedAudioStream;
 
 /**
  * {@link HomekitAudioSource} exposes the audio of a HomeKit camera as an openHAB {@link AudioSource}. The camera's audio
- * is published as 16 kHz mono signed 16-bit PCM to every open {@link AudioStream}. Opening the first stream and closing
- * the last one notifies the owner, so the camera's audio is only received while something is listening.
+ * is published as native Opus packets in an Ogg container ({@link #FORMAT}) to every open {@link AudioStream}. Opening
+ * the first stream and closing the last one notifies the owner, so the camera's audio is only received while something
+ * is listening.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
 public class HomekitAudioSource implements AudioSource {
 
-    public static final AudioFormat FORMAT = new AudioFormat(AudioFormat.CONTAINER_NONE,
-            AudioFormat.CODEC_PCM_SIGNED, false, 16, 16 * 16000, 16000L, 1);
+    /** The Opus codec as used by HomeKit camera talk-back: 24 kHz mono, 20 ms packets, in an Ogg container. */
+    private static final String CODEC_OPUS = "OPUS";
+
+    public static final AudioFormat FORMAT = new AudioFormat(AudioFormat.CONTAINER_OGG, CODEC_OPUS, null, null, null,
+            24000L, 1);
 
     private static final int PIPE_SIZE = 64 * 1024;
 
@@ -43,7 +47,12 @@ public class HomekitAudioSource implements AudioSource {
      * Receives stream open and close notifications. Called from the thread that opens or closes the stream.
      */
     public interface Listener {
-        void streamOpened();
+        /**
+         * Called before a new stream joins the group, so the listener can prepare the audio it will receive.
+         *
+         * @param openStreams the number of streams already open
+         */
+        void streamOpening(int openStreams);
 
         void streamClosed();
     }
@@ -66,14 +75,15 @@ public class HomekitAudioSource implements AudioSource {
         if (!FORMAT.equals(format)) {
             throw new AudioException("Unsupported audio format: " + format);
         }
+        int existing = openStreams.getAndIncrement();
         PipedAudioStream stream;
         try {
+            listener.streamOpening(existing);
             stream = group.getAudioStreamInGroup();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            openStreams.decrementAndGet();
             throw new AudioException("Failed to open camera audio stream", e);
         }
-        openStreams.incrementAndGet();
-        listener.streamOpened();
         stream.onClose(() -> {
             openStreams.decrementAndGet();
             listener.streamClosed();
@@ -82,13 +92,14 @@ public class HomekitAudioSource implements AudioSource {
     }
 
     /**
-     * Delivers PCM to all open streams. Does nothing while no stream is open. Blocks while a stream's buffer is full.
+     * Delivers Ogg Opus data to all open streams. Does nothing while no stream is open. Blocks while a stream's buffer is
+     * full.
      */
-    public void publish(byte[] pcm) {
+    public void publish(byte[] data) {
         if (openStreams.get() == 0 || group.isEmpty()) {
             return;
         }
-        group.write(pcm, 0, pcm.length);
+        group.write(data, 0, data.length);
     }
 
     /**

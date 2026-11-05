@@ -26,8 +26,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Decrypts the camera's audio with ffmpeg and passes it as 16 kHz PCM to a consumer. The camera's RTP is relayed by a
- * {@link TalkbackReceiver} to a loopback port that ffmpeg reads through a generated SDP file.
+ * Decrypts the camera's Opus audio with ffmpeg and passes it to a consumer as Ogg Opus, without transcoding. The
+ * camera's RTP is relayed by a {@link TalkbackReceiver} to a loopback port that ffmpeg reads through a generated SDP
+ * file.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -38,7 +39,7 @@ public class ListenSession implements Runnable {
 
     private static final int BUFFER_SIZE = 4096;
 
-    private final Consumer<byte[]> pcmConsumer;
+    private final Consumer<byte[]> audioConsumer;
     private final TalkbackReceiver receiver;
     private final SrtpParameters srtp;
     private final int payloadType;
@@ -48,14 +49,14 @@ public class ListenSession implements Runnable {
     private volatile boolean closed = false;
 
     /**
-     * @param pcmConsumer receives each chunk of decoded 16 kHz PCM
+     * @param audioConsumer receives each chunk of Ogg Opus copied from ffmpeg
      * @param receiver the receiver that already accepts the camera's RTP for this session
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its Opus audio
      */
-    public ListenSession(Consumer<byte[]> pcmConsumer, TalkbackReceiver receiver, SrtpParameters srtp,
+    public ListenSession(Consumer<byte[]> audioConsumer, TalkbackReceiver receiver, SrtpParameters srtp,
             int payloadType) {
-        this.pcmConsumer = pcmConsumer;
+        this.audioConsumer = audioConsumer;
         this.receiver = receiver;
         this.srtp = srtp;
         this.payloadType = payloadType;
@@ -81,7 +82,7 @@ public class ListenSession implements Runnable {
     }
 
     /**
-     * Copies decoded PCM from ffmpeg to the consumer until ffmpeg ends or {@link #close()} is called.
+     * Copies Ogg Opus from ffmpeg to the consumer until ffmpeg ends or {@link #close()} is called.
      */
     @Override
     public void run() {
@@ -90,12 +91,12 @@ public class ListenSession implements Runnable {
             return;
         }
         byte[] buffer = new byte[BUFFER_SIZE];
-        try (InputStream pcm = current.getInputStream()) {
+        try (InputStream ogg = current.getInputStream()) {
             int read;
-            while ((read = pcm.read(buffer)) != -1) {
+            while ((read = ogg.read(buffer)) != -1) {
                 byte[] chunk = new byte[read];
                 System.arraycopy(buffer, 0, chunk, 0, read);
-                pcmConsumer.accept(chunk);
+                audioConsumer.accept(chunk);
             }
         } catch (IOException e) {
             if (!closed) {
@@ -134,7 +135,7 @@ public class ListenSession implements Runnable {
                 c=IN IP4 127.0.0.1
                 t=0 0
                 m=audio %d RTP/AVP %d
-                a=rtpmap:%d opus/16000/1
+                a=rtpmap:%d opus/24000/1
                 """.formatted(ffmpegPort, payloadType, payloadType);
     }
 }
