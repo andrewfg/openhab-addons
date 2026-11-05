@@ -14,9 +14,11 @@ package org.openhab.binding.homekit.internal.camera;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -56,5 +58,34 @@ class TalkbackReceiverTest {
             receiver.close();
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void testRelaysDatagramsToForwardPortWhenSet() throws Exception {
+        TalkbackReceiver receiver = new TalkbackReceiver();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress());
+                DatagramSocket sender = new DatagramSocket()) {
+            listener.setSoTimeout((int) TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
+            receiver.setForwardPort(listener.getLocalPort());
+            executor.submit(receiver);
+
+            byte[] small = new byte[] { 9 };
+            sender.send(new DatagramPacket(small, small.length, InetAddress.getLoopbackAddress(), receiver.getPort()));
+            assertArrayEquals(small, receiveRelayed(listener));
+
+            byte[] large = new byte[] { 1, 2, 3, 4 };
+            sender.send(new DatagramPacket(large, large.length, InetAddress.getLoopbackAddress(), receiver.getPort()));
+            assertArrayEquals(large, receiveRelayed(listener));
+        } finally {
+            receiver.close();
+            executor.shutdownNow();
+        }
+    }
+
+    private static byte[] receiveRelayed(DatagramSocket listener) throws IOException {
+        DatagramPacket relayed = new DatagramPacket(new byte[16], 16);
+        listener.receive(relayed);
+        return Arrays.copyOf(relayed.getData(), relayed.getLength());
     }
 }

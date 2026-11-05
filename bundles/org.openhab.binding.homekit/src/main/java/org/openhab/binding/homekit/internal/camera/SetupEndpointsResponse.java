@@ -22,21 +22,27 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 
 /**
- * Parsed SetupEndpoints response returned by the accessory. The audio SSRC is only present on success.
+ * Parsed SetupEndpoints response returned by the accessory. The audio SSRC and audio SRTP parameters are only present
+ * on success. The audio SRTP parameters are the key the accessory uses to encrypt its audio towards the controller. The
+ * audio port is the accessory's RTP port for receiving audio from the controller (talk-back).
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus status, @Nullable Long audioSsrc) {
+public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus status, @Nullable Long audioSsrc,
+        @Nullable SrtpParameters audioSrtp, @Nullable Integer audioPort) {
 
     private static final int TYPE_SESSION_ID = 0x01;
     private static final int TYPE_STATUS = 0x02;
+    private static final int TYPE_ACCESSORY_ADDRESS = 0x03;
+    private static final int TYPE_ADDRESS_AUDIO_PORT = 0x04;
+    private static final int TYPE_AUDIO_SRTP = 0x05;
     private static final int TYPE_AUDIO_SSRC = 0x07;
 
     public SetupEndpointsResponse {
         requireLength(sessionId, 16);
-        if (status == SetupEndpointsStatus.SUCCESS && audioSsrc == null) {
-            throw new IllegalArgumentException("Audio SSRC missing from successful SetupEndpoints response");
+        if (status == SetupEndpointsStatus.SUCCESS && (audioSsrc == null || audioSrtp == null)) {
+            throw new IllegalArgumentException("Audio SSRC or SRTP missing from successful SetupEndpoints response");
         }
     }
 
@@ -45,6 +51,16 @@ public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus stat
         byte[] sessionId = required(tlv, TYPE_SESSION_ID);
         SetupEndpointsStatus status = SetupEndpointsStatus.fromValue(readU8(required(tlv, TYPE_STATUS)));
         byte[] ssrc = tlv.get(TYPE_AUDIO_SSRC);
-        return new SetupEndpointsResponse(sessionId, status, ssrc == null ? null : readU32Le(ssrc));
+        byte[] srtp = tlv.get(TYPE_AUDIO_SRTP);
+        byte[] address = tlv.get(TYPE_ACCESSORY_ADDRESS);
+        Integer audioPort = null;
+        if (address != null) {
+            byte[] port = Tlv8Codec.decode(address).get(TYPE_ADDRESS_AUDIO_PORT);
+            if (port != null && port.length == 2) {
+                audioPort = (port[0] & 0xFF) | ((port[1] & 0xFF) << 8);
+            }
+        }
+        return new SetupEndpointsResponse(sessionId, status, ssrc == null ? null : readU32Le(ssrc),
+                srtp == null ? null : SrtpParameters.decode(srtp), audioPort);
     }
 }

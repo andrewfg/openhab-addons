@@ -21,6 +21,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +38,10 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.BrowserAudioRegistry;
+import org.openhab.binding.homekit.internal.camera.HomekitAudioSink;
+import org.openhab.binding.homekit.internal.camera.HomekitAudioSource;
+import org.openhab.binding.homekit.internal.camera.ListenSession;
 import org.openhab.binding.homekit.internal.camera.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
@@ -44,6 +49,7 @@ import org.openhab.binding.homekit.internal.camera.SetupEndpointsRequest;
 import org.openhab.binding.homekit.internal.camera.SetupEndpointsResponse;
 import org.openhab.binding.homekit.internal.camera.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.TalkbackReceiver;
+import org.openhab.binding.homekit.internal.camera.TalkbackRoute;
 import org.openhab.binding.homekit.internal.discovery.HomekitMdnsDiscoveryParticipant;
 import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
@@ -59,6 +65,9 @@ import org.openhab.binding.homekit.internal.enums.StatusCode;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
+import org.openhab.core.audio.AudioException;
+import org.openhab.core.audio.AudioSink;
+import org.openhab.core.audio.AudioSource;
 import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
@@ -104,6 +113,8 @@ import org.openhab.core.util.LightModel;
 import org.openhab.core.util.LightModel.LightCapabilities;
 import org.openhab.core.util.LightModel.RgbDataType;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -177,22 +188,37 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * Assets used for camera talk-back (two-way audio)
      */
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final int TALKBACK_PAYLOAD_TYPE = 110;
+    private static final long TALKBACK_SSRC = 0x12345678L;
     private static final SelectedAudioParameters TALKBACK_AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1,
-            false, 24, 20, 110, 0x12345678L, 24, 0.5f, false, 13);
+            false, 24, 20, TALKBACK_PAYLOAD_TYPE, TALKBACK_SSRC, 24, 0.5f, false, 13);
     private @Nullable Long talkbackSetupIid = null;
     private @Nullable Long talkbackSelectedIid = null;
     private @Nullable TalkbackReceiver talkbackReceiver = null;
+    private @Nullable ListenSession talkbackListen = null;
+    private volatile @Nullable TalkbackRoute talkbackRoute = null;
     private byte[] talkbackSessionId = new byte[16];
+    private final BrowserAudioRegistry browserAudioRegistry;
+    private final Bundle bundle;
+    private final HomekitAudioSource audioSource = new HomekitAudioSource(new TalkbackHoldListener());
+    private final HomekitAudioSink audioSink = new HomekitAudioSink(new TalkbackHost());
+    private @Nullable String browserAudioToken = null;
+    private @Nullable ServiceRegistration<?> audioSourceRegistration = null;
+    private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
+    private int talkbackHolds = 0;
+    private boolean talkbackSwitchOn = false;
 
     public HomekitAccessoryHandler(Thing thing, HomekitTypeProvider typeProvider,
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver) {
+            MacResolver macResolver, BrowserAudioRegistry browserAudioRegistry) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
+        this.browserAudioRegistry = browserAudioRegistry;
+        this.bundle = bundle;
     }
 
     /**
@@ -530,10 +556,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     writeChannel(channel, actualPosition);
                 }
             } else if (CHANNEL_TALKBACK.equals(channelUID.getId())) {
-                if (command == OnOffType.ON) {
-                    startTalkback();
-                } else if (command == OnOffType.OFF) {
-                    stopTalkback(true);
+                if (command == OnOffType.ON && !talkbackSwitchOn) {
+                    talkbackSwitchOn = true;
+                    acquireTalkbackHold();
+                } else if (command == OnOffType.OFF && talkbackSwitchOn) {
+                    talkbackSwitchOn = false;
+                    releaseTalkbackHold();
                 }
             } else if (channelUID.equals(lightModelClientHSBTypeChannel)) {
                 lightModelHandleCommand(command);
@@ -625,19 +653,45 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             RANDOM.nextBytes(sessionId);
             int port = receiver.getPort();
             // no video is selected, so the camera never sends to the video endpoint; it reuses the audio port
+            SrtpParameters talkSrtp = randomSrtp();
             SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, port, port,
-                    randomSrtp(), randomSrtp());
+                    randomSrtp(), talkSrtp);
             SetupEndpointsResponse response = SetupEndpointsResponse
                     .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
             if (response.status() != SetupEndpointsStatus.SUCCESS) {
                 throw new IllegalStateException("Camera rejected talk-back setup: " + response.status());
             }
-            writeTlvCharacteristic(aid, selectedIid,
-                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, TALKBACK_AUDIO).encode(),
-                    false);
+            SrtpParameters audioSrtp = response.audioSrtp();
+            if (audioSrtp == null) {
+                throw new IllegalStateException("Camera did not return audio SRTP parameters");
+            }
+            Integer cameraAudioPort = response.audioPort();
+            if (cameraAudioPort == null) {
+                throw new IllegalStateException("Camera did not return an audio port");
+            }
+            int talkLocalPort;
+            try (DatagramSocket talkPort = new DatagramSocket()) {
+                talkLocalPort = talkPort.getLocalPort();
+            }
+            TalkbackRoute route = new TalkbackRoute(ipAddress, cameraAudioPort, talkLocalPort, talkSrtp, TALKBACK_SSRC,
+                    TALKBACK_PAYLOAD_TYPE);
+            ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp,
+                    TALKBACK_PAYLOAD_TYPE);
+            try {
+                listen.start();
+                writeTlvCharacteristic(aid, selectedIid,
+                        new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, TALKBACK_AUDIO).encode(),
+                        false);
+            } catch (Exception e) {
+                listen.close();
+                throw e;
+            }
             talkbackSessionId = sessionId;
             talkbackReceiver = receiver;
+            talkbackListen = listen;
+            talkbackRoute = route;
             ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
+            ThreadPoolManager.getPool(BINDING_ID).submit(listen);
         } catch (Exception e) {
             receiver.close();
             throw e;
@@ -656,6 +710,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
         talkbackReceiver = null;
         receiver.close();
+        ListenSession listen = talkbackListen;
+        talkbackListen = null;
+        if (listen != null) {
+            listen.close();
+        }
+        talkbackRoute = null;
         Long aid = getAccessoryId();
         Long selectedIid = talkbackSelectedIid;
         if (notifyCamera && aid != null && selectedIid != null) {
@@ -665,6 +725,102 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Talk-back runs while any holder needs it: the switch, an open listen stream, or a talk process. The first holder
+     * starts the session and the last holder ends it.
+     */
+    private synchronized void acquireTalkbackHold() throws Exception {
+        if (talkbackHolds++ == 0) {
+            try {
+                startTalkback();
+            } catch (Exception e) {
+                talkbackHolds--;
+                throw e;
+            }
+        }
+    }
+
+    private synchronized void releaseTalkbackHold() {
+        if (talkbackHolds > 0 && --talkbackHolds == 0) {
+            stopTalkback(true);
+        }
+    }
+
+    /**
+     * Registers the openHAB audio services and the browser listen token. Only called once the camera exposes talk-back.
+     */
+    private synchronized void registerAudioServices() {
+        BundleContext context = bundle.getBundleContext();
+        if (audioSourceRegistration != null || context == null) {
+            return;
+        }
+        browserAudioToken = browserAudioRegistry.register(audioSource);
+        audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
+        audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
+    }
+
+    private synchronized void unregisterAudioServices() {
+        ServiceRegistration<?> sink = audioSinkRegistration;
+        audioSinkRegistration = null;
+        if (sink != null) {
+            sink.unregister();
+        }
+        ServiceRegistration<?> source = audioSourceRegistration;
+        audioSourceRegistration = null;
+        if (source != null) {
+            source.unregister();
+        }
+        String token = browserAudioToken;
+        browserAudioToken = null;
+        if (token != null) {
+            browserAudioRegistry.unregister(token);
+        }
+    }
+
+    /**
+     * Holds talk-back open while a browser listen stream is connected.
+     */
+    private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
+        @Override
+        public void streamOpened() {
+            try {
+                acquireTalkbackHold();
+            } catch (Exception e) {
+                logger.debug("{} browser listen unavailable: {}", thing.getUID(), e.getMessage());
+            }
+        }
+
+        @Override
+        public void streamClosed() {
+            releaseTalkbackHold();
+        }
+    }
+
+    /**
+     * Holds talk-back open while the talk process of an openHAB audio sink runs.
+     */
+    private final class TalkbackHost implements TalkbackRoute.Host {
+        @Override
+        public TalkbackRoute acquire() throws AudioException {
+            try {
+                acquireTalkbackHold();
+            } catch (Exception e) {
+                throw new AudioException("Camera talk-back unavailable: " + e.getMessage(), e);
+            }
+            TalkbackRoute route = talkbackRoute;
+            if (route == null) {
+                releaseTalkbackHold();
+                throw new AudioException("Camera talk-back route not available");
+            }
+            return route;
+        }
+
+        @Override
+        public void release() {
+            releaseTalkbackHold();
         }
     }
 
@@ -729,6 +885,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 }
             }
         }
+        if (talkbackSetupIid != null && talkbackSelectedIid != null) {
+            registerAudioServices();
+        }
     }
 
     @Override
@@ -738,7 +897,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         lightModelLinks.clear();
         lightModelClientHSBTypeChannel = null;
         stopMoveChannel = null;
+        unregisterAudioServices();
         stopTalkback(false);
+        talkbackHolds = 0;
+        talkbackSwitchOn = false;
         super.dispose();
     }
 

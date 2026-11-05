@@ -65,11 +65,13 @@ class FfmpegAudioBridgeTest {
     }
 
     @Test
-    void testListenCommandReadsSrtpAndWritesOpusToStdout() {
+    void testListenCommandReadsSrtpAndWritesPcmToStdout() {
         List<String> cmd = FfmpegAudioBridge.listenCommand("/tmp/camera.sdp", SRTP);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-        assertEquals("libopus", valueAfter(cmd, "-c:a"));
+        assertEquals("s16le", valueAfter(cmd, "-f"));
+        assertEquals("16000", valueAfter(cmd, "-ar"));
+        assertFalse(cmd.contains("libopus"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
         assertEquals(FfmpegAudioBridge.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
         assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
