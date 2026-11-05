@@ -32,9 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link HomekitAudioSink} sends openHAB audio to a HomeKit camera's speaker as 16 kHz mono signed 16-bit PCM. Each
- * {@link #process(AudioStream)} call holds the talk-back session for its duration and encodes the PCM to SRTP Opus with
- * ffmpeg.
+ * {@link HomekitAudioSink} sends openHAB audio to a HomeKit camera's speaker. The audio must be native Opus in an Ogg
+ * container ({@link HomekitAudioSource#FORMAT}), which is repackaged as SRTP without transcoding. Each
+ * {@link #process(AudioStream)} call holds the talk-back session for its duration.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -92,8 +92,8 @@ public class HomekitAudioSink implements AudioSink {
             Process process = new ProcessBuilder(FfmpegAudioBridge.talkCommand(route.cameraHost(),
                     route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc()))
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            try (OutputStream pcm = process.getOutputStream()) {
-                audioStream.transferTo(pcm);
+            try (OutputStream ogg = process.getOutputStream()) {
+                audioStream.transferTo(ogg);
             } catch (IOException e) {
                 LOGGER.debug("Camera talk-back stream ended: {}", e.getMessage());
             } finally {

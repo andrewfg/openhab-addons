@@ -65,12 +65,13 @@ class FfmpegAudioBridgeTest {
     }
 
     @Test
-    void testListenCommandReadsSrtpAndWritesPcmToStdout() {
+    void testListenCommandReadsSrtpAndCopiesOggToStdout() {
         List<String> cmd = FfmpegAudioBridge.listenCommand("/tmp/camera.sdp", SRTP);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-        assertEquals("s16le", valueAfter(cmd, "-f"));
-        assertEquals("16000", valueAfter(cmd, "-ar"));
+        assertEquals("ogg", valueAfter(cmd, "-f"));
+        assertEquals("copy", valueAfter(cmd, "-c:a"));
+        assertFalse(cmd.contains("-ar"));
         assertFalse(cmd.contains("libopus"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
         assertEquals(FfmpegAudioBridge.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
@@ -79,11 +80,11 @@ class FfmpegAudioBridgeTest {
     }
 
     @Test
-    void testTalkCommandReadsPcmAndWritesSrtpToCamera() {
+    void testTalkCommandReadsOggAndWritesSrtpToCamera() {
         List<String> cmd = FfmpegAudioBridge.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
-        assertEquals("s16le", valueAfter(cmd, "-f"));
-        assertEquals("libopus", valueAfter(cmd, "-c:a"));
+        assertEquals("ogg", valueAfter(cmd, "-f"));
+        assertEquals("copy", valueAfter(cmd, "-c:a"));
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_out_suite"));

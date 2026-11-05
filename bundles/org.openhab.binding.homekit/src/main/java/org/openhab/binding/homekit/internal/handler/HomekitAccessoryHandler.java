@@ -38,7 +38,6 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.BrowserAudioRegistry;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSink;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSource;
 import org.openhab.binding.homekit.internal.camera.ListenSession;
@@ -198,11 +197,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable ListenSession talkbackListen = null;
     private volatile @Nullable TalkbackRoute talkbackRoute = null;
     private byte[] talkbackSessionId = new byte[16];
-    private final BrowserAudioRegistry browserAudioRegistry;
     private final Bundle bundle;
     private final HomekitAudioSource audioSource = new HomekitAudioSource(new TalkbackHoldListener());
     private final HomekitAudioSink audioSink = new HomekitAudioSink(new TalkbackHost());
-    private @Nullable String browserAudioToken = null;
     private @Nullable ServiceRegistration<?> audioSourceRegistration = null;
     private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
     private int talkbackHolds = 0;
@@ -212,12 +209,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver, BrowserAudioRegistry browserAudioRegistry) {
+            MacResolver macResolver) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
-        this.browserAudioRegistry = browserAudioRegistry;
         this.bundle = bundle;
     }
 
@@ -750,14 +746,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Registers the openHAB audio services and the browser listen token. Only called once the camera exposes talk-back.
+     * Registers the openHAB audio source and sink. Only called once the camera exposes talk-back.
      */
     private synchronized void registerAudioServices() {
         BundleContext context = bundle.getBundleContext();
         if (audioSourceRegistration != null || context == null) {
             return;
         }
-        browserAudioToken = browserAudioRegistry.register(audioSource);
         audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
         audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
     }
@@ -773,15 +768,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (source != null) {
             source.unregister();
         }
-        String token = browserAudioToken;
-        browserAudioToken = null;
-        if (token != null) {
-            browserAudioRegistry.unregister(token);
-        }
     }
 
     /**
-     * Holds talk-back open while a browser listen stream is connected.
+     * Holds talk-back open while an openHAB audio stream from the camera source is open.
      */
     private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
         @Override
@@ -789,7 +779,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             try {
                 acquireTalkbackHold();
             } catch (Exception e) {
-                logger.debug("{} browser listen unavailable: {}", thing.getUID(), e.getMessage());
+                logger.debug("{} audio listen unavailable: {}", thing.getUID(), e.getMessage());
             }
         }
 

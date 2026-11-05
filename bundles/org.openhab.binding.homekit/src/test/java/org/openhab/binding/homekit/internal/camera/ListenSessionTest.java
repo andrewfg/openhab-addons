@@ -28,7 +28,7 @@ class ListenSessionTest {
         String sdp = ListenSession.sdpContent(40000, 110);
 
         assertTrue(sdp.contains("\nm=audio 40000 RTP/AVP 110\n"), sdp);
-        assertTrue(sdp.contains("\na=rtpmap:110 opus/16000/1\n"), sdp);
+        assertTrue(sdp.contains("\na=rtpmap:110 opus/24000/1\n"), sdp);
         assertTrue(sdp.contains("\nc=IN IP4 127.0.0.1\n"), sdp);
     }
 }

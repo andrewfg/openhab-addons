@@ -18,7 +18,6 @@ import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.BrowserAudioRegistry;
 import org.openhab.binding.homekit.internal.discovery.HomekitMdnsDiscoveryParticipant;
 import org.openhab.binding.homekit.internal.handler.HomekitAccessoryHandler;
 import org.openhab.binding.homekit.internal.handler.HomekitBridgeHandler;
@@ -63,7 +62,6 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
     private final ManagedThingProvider managedThingProvider;
     private final HomekitMdnsDiscoveryParticipant discoveryParticipant;
     private final MacResolver macResolver;
-    private final BrowserAudioRegistry browserAudioRegistry;
 
     /**
      * Constructor.
@@ -78,7 +76,7 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
             @Reference ChannelGroupTypeRegistry channelGroupTypeRegistry, @Reference HomekitKeyStore keyStore,
             @Reference TranslationProvider translationProvider, @Reference ManagedThingProvider managedThingProvider,
             @Reference(target = "(class.id=homekit)") MDNSDiscoveryParticipant mdnsDiscoveryParticipant,
-            @Reference MacResolver macResolver, @Reference BrowserAudioRegistry browserAudioRegistry) {
+            @Reference MacResolver macResolver) {
         this.typeProvider = typeProvider;
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
@@ -88,7 +86,6 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
         this.managedThingProvider = managedThingProvider;
         this.discoveryParticipant = (HomekitMdnsDiscoveryParticipant) mdnsDiscoveryParticipant;
         this.macResolver = macResolver;
-        this.browserAudioRegistry = browserAudioRegistry;
     }
 
     @Override
@@ -104,8 +101,7 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
                     macResolver);
         } else if (THING_TYPE_BRIDGED_ACCESSORY.equals(thingTypeUID) || THING_TYPE_ACCESSORY.equals(thingTypeUID)) {
             return new HomekitAccessoryHandler(thing, typeProvider, channelTypeRegistry, channelGroupTypeRegistry,
-                    keyStore, i18nProvider, bundle, managedThingProvider, discoveryParticipant, macResolver,
-                    browserAudioRegistry);
+                    keyStore, i18nProvider, bundle, managedThingProvider, discoveryParticipant, macResolver);
         }
         return null;
     }
