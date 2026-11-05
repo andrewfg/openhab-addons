@@ -21,9 +21,9 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.AudioTalkRoute;
-import org.openhab.binding.homekit.internal.camera.FfmpegAudioBridge;
-import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.FfmpegAudioConverter;
+import org.openhab.binding.homekit.internal.camera.SpeakerSession;
+import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.core.audio.AudioException;
 import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioSink;
@@ -46,18 +46,18 @@ public class HomekitAudioSink implements AudioSink {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HomekitAudioSink.class);
 
-    private final AudioTalkRoute.Host host;
-    private volatile List<HomekitAudioCodec> codecs = List.of();
+    private final SpeakerSession.Speaker speaker;
+    private volatile List<CameraAudioCodec> codecs = List.of();
     private PercentType volume = new PercentType(100);
 
-    public HomekitAudioSink(AudioTalkRoute.Host host) {
-        this.host = host;
+    public HomekitAudioSink(SpeakerSession.Speaker speaker) {
+        this.speaker = speaker;
     }
 
     /**
      * Sets the codecs that the camera declares, which determine the formats this sink accepts.
      */
-    public void setCodecs(List<HomekitAudioCodec> codecs) {
+    public void setCodecs(List<CameraAudioCodec> codecs) {
         this.codecs = List.copyOf(codecs);
     }
 
@@ -90,16 +90,16 @@ public class HomekitAudioSink implements AudioSink {
         if (audioStream == null) {
             return;
         }
-        HomekitAudioCodec codec = HomekitAudioSource.codecFor(codecs, audioStream.getFormat()).orElseThrow(
+        CameraAudioCodec codec = HomekitAudioSource.codecFor(codecs, audioStream.getFormat()).orElseThrow(
                 () -> new UnsupportedAudioFormatException("Unsupported audio format", audioStream.getFormat()));
-        AudioTalkRoute route;
+        SpeakerSession route;
         try {
-            route = host.acquire(codec);
+            route = speaker.acquire(codec);
         } catch (AudioException e) {
             throw new UnsupportedAudioStreamException("Camera talk-back unavailable", audioStream.getClass(), e);
         }
         try {
-            Process process = new ProcessBuilder(FfmpegAudioBridge.talkCommand(route.cameraHost(),
+            Process process = new ProcessBuilder(FfmpegAudioConverter.talkCommand(route.cameraHost(),
                     route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc(), codec))
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
             try (OutputStream output = process.getOutputStream()) {
@@ -112,7 +112,7 @@ public class HomekitAudioSink implements AudioSink {
         } catch (IOException e) {
             LOGGER.debug("Failed to start camera talk-back encoder: {}", e.getMessage());
         } finally {
-            host.release();
+            speaker.release();
         }
     }
 

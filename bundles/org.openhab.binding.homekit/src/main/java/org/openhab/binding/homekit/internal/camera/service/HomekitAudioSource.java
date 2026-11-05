@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.core.audio.AudioException;
 import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioSource;
@@ -49,34 +49,28 @@ public class HomekitAudioSource implements AudioSource {
      * Receives stream open and close notifications. {@link #streamOpening} is called from the thread that opens the
      * stream, possibly concurrently with other opens.
      */
-    public interface Listener {
-        /**
-         * Called before a new stream joins the group, so the listener can prepare the audio it will receive.
-         *
-         * @param codec the declared codec of the stream being opened
-         * @throws AudioException if the audio cannot be prepared, in which case the stream is not opened
-         */
-        void streamOpening(HomekitAudioCodec codec) throws AudioException;
+    public interface Microphone {
+        void streamOpening(CameraAudioCodec codec) throws AudioException;
 
         void streamClosed();
     }
 
-    private final Listener listener;
+    private final Microphone microphone;
     private final Object lock = new Object();
     private final Map<AudioFormat, PipedAudioStream.Group> groups = new ConcurrentHashMap<>();
 
-    private volatile List<HomekitAudioCodec> codecs = List.of();
+    private volatile List<CameraAudioCodec> codecs = List.of();
     private volatile @Nullable AudioFormat activeFormat;
     private int openStreams;
 
-    public HomekitAudioSource(Listener listener) {
-        this.listener = listener;
+    public HomekitAudioSource(Microphone microphone) {
+        this.microphone = microphone;
     }
 
     /**
      * Sets the codecs that the camera declares, which determine the formats this source offers.
      */
-    public void setCodecs(List<HomekitAudioCodec> codecs) {
+    public void setCodecs(List<CameraAudioCodec> codecs) {
         this.codecs = List.copyOf(codecs);
     }
 
@@ -97,7 +91,7 @@ public class HomekitAudioSource implements AudioSource {
 
     @Override
     public AudioStream getInputStream(AudioFormat format) throws AudioException {
-        HomekitAudioCodec codec = codecFor(codecs, format)
+        CameraAudioCodec codec = codecFor(codecs, format)
                 .orElseThrow(() -> new AudioException("Unsupported audio format: " + format));
         synchronized (lock) {
             AudioFormat active = activeFormat;
@@ -109,7 +103,7 @@ public class HomekitAudioSource implements AudioSource {
         }
         PipedAudioStream stream;
         try {
-            listener.streamOpening(codec);
+            microphone.streamOpening(codec);
             PipedAudioStream.Group group = groups.computeIfAbsent(format, f -> PipedAudioStream.newGroup(f, PIPE_SIZE));
             stream = Objects.requireNonNull(group).getAudioStreamInGroup();
         } catch (AudioException | IOException | RuntimeException e) {
@@ -118,7 +112,7 @@ public class HomekitAudioSource implements AudioSource {
         }
         stream.onClose(() -> {
             streamReleased();
-            listener.streamClosed();
+            microphone.streamClosed();
         });
         return stream;
     }
@@ -149,7 +143,7 @@ public class HomekitAudioSource implements AudioSource {
     /**
      * Returns the openHAB audio format that carries the packets of a declared codec.
      */
-    static AudioFormat formatOf(HomekitAudioCodec codec) {
+    static AudioFormat formatOf(CameraAudioCodec codec) {
         long frequency = codec.rtpClockRate();
         int channels = codec.channels();
         return switch (codec.codec()) {
@@ -165,7 +159,7 @@ public class HomekitAudioSource implements AudioSource {
     /**
      * Returns the declared codec whose format equals {@code format}, if any.
      */
-    static Optional<HomekitAudioCodec> codecFor(List<HomekitAudioCodec> codecs, AudioFormat format) {
+    static Optional<CameraAudioCodec> codecFor(List<CameraAudioCodec> codecs, AudioFormat format) {
         return codecs.stream().filter(codec -> formatOf(codec).equals(format)).findFirst();
     }
 

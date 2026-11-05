@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,17 +33,17 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class AudioListenSession implements Runnable {
+public class MicrophoneSession implements Runnable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AudioListenSession.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MicrophoneSession.class);
 
     private static final int BUFFER_SIZE = 4096;
 
     private final Consumer<byte[]> audioConsumer;
-    private final AudioTalkReceiver receiver;
+    private final MicrophoneListener microphoneListener;
     private final SrtpParameters srtp;
     private final int payloadType;
-    private final HomekitAudioCodec codec;
+    private final CameraAudioCodec codec;
 
     private @Nullable Process process;
     private @Nullable Path sdpFile;
@@ -51,15 +51,15 @@ public class AudioListenSession implements Runnable {
 
     /**
      * @param audioConsumer receives each chunk of the codec's container copied from ffmpeg
-     * @param receiver the receiver that already accepts the camera's RTP for this session
+     * @param microphoneListener the receiver that already accepts the camera's RTP for this session
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its audio
      * @param codec the declared audio codec of the camera's stream
      */
-    public AudioListenSession(Consumer<byte[]> audioConsumer, AudioTalkReceiver receiver, SrtpParameters srtp,
-            int payloadType, HomekitAudioCodec codec) {
+    public MicrophoneSession(Consumer<byte[]> audioConsumer, MicrophoneListener microphoneListener, SrtpParameters srtp,
+            int payloadType, CameraAudioCodec codec) {
         this.audioConsumer = audioConsumer;
-        this.receiver = receiver;
+        this.microphoneListener = microphoneListener;
         this.srtp = srtp;
         this.payloadType = payloadType;
         this.codec = codec;
@@ -78,10 +78,10 @@ public class AudioListenSession implements Runnable {
         Path sdp = Files.createTempFile("homekit-listen-", ".sdp");
         sdpFile = sdp;
         Files.writeString(sdp, sdpContent(ffmpegPort, payloadType, codec), StandardCharsets.US_ASCII);
-        Process started = new ProcessBuilder(FfmpegAudioBridge.listenCommand(sdp.toString(), srtp, codec))
+        Process started = new ProcessBuilder(FfmpegAudioConverter.listenCommand(sdp.toString(), srtp, codec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process = started;
-        receiver.setForwardPort(ffmpegPort);
+        microphoneListener.setForwardPort(ffmpegPort);
     }
 
     /**
@@ -113,7 +113,7 @@ public class AudioListenSession implements Runnable {
      */
     public synchronized void close() {
         closed = true;
-        receiver.setForwardPort(null);
+        microphoneListener.setForwardPort(null);
         Process current = process;
         process = null;
         if (current != null) {
@@ -130,7 +130,7 @@ public class AudioListenSession implements Runnable {
         }
     }
 
-    static String sdpContent(int ffmpegPort, int payloadType, HomekitAudioCodec codec) {
+    static String sdpContent(int ffmpegPort, int payloadType, CameraAudioCodec codec) {
         String encoding = switch (codec.codec()) {
             case OPUS -> "opus";
             case PCMU -> "PCMU";

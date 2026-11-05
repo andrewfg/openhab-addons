@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record HomekitAudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) {
+public record CameraAudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(HomekitAudioCodec.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CameraAudioCodec.class);
 
     private static final int TYPE_AUDIO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -45,8 +45,8 @@ public record HomekitAudioCodec(AudioCodecType codec, int channels, int sampleRa
      * Returns the audio codec configurations declared by a SupportedAudioStreamConfiguration TLV8 value. Codecs that
      * the binding cannot bridge with stream copy, and sample rates a codec does not allow, are skipped.
      */
-    public static List<HomekitAudioCodec> decodeSupportedConfiguration(byte[] tlv) {
-        List<HomekitAudioCodec> result = new ArrayList<>();
+    public static List<CameraAudioCodec> decodeSupportedConfiguration(byte[] tlv) {
+        List<CameraAudioCodec> result = new ArrayList<>();
         // The codec entries share one tag, so they are read in sequence rather than through Tlv8Codec.decode(),
         // which would merge them.
         int offset = 0;
@@ -82,7 +82,7 @@ public record HomekitAudioCodec(AudioCodecType codec, int channels, int sampleRa
         };
     }
 
-    private static void decodeEntry(byte[] entry, List<HomekitAudioCodec> result) {
+    private static void decodeEntry(byte[] entry, List<CameraAudioCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
@@ -108,7 +108,7 @@ public record HomekitAudioCodec(AudioCodecType codec, int channels, int sampleRa
         }
         for (byte rateCode : rateCodes) {
             int sampleRateKhz = sampleRateKhz(rateCode & 0xFF);
-            HomekitAudioCodec candidate = new HomekitAudioCodec(codec, channels, sampleRateKhz);
+            CameraAudioCodec candidate = new CameraAudioCodec(codec, channels, sampleRateKhz);
             if (Arrays.stream(allowedRates).anyMatch(rate -> rate == sampleRateKhz) && !result.contains(candidate)) {
                 result.add(candidate);
             }

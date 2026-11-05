@@ -15,20 +15,20 @@ package org.openhab.binding.homekit.internal.camera;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
 /**
- * Tests for {@link AudioListenSession}.
+ * Tests for {@link MicrophoneSession}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class ListenSessionTest {
+class MicrophoneSessionTest {
 
     @Test
     void testSdpDescribesLoopbackOpusStreamOnPort() {
-        HomekitAudioCodec opus = new HomekitAudioCodec(AudioCodecType.OPUS, 1, 24);
-        String sdp = AudioListenSession.sdpContent(40000, 110, opus);
+        CameraAudioCodec opus = new CameraAudioCodec(AudioCodecType.OPUS, 1, 24);
+        String sdp = MicrophoneSession.sdpContent(40000, 110, opus);
 
         assertTrue(sdp.contains("\nm=audio 40000 RTP/AVP 110\n"), sdp);
         assertTrue(sdp.contains("\na=rtpmap:110 opus/24000/1\n"), sdp);
@@ -38,14 +38,14 @@ class ListenSessionTest {
 
     @Test
     void testSdpNamesG711Encoding() {
-        String sdp = AudioListenSession.sdpContent(40000, 0, new HomekitAudioCodec(AudioCodecType.PCMU, 1, 8));
+        String sdp = MicrophoneSession.sdpContent(40000, 0, new CameraAudioCodec(AudioCodecType.PCMU, 1, 8));
 
         assertTrue(sdp.contains("\na=rtpmap:0 PCMU/8000/1\n"), sdp);
     }
 
     @Test
     void testSdpDescribesAmrWbWithOctetAlign() {
-        String sdp = AudioListenSession.sdpContent(40000, 99, new HomekitAudioCodec(AudioCodecType.AMR_WB, 1, 16));
+        String sdp = MicrophoneSession.sdpContent(40000, 99, new CameraAudioCodec(AudioCodecType.AMR_WB, 1, 16));
 
         assertTrue(sdp.contains("\na=rtpmap:99 AMR-WB/16000/1\n"), sdp);
         assertTrue(sdp.contains("\na=fmtp:99 octet-align=1\n"), sdp);

@@ -18,7 +18,7 @@ import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.homekit.internal.camera.tlv.HomekitAudioCodec;
+import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
@@ -35,11 +35,11 @@ import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public final class FfmpegAudioBridge {
+public final class FfmpegAudioConverter {
 
     private static final String FFMPEG = "ffmpeg";
 
-    private FfmpegAudioBridge() {
+    private FfmpegAudioConverter() {
     }
 
     /**
@@ -91,7 +91,7 @@ public final class FfmpegAudioBridge {
      * @param srtp the camera's SRTP parameters for this audio stream
      * @param codec the declared codec of the stream
      */
-    public static List<String> listenCommand(String sdpFile, SrtpParameters srtp, HomekitAudioCodec codec) {
+    public static List<String> listenCommand(String sdpFile, SrtpParameters srtp, CameraAudioCodec codec) {
         return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
                 "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
                 sdpFile, "-vn", "-c:a", "copy", "-f", containerFormat(codec.codec()), "pipe:1");
@@ -110,7 +110,7 @@ public final class FfmpegAudioBridge {
      * @param codec the declared codec of the stream
      */
     public static List<String> talkCommand(String remoteHost, int remotePort, int localPort, SrtpParameters srtp,
-            int payloadType, long ssrc, HomekitAudioCodec codec) {
+            int payloadType, long ssrc, CameraAudioCodec codec) {
         List<String> command = new ArrayList<>(List.of(FFMPEG, "-hide_banner", "-loglevel", "warning"));
         if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
             command.addAll(

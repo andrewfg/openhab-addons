@@ -29,7 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class AudioTalkReceiver implements Runnable {
+public class MicrophoneListener implements Runnable {
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
 
@@ -37,7 +37,7 @@ public class AudioTalkReceiver implements Runnable {
     private final byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
     private volatile @Nullable InetSocketAddress forwardTo;
 
-    public AudioTalkReceiver() throws IOException {
+    public MicrophoneListener() throws IOException {
         socket = new DatagramSocket(0);
     }
 

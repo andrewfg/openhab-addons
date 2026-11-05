@@ -27,58 +27,60 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link AudioTalkReceiver}.
+ * Tests for {@link MicrophoneListener}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class TalkbackReceiverTest {
+class MicrophoneListenerTest {
 
     private static final long TIMEOUT_SECONDS = 5;
 
     @Test
     void testDiscardsDatagramsAndStopsOnClose() throws Exception {
-        AudioTalkReceiver receiver = new AudioTalkReceiver();
-        assertTrue(receiver.getPort() > 0);
+        MicrophoneListener microphoneListener = new MicrophoneListener();
+        assertTrue(microphoneListener.getPort() > 0);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<?> running = executor.submit(receiver);
+            Future<?> running = executor.submit(microphoneListener);
 
             try (DatagramSocket sender = new DatagramSocket()) {
                 byte[] payload = new byte[] { 1, 2, 3 };
                 sender.send(new DatagramPacket(payload, payload.length, InetAddress.getLoopbackAddress(),
-                        receiver.getPort()));
+                        microphoneListener.getPort()));
             }
 
             assertFalse(running.isDone(), "receiver must keep running until closed");
 
-            receiver.close();
+            microphoneListener.close();
             assertDoesNotThrow(() -> running.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
         } finally {
-            receiver.close();
+            microphoneListener.close();
             executor.shutdownNow();
         }
     }
 
     @Test
     void testRelaysDatagramsToForwardPortWhenSet() throws Exception {
-        AudioTalkReceiver receiver = new AudioTalkReceiver();
+        MicrophoneListener microphoneListener = new MicrophoneListener();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress());
                 DatagramSocket sender = new DatagramSocket()) {
             listener.setSoTimeout((int) TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
-            receiver.setForwardPort(listener.getLocalPort());
-            executor.submit(receiver);
+            microphoneListener.setForwardPort(listener.getLocalPort());
+            executor.submit(microphoneListener);
 
             byte[] small = new byte[] { 9 };
-            sender.send(new DatagramPacket(small, small.length, InetAddress.getLoopbackAddress(), receiver.getPort()));
+            sender.send(new DatagramPacket(small, small.length, InetAddress.getLoopbackAddress(),
+                    microphoneListener.getPort()));
             assertArrayEquals(small, receiveRelayed(listener));
 
             byte[] large = new byte[] { 1, 2, 3, 4 };
-            sender.send(new DatagramPacket(large, large.length, InetAddress.getLoopbackAddress(), receiver.getPort()));
+            sender.send(new DatagramPacket(large, large.length, InetAddress.getLoopbackAddress(),
+                    microphoneListener.getPort()));
             assertArrayEquals(large, receiveRelayed(listener));
         } finally {
-            receiver.close();
+            microphoneListener.close();
             executor.shutdownNow();
         }
     }
