@@ -49,8 +49,8 @@ public class LGServicesConstants {
             + LG_API_GATEWAY_SERVICE_PATH_V2;
     public static final String LG_API_MESSAGE_ID = "wideq";
     public static final String LG_API_OAUTH_CLIENT_KEY = "LGAO722A02";
-    public static final String LG_API_OAUTH_SEARCH_KEY_PATH = "/searchKey";
     public static final String LG_API_OAUTH_SECRET_KEY = "c053c2a6ddeb7ad97cb0eed0dcb31cf8";
+    public static final String LG_API_OAUTH_SIGNATURE_PATH = "/signature";
     public static final String LG_API_PLATFORM_TYPE_V1 = "thinq1";
     public static final String LG_API_PLATFORM_TYPE_V2 = "thinq2";
     public static final String LG_API_PRE_LOGIN_PATH = "/preLogin";
@@ -223,6 +223,7 @@ public class LGServicesConstants {
     public static final Map<String, Map<String, String>> CAP_WM_DICT_V2 = Map.of("spin", CAP_WM_SPIN, "rinse",
             CAP_WM_RINSE, "temp", CAP_WMD_TEMPERATURE, "state", CAP_WMD_STATE);
     public static final String WMD_COMMAND_REMOTE_START_V2 = "WMStart";
+    public static final String WMD_STATE_INITIAL = "INITIAL";
     /**
      * ============ Dish Washer's Label/Feature Translation Constants =============
      */
