@@ -13,18 +13,22 @@
 package org.openhab.binding.homekit.internal.camera;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
  * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes. ffmpeg never decodes
- * or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP and Ogg, copying the native Opus packets.
+ * or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP and a container, copying the native
+ * packets of the declared codec.
  * <p>
- * Listen: ffmpeg reads the camera's SRTP Opus (described by an SDP file) and writes it as Ogg Opus to stdout.
- * Talk: ffmpeg reads Ogg Opus from stdin and writes it as SRTP Opus to the camera endpoint.
+ * Listen: ffmpeg reads the camera's SRTP audio (described by an SDP file) and writes it to stdout in the codec's
+ * container.
+ * Talk: ffmpeg reads the codec's container from stdin and writes it as SRTP audio to the camera endpoint.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -65,21 +69,35 @@ public final class FfmpegAudioBridge {
     }
 
     /**
-     * Builds the listen command: SRTP camera Opus described by {@code sdpFile} in, Ogg Opus out on stdout with the
-     * packets copied unchanged.
-     *
-     * @param sdpFile path to an SDP file describing the camera's RTP audio stream and its UDP port
-     * @param srtp the camera's SRTP parameters for this audio stream
+     * Returns the ffmpeg container format that carries the packets of a declared codec on the pipes.
      */
-    public static List<String> listenCommand(String sdpFile, SrtpParameters srtp) {
-        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
-                "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
-                sdpFile, "-vn", "-c:a", "copy", "-f", "ogg", "pipe:1");
+    static String containerFormat(AudioCodecType codec) {
+        return switch (codec) {
+            case OPUS -> "ogg";
+            case PCMU -> "mulaw";
+            case PCMA -> "alaw";
+            case AMR, AMR_WB -> "amr";
+            case AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec);
+        };
     }
 
     /**
-     * Builds the talk command: Ogg Opus on stdin in, SRTP Opus to the camera endpoint with the packets copied
-     * unchanged.
+     * Builds the listen command: SRTP camera audio described by {@code sdpFile} in, the codec's container out on stdout
+     * with the packets copied unchanged.
+     *
+     * @param sdpFile path to an SDP file describing the camera's RTP audio stream and its UDP port
+     * @param srtp the camera's SRTP parameters for this audio stream
+     * @param codec the declared codec of the stream
+     */
+    public static List<String> listenCommand(String sdpFile, SrtpParameters srtp, HomekitAudioCodec codec) {
+        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
+                "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
+                sdpFile, "-vn", "-c:a", "copy", "-f", containerFormat(codec.codec()), "pipe:1");
+    }
+
+    /**
+     * Builds the talk command: the codec's container on stdin in, SRTP audio to the camera endpoint with the packets
+     * copied unchanged. Raw G.711 input has no header, so its sample rate and channel count are given explicitly.
      *
      * @param remoteHost the camera's IP address
      * @param remotePort the camera's audio RTP port
@@ -87,12 +105,19 @@ public final class FfmpegAudioBridge {
      * @param srtp the SRTP parameters negotiated for the talk-back session
      * @param payloadType the RTP payload type agreed with the camera
      * @param ssrc the RTP SSRC
+     * @param codec the declared codec of the stream
      */
     public static List<String> talkCommand(String remoteHost, int remotePort, int localPort, SrtpParameters srtp,
-            int payloadType, long ssrc) {
-        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-f", "ogg", "-i", "pipe:0", "-vn", "-c:a",
-                "copy", "-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc),
-                "-srtp_out_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f",
-                "rtp", "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort);
+            int payloadType, long ssrc, HomekitAudioCodec codec) {
+        List<String> command = new ArrayList<>(List.of(FFMPEG, "-hide_banner", "-loglevel", "warning"));
+        if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
+            command.addAll(List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac",
+                    String.valueOf(codec.channels())));
+        }
+        command.addAll(List.of("-f", containerFormat(codec.codec()), "-i", "pipe:0", "-vn", "-c:a", "copy",
+                "-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-srtp_out_suite",
+                toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f", "rtp",
+                "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort));
+        return List.copyOf(command);
     }
 }

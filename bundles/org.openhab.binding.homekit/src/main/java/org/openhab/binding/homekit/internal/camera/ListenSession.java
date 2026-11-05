@@ -43,23 +43,26 @@ public class ListenSession implements Runnable {
     private final TalkbackReceiver receiver;
     private final SrtpParameters srtp;
     private final int payloadType;
+    private final HomekitAudioCodec codec;
 
     private @Nullable Process process;
     private @Nullable Path sdpFile;
     private volatile boolean closed = false;
 
     /**
-     * @param audioConsumer receives each chunk of Ogg Opus copied from ffmpeg
+     * @param audioConsumer receives each chunk of the codec's container copied from ffmpeg
      * @param receiver the receiver that already accepts the camera's RTP for this session
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
-     * @param payloadType the RTP payload type that the camera uses for its Opus audio
+     * @param payloadType the RTP payload type that the camera uses for its audio
+     * @param codec the declared audio codec of the camera's stream
      */
     public ListenSession(Consumer<byte[]> audioConsumer, TalkbackReceiver receiver, SrtpParameters srtp,
-            int payloadType) {
+            int payloadType, HomekitAudioCodec codec) {
         this.audioConsumer = audioConsumer;
         this.receiver = receiver;
         this.srtp = srtp;
         this.payloadType = payloadType;
+        this.codec = codec;
     }
 
     /**
@@ -74,15 +77,15 @@ public class ListenSession implements Runnable {
         }
         Path sdp = Files.createTempFile("homekit-listen-", ".sdp");
         sdpFile = sdp;
-        Files.writeString(sdp, sdpContent(ffmpegPort, payloadType), StandardCharsets.US_ASCII);
-        Process started = new ProcessBuilder(FfmpegAudioBridge.listenCommand(sdp.toString(), srtp))
+        Files.writeString(sdp, sdpContent(ffmpegPort, payloadType, codec), StandardCharsets.US_ASCII);
+        Process started = new ProcessBuilder(FfmpegAudioBridge.listenCommand(sdp.toString(), srtp, codec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process = started;
         receiver.setForwardPort(ffmpegPort);
     }
 
     /**
-     * Copies Ogg Opus from ffmpeg to the consumer until ffmpeg ends or {@link #close()} is called.
+     * Copies the codec's container from ffmpeg to the consumer until ffmpeg ends or {@link #close()} is called.
      */
     @Override
     public void run() {
@@ -127,7 +130,19 @@ public class ListenSession implements Runnable {
         }
     }
 
-    static String sdpContent(int ffmpegPort, int payloadType) {
+    static String sdpContent(int ffmpegPort, int payloadType, HomekitAudioCodec codec) {
+        String encoding = switch (codec.codec()) {
+            case OPUS -> "opus";
+            case PCMU -> "PCMU";
+            case PCMA -> "PCMA";
+            case AMR -> "AMR";
+            case AMR_WB -> "AMR-WB";
+            case AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec.codec());
+        };
+        String fmtp = switch (codec.codec()) {
+            case AMR, AMR_WB -> "a=fmtp:%d octet-align=1\n".formatted(payloadType);
+            default -> "";
+        };
         return """
                 v=0
                 o=- 0 0 IN IP4 127.0.0.1
@@ -135,7 +150,8 @@ public class ListenSession implements Runnable {
                 c=IN IP4 127.0.0.1
                 t=0 0
                 m=audio %d RTP/AVP %d
-                a=rtpmap:%d opus/24000/1
-                """.formatted(ffmpegPort, payloadType, payloadType);
+                a=rtpmap:%d %s/%d/%d
+                %s""".formatted(ffmpegPort, payloadType, payloadType, encoding, codec.rtpClockRate(),
+                codec.channels(), fmtp);
     }
 }

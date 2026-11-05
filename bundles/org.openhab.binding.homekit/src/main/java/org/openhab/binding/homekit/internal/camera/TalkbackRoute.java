@@ -23,7 +23,7 @@ import org.openhab.core.audio.AudioException;
  */
 @NonNullByDefault
 public record TalkbackRoute(String cameraHost, int cameraAudioPort, int localPort, SrtpParameters srtp, long ssrc,
-        int payloadType) {
+        int payloadType, HomekitAudioCodec codec) {
 
     /**
      * Supplies the route for an active talk-back session, starting the session if needed.
@@ -31,14 +31,15 @@ public record TalkbackRoute(String cameraHost, int cameraAudioPort, int localPor
     @NonNullByDefault
     public interface Host {
         /**
-         * Takes a hold on the talk-back session.
+         * Takes a hold on the talk-back session for the given codec.
          *
-         * @throws AudioException if the session cannot be started
+         * @throws AudioException if the session cannot be started or is already running with a different codec
          */
-        TalkbackRoute acquire() throws AudioException;
+        TalkbackRoute acquire(HomekitAudioCodec codec) throws AudioException;
 
         /**
-         * Releases a hold taken by {@link #acquire()}. The session ends when the last hold is released.
+         * Releases a hold taken by {@link #acquire(HomekitAudioCodec)}. The session ends when the last hold is
+         * released.
          */
         void release();
     }

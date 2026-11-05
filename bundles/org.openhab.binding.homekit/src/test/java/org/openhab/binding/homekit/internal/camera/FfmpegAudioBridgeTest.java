@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
@@ -29,6 +30,10 @@ class FfmpegAudioBridgeTest {
 
     private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
             new byte[16], new byte[14]);
+    private static final HomekitAudioCodec OPUS = new HomekitAudioCodec(AudioCodecType.OPUS, 1, 24);
+    private static final HomekitAudioCodec PCMU_8K = new HomekitAudioCodec(AudioCodecType.PCMU, 1, 8);
+    private static final HomekitAudioCodec PCMA_8K = new HomekitAudioCodec(AudioCodecType.PCMA, 1, 8);
+    private static final HomekitAudioCodec AMR_WB_16K = new HomekitAudioCodec(AudioCodecType.AMR_WB, 1, 16);
 
     @Test
     void testParamsAreBase64OfKeyThenSalt() {
@@ -65,8 +70,8 @@ class FfmpegAudioBridgeTest {
     }
 
     @Test
-    void testListenCommandReadsSrtpAndCopiesOggToStdout() {
-        List<String> cmd = FfmpegAudioBridge.listenCommand("/tmp/camera.sdp", SRTP);
+    void testListenCommandReadsSrtpAndCopiesContainerToStdout() {
+        List<String> cmd = FfmpegAudioBridge.listenCommand("/tmp/camera.sdp", SRTP, OPUS);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("ogg", valueAfter(cmd, "-f"));
@@ -80,8 +85,15 @@ class FfmpegAudioBridgeTest {
     }
 
     @Test
-    void testTalkCommandReadsOggAndWritesSrtpToCamera() {
-        List<String> cmd = FfmpegAudioBridge.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L);
+    void testListenCommandUsesContainerOfDeclaredCodec() {
+        assertEquals("mulaw", valueAfter(listen(PCMU_8K), "-f"));
+        assertEquals("alaw", valueAfter(listen(PCMA_8K), "-f"));
+        assertEquals("amr", valueAfter(listen(AMR_WB_16K), "-f"));
+    }
+
+    @Test
+    void testTalkCommandReadsContainerAndWritesSrtpToCamera() {
+        List<String> cmd = FfmpegAudioBridge.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, OPUS);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
         assertEquals("ogg", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:a"));
@@ -91,6 +103,30 @@ class FfmpegAudioBridgeTest {
         assertEquals(FfmpegAudioBridge.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
         assertEquals("rtp://192.168.1.50:5004?localport=6000", cmd.get(cmd.size() - 1));
         assertFalse(cmd.contains("-srtp_in_suite"));
+        assertFalse(cmd.contains("-ar"));
+    }
+
+    @Test
+    void testTalkCommandGivesRawG711InputItsSampleRateAndChannels() {
+        List<String> cmd = talk(PCMU_8K);
+        assertEquals("8000", valueAfter(cmd, "-ar"));
+        assertEquals("1", valueAfter(cmd, "-ac"));
+        assertEquals("mulaw", valueAfter(cmd, "-f"));
+        assertEquals("pipe:0", valueAfter(cmd, "-i"));
+    }
+
+    @Test
+    void testTalkCommandUsesAmrContainerForAmrWb() {
+        assertEquals("amr", valueAfter(talk(AMR_WB_16K), "-f"));
+        assertFalse(talk(AMR_WB_16K).contains("-ar"));
+    }
+
+    private static List<String> listen(HomekitAudioCodec codec) {
+        return FfmpegAudioBridge.listenCommand("/tmp/camera.sdp", SRTP, codec);
+    }
+
+    private static List<String> talk(HomekitAudioCodec codec) {
+        return FfmpegAudioBridge.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
     }
 
     private static String valueAfter(List<String> cmd, String option) {
