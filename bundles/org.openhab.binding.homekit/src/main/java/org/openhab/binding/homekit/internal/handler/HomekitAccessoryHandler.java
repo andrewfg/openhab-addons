@@ -14,6 +14,7 @@ package org.openhab.binding.homekit.internal.handler;
 
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -195,6 +196,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Long talkbackSelectedIid = null;
     private @Nullable TalkbackReceiver talkbackReceiver = null;
     private @Nullable ListenSession talkbackListen = null;
+    private @Nullable SrtpParameters talkbackAudioSrtp = null;
     private volatile @Nullable TalkbackRoute talkbackRoute = null;
     private byte[] talkbackSessionId = new byte[16];
     private final Bundle bundle;
@@ -685,6 +687,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             talkbackSessionId = sessionId;
             talkbackReceiver = receiver;
             talkbackListen = listen;
+            talkbackAudioSrtp = audioSrtp;
             talkbackRoute = route;
             ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
             ThreadPoolManager.getPool(BINDING_ID).submit(listen);
@@ -708,6 +711,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         receiver.close();
         ListenSession listen = talkbackListen;
         talkbackListen = null;
+        talkbackAudioSrtp = null;
         if (listen != null) {
             listen.close();
         }
@@ -771,13 +775,42 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Holds talk-back open while an openHAB audio stream from the camera source is open.
+     * Replaces the running listen ffmpeg with a fresh one. Ogg Opus can only be decoded from its header pages, so a
+     * stream that joins a running session needs ffmpeg to restart and emit them. The camera session is not changed.
+     */
+    private synchronized void restartListen() {
+        TalkbackReceiver receiver = talkbackReceiver;
+        SrtpParameters audioSrtp = talkbackAudioSrtp;
+        ListenSession old = talkbackListen;
+        if (receiver == null || audioSrtp == null || old == null) {
+            return;
+        }
+        old.close();
+        ListenSession listen = new ListenSession(audioSource::publish, receiver, audioSrtp, TALKBACK_PAYLOAD_TYPE);
+        try {
+            listen.start();
+        } catch (IOException e) {
+            talkbackListen = null;
+            logger.debug("{} failed to restart audio listen: {}", thing.getUID(), e.getMessage());
+            return;
+        }
+        talkbackListen = listen;
+        ThreadPoolManager.getPool(BINDING_ID).submit(listen);
+    }
+
+    /**
+     * Holds talk-back open while an openHAB audio stream from the camera source is open. A stream that joins a running
+     * session restarts the listen ffmpeg so that it starts with the Ogg headers.
      */
     private final class TalkbackHoldListener implements HomekitAudioSource.Listener {
         @Override
-        public void streamOpened() {
+        public void streamOpening(int openStreams) {
             try {
-                acquireTalkbackHold();
+                if (openStreams > 0) {
+                    restartListen();
+                } else {
+                    acquireTalkbackHold();
+                }
             } catch (Exception e) {
                 logger.debug("{} audio listen unavailable: {}", thing.getUID(), e.getMessage());
             }

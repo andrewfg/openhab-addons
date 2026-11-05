@@ -47,7 +47,12 @@ public class HomekitAudioSource implements AudioSource {
      * Receives stream open and close notifications. Called from the thread that opens or closes the stream.
      */
     public interface Listener {
-        void streamOpened();
+        /**
+         * Called before a new stream joins the group, so the listener can prepare the audio it will receive.
+         *
+         * @param openStreams the number of streams already open
+         */
+        void streamOpening(int openStreams);
 
         void streamClosed();
     }
@@ -70,14 +75,15 @@ public class HomekitAudioSource implements AudioSource {
         if (!FORMAT.equals(format)) {
             throw new AudioException("Unsupported audio format: " + format);
         }
+        int existing = openStreams.getAndIncrement();
         PipedAudioStream stream;
         try {
+            listener.streamOpening(existing);
             stream = group.getAudioStreamInGroup();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            openStreams.decrementAndGet();
             throw new AudioException("Failed to open camera audio stream", e);
         }
-        openStreams.incrementAndGet();
-        listener.streamOpened();
         stream.onClose(() -> {
             openStreams.decrementAndGet();
             listener.streamClosed();
