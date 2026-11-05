@@ -176,13 +176,13 @@ then
 end
 ```
 
-### Special Talk-back Switch Channel
+### Camera Audio
 
-Camera and video doorbell devices that support two-way audio expose a `talkback` Switch Channel.
-Switching it `ON` asks the camera to open a talk-back audio session, and switching it `OFF` ends the session.
+Camera devices that support two-way audio are exposed to openHAB as an `AudioSink` (speaker) and an `AudioSource` (microphone), with no Channel needed.
 
-The binding negotiates the session with the camera and listens on a local UDP port.
-Audio received on that port is discarded, and no microphone audio is sent to the camera yet, so the talk-back Channel does not provide working two-way audio.
+- Audio sent to the `AudioSink` is transmitted to the camera only while it is being played, and the talk-back session is closed afterwards.
+- Audio is received from the `AudioSource` only while something is reading from it.
+- The audio is passed through in the formats the camera declares (for example Opus, PCMU, PCMA, AMR or AMR-WB), without transcoding.
 
 ## Integration with Apple Home App / Ecosystem
 

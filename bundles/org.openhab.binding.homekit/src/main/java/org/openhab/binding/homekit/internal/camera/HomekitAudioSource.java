@@ -51,10 +51,9 @@ public class HomekitAudioSource implements AudioSource {
          * Called before a new stream joins the group, so the listener can prepare the audio it will receive.
          *
          * @param codec the declared codec of the stream being opened
-         * @param openStreams the number of streams already open
          * @throws AudioException if the audio cannot be prepared, in which case the stream is not opened
          */
-        void streamOpening(HomekitAudioCodec codec, int openStreams) throws AudioException;
+        void streamOpening(HomekitAudioCodec codec) throws AudioException;
 
         void streamClosed();
     }
@@ -97,18 +96,17 @@ public class HomekitAudioSource implements AudioSource {
     public AudioStream getInputStream(AudioFormat format) throws AudioException {
         HomekitAudioCodec codec = codecFor(codecs, format)
                 .orElseThrow(() -> new AudioException("Unsupported audio format: " + format));
-        int existing;
         synchronized (lock) {
             AudioFormat active = activeFormat;
             if (openStreams > 0 && !format.equals(active)) {
                 throw new AudioException("Camera audio is already open in format " + active);
             }
-            existing = openStreams++;
+            openStreams++;
             activeFormat = format;
         }
         PipedAudioStream stream;
         try {
-            listener.streamOpening(codec, existing);
+            listener.streamOpening(codec);
             PipedAudioStream.Group group = groups.computeIfAbsent(format,
                     f -> PipedAudioStream.newGroup(f, PIPE_SIZE));
             stream = group.getAudioStreamInGroup();
