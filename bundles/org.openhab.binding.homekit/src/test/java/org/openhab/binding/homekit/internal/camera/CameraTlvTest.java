@@ -77,14 +77,24 @@ class CameraTlvTest {
         Map<Integer, byte[]> tlv = Tlv8Codec.decode(request.encode());
         assertArrayEquals(SESSION_ID, tlv.get(0x01));
 
-        Map<Integer, byte[]> address = Tlv8Codec.decode(tlv.get(0x03));
+        byte[] bytes = tlv.get(0x03);
+        assertNotNull(bytes);
+        Map<Integer, byte[]> address = Tlv8Codec.decode(bytes);
         assertArrayEquals(new byte[] { 1 }, address.get(0x01));
         assertArrayEquals("fd00::1".getBytes(StandardCharsets.UTF_8), address.get(0x02));
         assertArrayEquals(new byte[] { (byte) 0x8C, 0x13 }, address.get(0x03));
         assertArrayEquals(new byte[] { (byte) 0x8E, 0x13 }, address.get(0x04));
 
-        assertEquals(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80.value, Tlv8Codec.decode(tlv.get(0x04)).get(0x01)[0]);
-        assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80.value, Tlv8Codec.decode(tlv.get(0x05)).get(0x01)[0]);
+        bytes = tlv.get(0x04);
+        assertNotNull(bytes);
+        byte[] videoCryptoSuite = Tlv8Codec.decode(bytes).get(0x01);
+        assertNotNull(videoCryptoSuite);
+        assertEquals(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80.value, videoCryptoSuite[0]);
+        bytes = tlv.get(0x05);
+        assertNotNull(bytes);
+        byte[] audioCryptoSuite = Tlv8Codec.decode(bytes).get(0x01);
+        assertNotNull(audioCryptoSuite);
+        assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80.value, audioCryptoSuite[0]);
     }
 
     @Test
@@ -107,9 +117,11 @@ class CameraTlvTest {
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(SetupEndpointsStatus.SUCCESS, response.status());
         assertEquals(0x12345678L, response.audioSsrc());
-        assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, response.audioSrtp().cryptoSuite());
-        assertArrayEquals(srtp.masterKey(), response.audioSrtp().masterKey());
-        assertArrayEquals(srtp.masterSalt(), response.audioSrtp().masterSalt());
+        SrtpParameters audioSrtp = response.audioSrtp();
+        assertNotNull(audioSrtp);
+        assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, audioSrtp.cryptoSuite());
+        assertArrayEquals(srtp.masterKey(), audioSrtp.masterKey());
+        assertArrayEquals(srtp.masterSalt(), audioSrtp.masterSalt());
     }
 
     @Test
@@ -146,11 +158,19 @@ class CameraTlvTest {
         SelectedAudioParameters audio = new SelectedAudioParameters(AudioCodecType.OPUS, 1, true, 16, 20, 110,
                 0xAABBCCDDL, 24, 0.5f, false, 13);
         Map<Integer, byte[]> tlv = Tlv8Codec.decode(audio.encode());
-        assertEquals(AudioCodecType.OPUS.value, tlv.get(0x01)[0]);
-        assertEquals(0, tlv.get(0x04)[0]);
+        byte[] codec = tlv.get(0x01);
+        assertNotNull(codec);
+        assertEquals(AudioCodecType.OPUS.value, codec[0]);
+        byte[] comfortNoise = tlv.get(0x04);
+        assertNotNull(comfortNoise);
+        assertEquals(0, comfortNoise[0]);
 
-        Map<Integer, byte[]> rtp = Tlv8Codec.decode(tlv.get(0x03));
-        assertEquals(110, rtp.get(0x01)[0]);
+        byte[] bytes = tlv.get(0x03);
+        assertNotNull(bytes);
+        Map<Integer, byte[]> rtp = Tlv8Codec.decode(bytes);
+        byte[] packetTime = rtp.get(0x01);
+        assertNotNull(packetTime);
+        assertEquals(110, packetTime[0]);
         assertArrayEquals(new byte[] { (byte) 0xDD, (byte) 0xCC, (byte) 0xBB, (byte) 0xAA }, rtp.get(0x02));
         assertArrayEquals(new byte[] { 24, 0 }, rtp.get(0x03));
         assertArrayEquals(new byte[] { 0, 0, 0, 0x3F }, rtp.get(0x04));
@@ -158,14 +178,11 @@ class CameraTlvTest {
 
     @Test
     void selectedAudioRejectsUnsupportedValues() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true, 44, 20, 110, 1, 24, 0.5f, false,
-                        13));
-        assertThrows(IllegalArgumentException.class,
-                () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 0, true, 16, 20, 110, 1, 24, 0.5f, false,
-                        13));
-        assertThrows(IllegalArgumentException.class,
-                () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true, 16, 20, 200, 1, 24, 0.5f, false,
-                        13));
+        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true,
+                44, 20, 110, 1, 24, 0.5f, false, 13));
+        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 0, true,
+                16, 20, 110, 1, 24, 0.5f, false, 13));
+        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true,
+                16, 20, 200, 1, 24, 0.5f, false, 13));
     }
 }

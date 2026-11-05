@@ -28,7 +28,6 @@ public record TalkbackRoute(String cameraHost, int cameraAudioPort, int localPor
     /**
      * Supplies the route for an active talk-back session, starting the session if needed.
      */
-    @NonNullByDefault
     public interface Host {
         /**
          * Takes a hold on the talk-back session for the given codec.

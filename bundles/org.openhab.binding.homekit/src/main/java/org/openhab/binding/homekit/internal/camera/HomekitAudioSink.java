@@ -64,7 +64,7 @@ public class HomekitAudioSink implements AudioSink {
     }
 
     @Override
-    public String getLabel(@Nullable Locale locale) {
+    public @Nullable String getLabel(@Nullable Locale locale) {
         return "HomeKit camera speaker";
     }
 

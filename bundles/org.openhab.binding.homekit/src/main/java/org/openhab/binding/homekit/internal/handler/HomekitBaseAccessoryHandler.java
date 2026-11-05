@@ -167,7 +167,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
                     Duration sleepDuration = delay.compareTo(MIN_INTERVAL) < 0 ? delay : MIN_INTERVAL;
                     logger.trace("{} throttling call for {} to respect minimum interval", thing.getUID(),
                             sleepDuration);
-                    Thread.sleep(sleepDuration);
+                    Thread.sleep(sleepDuration.toMillis());
                 }
                 return task.call();
             } finally {
@@ -363,16 +363,19 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             sessionUpgradeInProgress.set(false);
             Thread.currentThread().interrupt(); // shutting down; restore interrupt flag and do nothing
             return false;
-        } catch (NoSuchAlgorithmException | NoSuchProviderException | IllegalAccessException
-                | InvalidCipherTextException | IOException | TimeoutException | ExecutionException
-                | IllegalStateException | SecurityException e) {
+        } catch (InvalidCipherTextException | SecurityException e) {
             logger.debug("{} restored pairing was not verified", thing.getUID(), e);
             sessionUpgradeInProgress.set(false);
             scheduleConnectionAttempt();
-            updateStatus(
-                    e instanceof InvalidCipherTextException || e instanceof SecurityException
-                            ? ThingStatusDetail.AUTHORIZATION_PENDING
-                            : ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING,
+                    THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
+            return false;
+        } catch (NoSuchAlgorithmException | NoSuchProviderException | IllegalAccessException | IOException
+                | TimeoutException | ExecutionException | IllegalStateException e) {
+            logger.debug("{} restored pairing was not verified", thing.getUID(), e);
+            sessionUpgradeInProgress.set(false);
+            scheduleConnectionAttempt();
+            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
                     THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return false;
         }
@@ -572,13 +575,15 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
             connectionAttemptDelay = MIN_CONNECTION_ATTEMPT_DELAY_SECONDS; // reset delay on manual pairing
             scheduleConnectionAttempt();
             return ACTION_RESULT_OK; // pairing succeeded
-        } catch (Exception e) {
-            // catch all; log all exceptions
+        } catch (InvalidCipherTextException | SecurityException e) {
             logger.debug("{} pairing / verification failed '{}'", thing.getUID(), e.getMessage(), e);
-            updateStatus(
-                    e instanceof InvalidCipherTextException || e instanceof SecurityException
-                            ? ThingStatusDetail.AUTHORIZATION_PENDING
-                            : ThingStatusDetail.CONFIGURATION_ERROR,
+            updateStatus(ThingStatusDetail.AUTHORIZATION_PENDING,
+                    THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
+            return ACTION_RESULT_ERROR_FORMAT.formatted("pairing error");
+        } catch (Exception e) {
+            // catch all remaining exceptions; log all exceptions
+            logger.debug("{} pairing / verification failed '{}'", thing.getUID(), e.getMessage(), e);
+            updateStatus(ThingStatusDetail.CONFIGURATION_ERROR,
                     THING_STATUS_FMT.formatted("error.pairing-verification-failed", e.getMessage()));
             return ACTION_RESULT_ERROR_FORMAT.formatted("pairing error");
         }

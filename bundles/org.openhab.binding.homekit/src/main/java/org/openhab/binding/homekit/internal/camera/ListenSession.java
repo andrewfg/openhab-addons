@@ -151,7 +151,7 @@ public class ListenSession implements Runnable {
                 t=0 0
                 m=audio %d RTP/AVP %d
                 a=rtpmap:%d %s/%d/%d
-                %s""".formatted(ffmpegPort, payloadType, payloadType, encoding, codec.rtpClockRate(),
-                codec.channels(), fmtp);
+                %s""".formatted(ffmpegPort, payloadType, payloadType, encoding, codec.rtpClockRate(), codec.channels(),
+                fmtp);
     }
 }

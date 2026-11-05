@@ -39,10 +39,11 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.HomekitAudioCodec;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSink;
 import org.openhab.binding.homekit.internal.camera.HomekitAudioSource;
-import org.openhab.binding.homekit.internal.camera.HomekitAudioCodec;
 import org.openhab.binding.homekit.internal.camera.ListenSession;
+import org.openhab.binding.homekit.internal.camera.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.camera.SelectedRtpStreamConfiguration.SessionCommand;
 import org.openhab.binding.homekit.internal.camera.SetupEndpointsRequest;
@@ -697,8 +698,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         Long selectedIid = talkbackSelectedIid;
         if (notifyCamera && codec != null && aid != null && selectedIid != null) {
             try {
-                writeTlvCharacteristic(aid, selectedIid, new SelectedRtpStreamConfiguration(talkbackSessionId,
-                        SessionCommand.END, selectedAudio(codec)).encode(), false);
+                writeTlvCharacteristic(aid, selectedIid,
+                        new SelectedRtpStreamConfiguration(talkbackSessionId, SessionCommand.END, selectedAudio(codec))
+                                .encode(),
+                        false);
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }

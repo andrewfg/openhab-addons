@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,8 @@ import org.openhab.core.audio.PipedAudioStream;
 /**
  * {@link HomekitAudioSource} exposes the audio of a HomeKit camera as an openHAB {@link AudioSource}. The
  * camera's audio is published as its native packets, in the codec the camera declares, to every open
- * {@link AudioStream}. Only one format can be open at a time. Opening the first stream and closing the last one notifies the owner, so the camera's
+ * {@link AudioStream}. Only one format can be open at a time. Opening the first stream and closing the last one
+ * notifies the owner, so the camera's
  * audio is only received while something is listening.
  *
  * @author Andrew Fiddian-Green - Initial contribution
@@ -107,9 +109,8 @@ public class HomekitAudioSource implements AudioSource {
         PipedAudioStream stream;
         try {
             listener.streamOpening(codec);
-            PipedAudioStream.Group group = groups.computeIfAbsent(format,
-                    f -> PipedAudioStream.newGroup(f, PIPE_SIZE));
-            stream = group.getAudioStreamInGroup();
+            PipedAudioStream.Group group = groups.computeIfAbsent(format, f -> PipedAudioStream.newGroup(f, PIPE_SIZE));
+            stream = Objects.requireNonNull(group).getAudioStreamInGroup();
         } catch (AudioException | IOException | RuntimeException e) {
             streamReleased();
             throw new AudioException("Failed to open camera audio stream", e);
@@ -127,7 +128,10 @@ public class HomekitAudioSource implements AudioSource {
      */
     public void publish(byte[] data) {
         AudioFormat format = activeFormat;
-        PipedAudioStream.Group group = format == null ? null : groups.get(format);
+        if (format == null) {
+            return;
+        }
+        PipedAudioStream.Group group = groups.get(format);
         if (group == null || group.isEmpty()) {
             return;
         }

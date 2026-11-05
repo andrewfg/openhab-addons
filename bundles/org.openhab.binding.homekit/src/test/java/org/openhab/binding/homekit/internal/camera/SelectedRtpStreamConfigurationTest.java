@@ -39,37 +39,43 @@ class SelectedRtpStreamConfigurationTest {
 
     @Test
     void testStartEncodesSessionControlAndAudio() {
-        Map<Integer, byte[]> root = Tlv8Codec.decode(
-                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
+        Map<Integer, byte[]> root = Tlv8Codec
+                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
 
         assertArrayEquals(AUDIO.encode(), root.get(0x02));
 
-        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        byte[] controlBytes = root.get(0x01);
+        assertNotNull(controlBytes);
+        Map<Integer, byte[]> control = Tlv8Codec.decode(controlBytes);
         assertArrayEquals(SESSION_ID, control.get(0x01));
         assertArrayEquals(new byte[] { 1 }, control.get(0x02));
     }
 
     @Test
     void testEndEncodesCommandZero() {
-        Map<Integer, byte[]> root = Tlv8Codec.decode(
-                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.END, AUDIO).encode());
+        Map<Integer, byte[]> root = Tlv8Codec
+                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.END, AUDIO).encode());
 
-        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        byte[] controlBytes = root.get(0x01);
+        assertNotNull(controlBytes);
+        Map<Integer, byte[]> control = Tlv8Codec.decode(controlBytes);
         assertArrayEquals(new byte[] { 0 }, control.get(0x02));
     }
 
     @Test
     void testReconfigureEncodesCommandTwo() {
-        Map<Integer, byte[]> root = Tlv8Codec.decode(
-                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.RECONFIGURE, AUDIO).encode());
+        Map<Integer, byte[]> root = Tlv8Codec
+                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.RECONFIGURE, AUDIO).encode());
 
-        Map<Integer, byte[]> control = Tlv8Codec.decode(root.get(0x01));
+        byte[] controlBytes = root.get(0x01);
+        assertNotNull(controlBytes);
+        Map<Integer, byte[]> control = Tlv8Codec.decode(controlBytes);
         assertArrayEquals(new byte[] { 2 }, control.get(0x02));
     }
 
     @Test
     void testRejectsSessionIdOfWrongLength() {
-        assertThrows(IllegalArgumentException.class, () -> new SelectedRtpStreamConfiguration(new byte[15],
-                SessionCommand.START, AUDIO));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SelectedRtpStreamConfiguration(new byte[15], SessionCommand.START, AUDIO));
     }
 }

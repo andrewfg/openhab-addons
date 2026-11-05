@@ -51,8 +51,8 @@ public final class FfmpegAudioBridge {
         if (srtp.cryptoSuite() == SrtpCryptoSuite.NONE) {
             throw new IllegalArgumentException("SRTP crypto suite NONE cannot be bridged");
         }
-        byte[] combined = ByteBuffer.allocate(srtp.masterKey().length + srtp.masterSalt().length)
-                .put(srtp.masterKey()).put(srtp.masterSalt()).array();
+        byte[] combined = ByteBuffer.allocate(srtp.masterKey().length + srtp.masterSalt().length).put(srtp.masterKey())
+                .put(srtp.masterSalt()).array();
         return Base64.getEncoder().encodeToString(combined);
     }
 
@@ -111,8 +111,8 @@ public final class FfmpegAudioBridge {
             int payloadType, long ssrc, HomekitAudioCodec codec) {
         List<String> command = new ArrayList<>(List.of(FFMPEG, "-hide_banner", "-loglevel", "warning"));
         if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
-            command.addAll(List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac",
-                    String.valueOf(codec.channels())));
+            command.addAll(
+                    List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac", String.valueOf(codec.channels())));
         }
         command.addAll(List.of("-f", containerFormat(codec.codec()), "-i", "pipe:0", "-vn", "-c:a", "copy",
                 "-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-srtp_out_suite",

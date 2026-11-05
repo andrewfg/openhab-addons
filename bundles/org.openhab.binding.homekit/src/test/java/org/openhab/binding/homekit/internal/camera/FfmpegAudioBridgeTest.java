@@ -28,8 +28,8 @@ import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
  */
 class FfmpegAudioBridgeTest {
 
-    private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
-            new byte[16], new byte[14]);
+    private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16],
+            new byte[14]);
     private static final HomekitAudioCodec OPUS = new HomekitAudioCodec(AudioCodecType.OPUS, 1, 24);
     private static final HomekitAudioCodec PCMU_8K = new HomekitAudioCodec(AudioCodecType.PCMU, 1, 8);
     private static final HomekitAudioCodec PCMA_8K = new HomekitAudioCodec(AudioCodecType.PCMA, 1, 8);

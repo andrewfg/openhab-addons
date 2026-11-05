@@ -89,8 +89,8 @@ class HomekitAudioCodecTest {
             rates.write(code);
         }
         byte[] parameters = concat(new byte[] { 0x01, 1, (byte) channels }, rates.toByteArray());
-        byte[] body = concat(new byte[] { 0x01, 1, (byte) codecType }, concat(new byte[] { 0x02 },
-                concat(new byte[] { (byte) parameters.length }, parameters)));
+        byte[] body = concat(new byte[] { 0x01, 1, (byte) codecType },
+                concat(new byte[] { 0x02 }, concat(new byte[] { (byte) parameters.length }, parameters)));
         return concat(new byte[] { 0x01, (byte) body.length }, body);
     }
 
