@@ -52,8 +52,6 @@ public class HomekitBindingConstants {
      */
     public static final String CHANNEL_SNAPSHOT = "snapshot";
     public static final ChannelTypeUID CHANNEL_TYPE_SNAPSHOT = new ChannelTypeUID(BINDING_ID, CHANNEL_SNAPSHOT);
-    public static final String CHANNEL_TALKBACK = "talkback";
-    public static final ChannelTypeUID CHANNEL_TYPE_TALKBACK = new ChannelTypeUID(BINDING_ID, CHANNEL_TALKBACK);
 
     /**
      * format string for channel-definition IDs like '[characteristicIdentifier]-[characteristicIid]'

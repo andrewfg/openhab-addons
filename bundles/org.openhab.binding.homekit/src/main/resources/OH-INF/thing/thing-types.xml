@@ -52,10 +52,4 @@
 		</config-description>
 	</channel-type>
 
-	<channel-type id="talkback">
-		<item-type>Switch</item-type>
-		<label>Camera Talk-back</label>
-		<description>Starts or stops two-way audio from openHAB to the camera.</description>
-	</channel-type>
-
 </thing:thing-descriptions>
