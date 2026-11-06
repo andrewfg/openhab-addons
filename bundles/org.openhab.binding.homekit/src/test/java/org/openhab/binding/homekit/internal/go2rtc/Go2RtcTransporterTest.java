@@ -38,6 +38,7 @@ import org.openhab.binding.homekit.internal.media.AudioCodec;
 class Go2RtcTransporterTest {
 
     private static final int TIMEOUT_SECONDS = 10;
+    private static final List<AudioCodec> CAMERA_CODECS = List.of(new AudioCodec(AudioCodecType.PCMA, 1, 8));
     private static final Go2RtcTransporter.ClientObserver NO_OP_OBSERVER = new Go2RtcTransporter.ClientObserver() {
         @Override
         public void listenConnected() {
@@ -55,6 +56,25 @@ class Go2RtcTransporterTest {
         public void talkDisconnected() {
         }
     };
+
+    @Test
+    void alawCodecIsSelectedFromCameraCodecs() throws IOException {
+        AudioCodec alaw = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+        List<AudioCodec> cameraCodecs = List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24), alaw);
+
+        assertEquals(alaw, Go2RtcTransporter.alawCodec(cameraCodecs).orElseThrow());
+        try (Go2RtcTransporter transporter = new Go2RtcTransporter(cameraCodecs, NO_OP_OBSERVER)) {
+            assertEquals(alaw, transporter.codec());
+        }
+    }
+
+    @Test
+    void constructorRejectsCameraWithoutAlaw() {
+        List<AudioCodec> cameraCodecs = List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24));
+
+        assertTrue(Go2RtcTransporter.alawCodec(cameraCodecs).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> new Go2RtcTransporter(cameraCodecs, NO_OP_OBSERVER));
+    }
 
     @Test
     void audioSdpDescribesLoopbackOpusStreamOnPort() {
@@ -95,7 +115,7 @@ class Go2RtcTransporterTest {
     void decoderOutputReachesListenClient() throws Exception {
         AudioCodec pcmu = new AudioCodec(AudioCodecType.PCMU, 1, 8);
         CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
-        try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER)) {
+        try (Go2RtcTransporter transporter = new Go2RtcTransporter(CAMERA_CODECS, NO_OP_OBSERVER)) {
             // the decoder command is "cat <sdp file>", so its output is exactly the SDP that was written
             transporter.startDecoders(new Go2RtcTransporter.Decoder(port -> {
                 decoderPort.complete(port);
@@ -115,7 +135,7 @@ class Go2RtcTransporterTest {
     void rtpReceivedWhileListenConnectedIsForwardedToDecoder() throws Exception {
         InetAddress loopback = InetAddress.getLoopbackAddress();
         CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
-        try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER)) {
+        try (Go2RtcTransporter transporter = new Go2RtcTransporter(CAMERA_CODECS, NO_OP_OBSERVER)) {
             // "cat" with no argument stays alive reading stdin, so the decoder keeps running while the test sends RTP
             transporter.startDecoders(new Go2RtcTransporter.Decoder(port -> {
                 decoderPort.complete(port);
@@ -169,7 +189,7 @@ class Go2RtcTransporterTest {
                 disconnected.complete(null);
             }
         };
-        try (Go2RtcTransporter transporter = new Go2RtcTransporter(observer)) {
+        try (Go2RtcTransporter transporter = new Go2RtcTransporter(CAMERA_CODECS, observer)) {
             try (Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.talkPort())) {
                 connected.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 client.shutdownOutput();
