@@ -44,8 +44,8 @@ public class MicrophoneSession implements Runnable {
     private final SrtpParameters srtp;
     private final int payloadType;
     private final CameraAudioCodec codec;
+    private final String ffmpeg;
 
-    private @Nullable Process process;
     private @Nullable Path sdpFile;
     private volatile boolean closed = false;
 
@@ -55,14 +55,16 @@ public class MicrophoneSession implements Runnable {
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its audio
      * @param codec the declared audio codec of the camera's stream
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      */
     public MicrophoneSession(Consumer<byte[]> audioConsumer, MicrophoneListener microphoneListener, SrtpParameters srtp,
-            int payloadType, CameraAudioCodec codec) {
+            int payloadType, CameraAudioCodec codec, String ffmpeg) {
         this.audioConsumer = audioConsumer;
         this.microphoneListener = microphoneListener;
         this.srtp = srtp;
         this.payloadType = payloadType;
         this.codec = codec;
+        this.ffmpeg = ffmpeg;
     }
 
     /**
@@ -78,7 +80,7 @@ public class MicrophoneSession implements Runnable {
         Path sdp = Files.createTempFile("homekit-listen-", ".sdp");
         sdpFile = sdp;
         Files.writeString(sdp, sdpContent(ffmpegPort, payloadType, codec), StandardCharsets.US_ASCII);
-        Process started = new ProcessBuilder(FfmpegAudioConverter.listenCommand(sdp.toString(), srtp, codec))
+        Process started = new ProcessBuilder(FfmpegAudioConverter.listenCommand(ffmpeg, sdp.toString(), srtp, codec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process = started;
         microphoneListener.setForwardPort(ffmpegPort);

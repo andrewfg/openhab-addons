@@ -15,14 +15,17 @@ package org.openhab.binding.homekit.internal.handler;
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,11 +42,15 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.FfmpegAudioConverter;
+import org.openhab.binding.homekit.internal.camera.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.MicrophoneListener;
 import org.openhab.binding.homekit.internal.camera.MicrophoneSession;
 import org.openhab.binding.homekit.internal.camera.SpeakerSession;
-import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSink;
-import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSource;
+import org.openhab.binding.homekit.internal.camera.go2rtc.AudioBridge;
+import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
+import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcInstaller;
+import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcProcess;
 import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration;
@@ -56,6 +63,7 @@ import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
 import org.openhab.binding.homekit.internal.dto.Service;
 import org.openhab.binding.homekit.internal.enums.AccessoryCategory;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.CharacteristicType;
 import org.openhab.binding.homekit.internal.enums.DataFormatType;
 import org.openhab.binding.homekit.internal.enums.ServiceType;
@@ -65,9 +73,7 @@ import org.openhab.binding.homekit.internal.enums.StatusCode;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
-import org.openhab.core.audio.AudioException;
-import org.openhab.core.audio.AudioSink;
-import org.openhab.core.audio.AudioSource;
+import org.openhab.core.OpenHAB;
 import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
@@ -113,8 +119,6 @@ import org.openhab.core.util.LightModel;
 import org.openhab.core.util.LightModel.LightCapabilities;
 import org.openhab.core.util.LightModel.RgbDataType;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -200,10 +204,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable SrtpParameters srtpParameters = null;
     private volatile @Nullable SpeakerSession speakerSession = null;
     private byte[] audioSessionId = new byte[16];
-    private final HomekitAudioSource audioSource = new HomekitAudioSource(new MicrophoneImpl());
-    private final HomekitAudioSink audioSink = new HomekitAudioSink(new SpeakerImpl());
-    private @Nullable ServiceRegistration<?> audioSourceRegistration = null;
-    private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
+
+    private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
+    private volatile @Nullable AudioBridge go2rtcBridge = null;
+    private volatile String ffmpegPath = "ffmpeg";
+    private @Nullable Go2RtcProcess go2rtcProcess = null;
+    private boolean go2rtcStarting = false;
     private int sessionUsers = 0;
     private int listenStreams = 0;
 
@@ -503,6 +509,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
             findTalkbackCharacteristics(accessory);
+            if (go2rtcCodec().isPresent()) {
+                Channel audioUrlChannel = ChannelBuilder
+                        .create(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), CoreItemFactory.STRING)
+                        .withType(CHANNEL_TYPE_AUDIO_URL).build();
+                uniqueChannelsMap.put(CHANNEL_AUDIO_URL, audioUrlChannel);
+                logChannelInformation(audioUrlChannel);
+            }
         }
 
         String oldLabel = thing.getLabel();
@@ -615,7 +628,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         lightModelLinks.clear();
         lightModelClientHSBTypeChannel = null;
         stopMoveChannel = null;
-        unregisterAudioServices();
+        stopGo2rtc();
         closeCameraSession(false);
         sessionUsers = 0;
         listenStreams = 0;
@@ -1419,6 +1432,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (microphoneListener != null) {
             return;
         }
+        String ffmpeg = FfmpegInstaller.ensureBinary(cacheDir());
+        ffmpegPath = ffmpeg;
         Long aid = getAccessoryId();
         Long setupIid = audioSetupIid;
         Long selectedIid = audioSelectedIid;
@@ -1428,11 +1443,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (!(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
             throw new IllegalStateException("Camera IP address not configured");
         }
-        String controllerAddress;
-        try (DatagramSocket probe = new DatagramSocket()) {
-            probe.connect(InetAddress.getByName(ipAddress), 80); // no packets are sent; only selects the local address
-            controllerAddress = probe.getLocalAddress().getHostAddress();
-        }
+        String controllerAddress = lanAddress(ipAddress);
         MicrophoneListener receiver = new MicrophoneListener();
         try {
             byte[] sessionId = new byte[16];
@@ -1531,31 +1542,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Registers the openHAB audio source and sink. Only called once the camera exposes talk-back.
-     */
-    private synchronized void registerAudioServices() {
-        BundleContext context = bundle.getBundleContext();
-        if (audioSourceRegistration != null || context == null) {
-            return;
-        }
-        audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
-        audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
-    }
-
-    private synchronized void unregisterAudioServices() {
-        ServiceRegistration<?> sink = audioSinkRegistration;
-        audioSinkRegistration = null;
-        if (sink != null) {
-            sink.unregister();
-        }
-        ServiceRegistration<?> source = audioSourceRegistration;
-        audioSourceRegistration = null;
-        if (source != null) {
-            source.unregister();
-        }
-    }
-
-    /**
      * Replaces the running microphone listen ffmpeg with a fresh one.
      * Ogg Opus can only be decoded from its header pages, so each stream that opens restarts ffmpeg to emit them.
      * The camera session is not changed.
@@ -1567,8 +1553,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             throw new IllegalStateException("Camera talk-back is not active with " + codec);
         }
         stopMicrophoneFeed();
-        MicrophoneSession listen = new MicrophoneSession(audioSource::publish, microphoneListener, audioSrtp,
-                AUDIO_PAYLOAD_TYPE, codec);
+        MicrophoneSession listen = new MicrophoneSession(this::publishMicrophoneAudio, microphoneListener, audioSrtp,
+                AUDIO_PAYLOAD_TYPE, codec, ffmpegPath);
         listen.start();
         microphoneSession = listen;
         ThreadPoolManager.getPool(BINDING_ID).submit(listen);
@@ -1604,41 +1590,168 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         releaseCameraSession();
     }
 
-    private final class MicrophoneImpl implements HomekitAudioSource.Microphone {
-        @Override
-        public void streamOpening(CameraAudioCodec codec) throws AudioException {
-            try {
-                openMicrophoneStream(codec);
-            } catch (Exception e) {
-                throw new AudioException("Camera audio unavailable: " + e.getMessage(), e);
-            }
+    /**
+     * Returns the codec for the go2rtc browser bridge. go2rtc is only used with A-law, which is the one codec
+     * that go2rtc's ffmpeg bridge handles for both listen and talk.
+     */
+    private Optional<CameraAudioCodec> go2rtcCodec() {
+        if (!isTalkbackAvailable()) {
+            return Optional.empty();
         }
+        return audioCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA).findFirst();
+    }
 
-        @Override
-        public void streamClosed() {
-            closeMicrophoneStream();
+    /**
+     * Starts the go2rtc browser bridge once, if the camera declares A-law audio. The start runs on the scheduler
+     * because the go2rtc binary may need to be downloaded first.
+     */
+    private synchronized void startGo2rtcIfAvailable() {
+        Optional<CameraAudioCodec> alaw = go2rtcCodec();
+        if (alaw.isEmpty() || go2rtcStarting || !(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
+            return;
+        }
+        CameraAudioCodec codec = alaw.get();
+        go2rtcStarting = true;
+        scheduler.submit(() -> startGo2rtc(codec, ipAddress));
+    }
+
+    private static Path cacheDir() {
+        return Paths.get(OpenHAB.getUserDataFolder(), "cache", BINDING_ID);
+    }
+
+    private void startGo2rtc(CameraAudioCodec codec, String ipAddress) {
+        AudioBridge bridge = null;
+        Go2RtcProcess process = null;
+        boolean published = false;
+        try {
+            String ffmpeg = FfmpegInstaller.ensureBinary(cacheDir());
+            Path binary = new Go2RtcInstaller(cacheDir()).ensureBinary();
+            Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
+                    Go2RtcProcess.freePort());
+            String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
+            bridge = new AudioBridge(new AudioBridge.ListenObserver() {
+                @Override
+                public void listenConnected() {
+                    try {
+                        openMicrophoneStream(codec);
+                    } catch (Exception e) {
+                        logger.debug("{} go2rtc listen unavailable: {}", thing.getUID(), e.getMessage());
+                    }
+                }
+
+                @Override
+                public void listenDisconnected() {
+                    closeMicrophoneStream();
+                }
+            }, talk -> handleTalk(codec, talk));
+            String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
+            String yaml = Go2RtcConfig.toYaml(ports, stream,
+                    Go2RtcConfig.listenCommand(ffmpeg, listenInput, bridge.listenPort()), stream + "_talk",
+                    Go2RtcConfig.talkCommand(ffmpeg, codec.rtpClockRate(), codec.channels(), bridge.talkPort()));
+            process = new Go2RtcProcess(binary);
+            process.start(yaml);
+            if (!awaitGo2rtcReady(process, ports.api())) {
+                throw new IOException("go2rtc did not become ready");
+            }
+            String url = "http://" + lanAddress(ipAddress) + ":" + ports.api() + "/stream.html?src=" + stream
+                    + "&mode=webrtc";
+            synchronized (this) {
+                if (disposing.get()) {
+                    return;
+                }
+                go2rtcBridge = bridge;
+                go2rtcProcess = process;
+            }
+            updateState(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), new StringType(url));
+            published = true;
+        } catch (IOException e) {
+            logger.warn("{} go2rtc audio bridge unavailable: {}", thing.getUID(), e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            if (!published) {
+                if (process != null) {
+                    process.stop();
+                }
+                if (bridge != null) {
+                    bridge.close();
+                }
+            }
         }
     }
 
-    private final class SpeakerImpl implements SpeakerSession.Speaker {
-        @Override
-        public SpeakerSession acquire(CameraAudioCodec codec) throws AudioException {
-            try {
-                acquireCameraSession(codec);
-            } catch (Exception e) {
-                throw new AudioException("Camera talk-back unavailable: " + e.getMessage(), e);
-            }
-            SpeakerSession session = speakerSession;
-            if (session == null) {
-                releaseCameraSession();
-                throw new AudioException("Camera talk-back route not available");
-            }
-            return session;
+    private synchronized void stopGo2rtc() {
+        Go2RtcProcess process = go2rtcProcess;
+        AudioBridge bridge = go2rtcBridge;
+        go2rtcProcess = null;
+        go2rtcBridge = null;
+        go2rtcStarting = false;
+        if (process != null) {
+            process.stop();
         }
+        if (bridge != null) {
+            bridge.close();
+        }
+    }
 
-        @Override
-        public void release() {
+    private void handleTalk(CameraAudioCodec codec, InputStream talk) {
+        try {
+            acquireCameraSession(codec);
+        } catch (Exception e) {
+            logger.debug("{} go2rtc talk unavailable: {}", thing.getUID(), e.getMessage());
+            return;
+        }
+        try {
+            SpeakerSession route = speakerSession;
+            if (route == null) {
+                logger.debug("{} go2rtc talk route not available", thing.getUID());
+                return;
+            }
+            Process process = new ProcessBuilder(FfmpegAudioConverter.talkCommand(ffmpegPath, route.cameraHost(),
+                    route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc(), codec))
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            try (OutputStream output = process.getOutputStream()) {
+                talk.transferTo(output);
+            } catch (IOException e) {
+                logger.debug("{} camera talk-back stream ended: {}", thing.getUID(), e.getMessage());
+            } finally {
+                process.destroy();
+            }
+        } catch (IOException e) {
+            logger.debug("{} failed to start camera talk-back encoder: {}", thing.getUID(), e.getMessage());
+        } finally {
             releaseCameraSession();
+        }
+    }
+
+    /**
+     * Sends the microphone audio to go2rtc first, because a stalled openHAB stream can block the call.
+     */
+    private void publishMicrophoneAudio(byte[] data) {
+        AudioBridge bridge = go2rtcBridge;
+        if (bridge != null) {
+            bridge.publish(data, 0, data.length);
+        }
+    }
+
+    private static boolean awaitGo2rtcReady(Go2RtcProcess process, int apiPort) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(GO2RTC_READY_TIMEOUT_SECONDS);
+        while (System.nanoTime() < deadline && process.isRunning()) {
+            if (process.isReady(apiPort)) {
+                return true;
+            }
+            Thread.sleep(200);
+        }
+        return false;
+    }
+
+    /**
+     * Returns the local address that routes to the camera. No packets are sent.
+     */
+    private static String lanAddress(String ipAddress) throws IOException {
+        try (DatagramSocket probe = new DatagramSocket()) {
+            probe.connect(InetAddress.getByName(ipAddress), 80);
+            return probe.getLocalAddress().getHostAddress();
         }
     }
 
@@ -1706,9 +1819,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             }
         }
         if (isTalkbackAvailable()) {
-            audioSource.setCodecs(audioCodecs);
-            audioSink.setCodecs(audioCodecs);
-            registerAudioServices();
+            startGo2rtcIfAvailable();
         }
     }
 

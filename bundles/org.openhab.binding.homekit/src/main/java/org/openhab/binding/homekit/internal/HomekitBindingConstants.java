@@ -54,6 +54,12 @@ public class HomekitBindingConstants {
     public static final ChannelTypeUID CHANNEL_TYPE_SNAPSHOT = new ChannelTypeUID(BINDING_ID, CHANNEL_SNAPSHOT);
 
     /**
+     * Channel ID and Channel-Type UID for the browser URL of the camera audio (go2rtc) page
+     */
+    public static final String CHANNEL_AUDIO_URL = "audio-url";
+    public static final ChannelTypeUID CHANNEL_TYPE_AUDIO_URL = new ChannelTypeUID(BINDING_ID, CHANNEL_AUDIO_URL);
+
+    /**
      * format string for channel-definition IDs like '[characteristicIdentifier]-[characteristicIid]'
      * used to instantiate channels and labels like '[thingName]-[accessoryAid]' used to discover
      * things; examples:

@@ -35,6 +35,13 @@
 		</config-description>
 	</thing-type>
 
+	<channel-type id="audio-url">
+		<item-type>String</item-type>
+		<label>Camera Audio URL</label>
+		<description>Browser URL of a go2rtc page to listen to the camera microphone and talk through its speaker.</description>
+		<state readOnly="true"/>
+	</channel-type>
+
 	<channel-type id="snapshot">
 		<item-type>Image</item-type>
 		<label>Camera Snapshot</label>
