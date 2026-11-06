@@ -178,12 +178,6 @@ end
 
 ### Camera Audio
 
-Camera devices that support two-way audio are exposed to openHAB as an `AudioSink` (speaker) and an `AudioSource` (microphone), with no Channel needed.
-
-- Audio sent to the `AudioSink` is transmitted to the camera only while it is being played, and the talk-back session is closed afterwards.
-- Audio is received from the `AudioSource` only while something is reading from it.
-- The audio is passed through in the formats the camera declares (for example Opus, PCMU, PCMA, AMR or AMR-WB), without transcoding.
-
 #### Browser Audio (go2rtc)
 
 Cameras that declare PCMA (G.711 A-law) talk-back also expose an `Audio URL` Channel (`audio-url`).
