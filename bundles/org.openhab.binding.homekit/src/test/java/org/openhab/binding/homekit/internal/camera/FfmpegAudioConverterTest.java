@@ -73,7 +73,7 @@ class FfmpegAudioConverterTest {
 
     @Test
     void testListenCommandReadsSrtpAndCopiesContainerToStdout() {
-        List<String> cmd = FfmpegAudioConverter.listenCommand("/tmp/camera.sdp", SRTP, OPUS);
+        List<String> cmd = FfmpegAudioConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("ogg", valueAfter(cmd, "-f"));
@@ -95,7 +95,7 @@ class FfmpegAudioConverterTest {
 
     @Test
     void testTalkCommandReadsContainerAndWritesSrtpToCamera() {
-        List<String> cmd = FfmpegAudioConverter.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, OPUS);
+        List<String> cmd = FfmpegAudioConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, OPUS);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
         assertEquals("ogg", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:a"));
@@ -124,11 +124,11 @@ class FfmpegAudioConverterTest {
     }
 
     private static List<String> listen(CameraAudioCodec codec) {
-        return FfmpegAudioConverter.listenCommand("/tmp/camera.sdp", SRTP, codec);
+        return FfmpegAudioConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
     }
 
     private static List<String> talk(CameraAudioCodec codec) {
-        return FfmpegAudioConverter.talkCommand("192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
+        return FfmpegAudioConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
     }
 
     private static String valueAfter(List<String> cmd, String option) {

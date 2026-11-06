@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.FfmpegAudioConverter;
+import org.openhab.binding.homekit.internal.camera.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.SpeakerSession;
 import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.core.audio.AudioException;
@@ -48,6 +49,7 @@ public class HomekitAudioSink implements AudioSink {
 
     private final SpeakerSession.Speaker speaker;
     private volatile List<CameraAudioCodec> codecs = List.of();
+    private volatile String ffmpeg = "ffmpeg";
     private PercentType volume = new PercentType(100);
 
     public HomekitAudioSink(SpeakerSession.Speaker speaker) {
@@ -59,6 +61,13 @@ public class HomekitAudioSink implements AudioSink {
      */
     public void setCodecs(List<CameraAudioCodec> codecs) {
         this.codecs = List.copyOf(codecs);
+    }
+
+    /**
+     * Sets the ffmpeg executable used for talk-back, see {@link FfmpegInstaller}.
+     */
+    public void setFfmpeg(String ffmpeg) {
+        this.ffmpeg = ffmpeg;
     }
 
     @Override
@@ -99,7 +108,7 @@ public class HomekitAudioSink implements AudioSink {
             throw new UnsupportedAudioStreamException("Camera talk-back unavailable", audioStream.getClass(), e);
         }
         try {
-            Process process = new ProcessBuilder(FfmpegAudioConverter.talkCommand(route.cameraHost(),
+            Process process = new ProcessBuilder(FfmpegAudioConverter.talkCommand(ffmpeg, route.cameraHost(),
                     route.cameraAudioPort(), route.localPort(), route.srtp(), route.payloadType(), route.ssrc(), codec))
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
             try (OutputStream output = process.getOutputStream()) {

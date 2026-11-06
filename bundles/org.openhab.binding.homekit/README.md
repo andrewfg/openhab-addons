@@ -193,6 +193,7 @@ Opening this URL in a browser lets you listen to the camera microphone and talk 
 - The URL is served on all network interfaces of the openHAB host, on a port chosen at runtime (shown in the URL). It has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera.
 - Cameras that do not declare PCMA do not get an `Audio URL` Channel.
 - The SRTP encryption and decryption of the HomeKit audio streams is still performed by ffmpeg inside the binding, not by go2rtc.
+- ffmpeg is used from the system `PATH` if present. Otherwise the binding downloads a static ffmpeg build (homebridge `ffmpeg-for-homebridge` 2.2.0) into the openHAB cache folder on first use. Extracting the `.tar.gz` requires the `tar` command on the host.
 
 ## Integration with Apple Home App / Ecosystem
 

@@ -41,11 +41,12 @@ public final class Go2RtcConfig {
      * Returns an ffmpeg command that reads the binding's audio from a loopback TCP connection and publishes it to
      * go2rtc over RTSP. The {output} placeholder is substituted by go2rtc with its RTSP publish URL.
      *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param inputArgs the ffmpeg input format arguments, for example "-f ogg" or "-f mulaw -ar 8000 -ac 1"
      * @param inputPort the loopback TCP port the binding serves the listen audio on
      */
-    public static String listenCommand(String inputArgs, int inputPort) {
-        return "ffmpeg -hide_banner -loglevel error " + inputArgs + " -i tcp://127.0.0.1:" + inputPort
+    public static String listenCommand(String ffmpeg, String inputArgs, int inputPort) {
+        return ffmpeg + " -hide_banner -loglevel error " + inputArgs + " -i tcp://127.0.0.1:" + inputPort
                 + " -vn -c:a copy -f rtsp {output}";
     }
 
@@ -54,12 +55,13 @@ public final class Go2RtcConfig {
      * command's stdin as A-law at 8 kHz. ffmpeg resamples it to the camera's rate and sends it to the binding's
      * loopback TCP port.
      *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param outputSampleRate the sample rate expected by the camera talk codec, in Hz
      * @param outputChannels the channel count expected by the camera talk codec
      * @param outputPort the loopback TCP port the binding listens on for talk audio
      */
-    public static String talkCommand(int outputSampleRate, int outputChannels, int outputPort) {
-        return "ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i pipe:0 -ar " + outputSampleRate
+    public static String talkCommand(String ffmpeg, int outputSampleRate, int outputChannels, int outputPort) {
+        return ffmpeg + " -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i pipe:0 -ar " + outputSampleRate
                 + " -ac " + outputChannels + " -c:a pcm_alaw -f alaw tcp://127.0.0.1:" + outputPort
                 + "#backchannel=1#audio=alaw/8000";
     }

@@ -42,6 +42,7 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.camera.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.MicrophoneListener;
 import org.openhab.binding.homekit.internal.camera.MicrophoneSession;
 import org.openhab.binding.homekit.internal.camera.SpeakerSession;
@@ -218,6 +219,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
     private volatile @Nullable AudioBridge go2rtcBridge = null;
+    private volatile String ffmpegPath = "ffmpeg";
     private @Nullable Go2RtcProcess go2rtcProcess = null;
     private boolean go2rtcStarting = false;
     private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
@@ -1444,6 +1446,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (microphoneListener != null) {
             return;
         }
+        String ffmpeg = FfmpegInstaller.ensureBinary(cacheDir());
+        ffmpegPath = ffmpeg;
+        audioSink.setFfmpeg(ffmpeg);
         Long aid = getAccessoryId();
         Long setupIid = audioSetupIid;
         Long selectedIid = audioSelectedIid;
@@ -1589,7 +1594,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
         stopMicrophoneFeed();
         MicrophoneSession listen = new MicrophoneSession(this::publishMicrophoneAudio, microphoneListener, audioSrtp,
-                AUDIO_PAYLOAD_TYPE, codec);
+                AUDIO_PAYLOAD_TYPE, codec, ffmpegPath);
         listen.start();
         microphoneSession = listen;
         ThreadPoolManager.getPool(BINDING_ID).submit(listen);
@@ -1650,12 +1655,17 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         scheduler.submit(() -> startGo2rtc(codec, ipAddress));
     }
 
+    private static Path cacheDir() {
+        return Paths.get(OpenHAB.getUserDataFolder(), "cache", BINDING_ID);
+    }
+
     private void startGo2rtc(CameraAudioCodec codec, String ipAddress) {
         AudioBridge bridge = null;
         Go2RtcProcess process = null;
         boolean published = false;
         try {
-            Path binary = new Go2RtcInstaller(Paths.get(OpenHAB.getUserDataFolder(), "cache", BINDING_ID)).ensureBinary();
+            String ffmpeg = FfmpegInstaller.ensureBinary(cacheDir());
+            Path binary = new Go2RtcInstaller(cacheDir()).ensureBinary();
             Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
                     Go2RtcProcess.freePort());
             String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
@@ -1676,8 +1686,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             }, talk -> handleTalk(codec, talk));
             String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
             String yaml = Go2RtcConfig.toYaml(ports, stream,
-                    Go2RtcConfig.listenCommand(listenInput, bridge.listenPort()), stream + "_talk",
-                    Go2RtcConfig.talkCommand(codec.rtpClockRate(), codec.channels(), bridge.talkPort()));
+                    Go2RtcConfig.listenCommand(ffmpeg, listenInput, bridge.listenPort()), stream + "_talk",
+                    Go2RtcConfig.talkCommand(ffmpeg, codec.rtpClockRate(), codec.channels(), bridge.talkPort()));
             process = new Go2RtcProcess(binary);
             process.start(yaml);
             if (!awaitGo2rtcReady(process, ports.api())) {

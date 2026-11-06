@@ -27,14 +27,15 @@ class Go2RtcConfigTest {
 
     @Test
     void listenCommandPublishesToRtspOutput() {
-        String cmd = Go2RtcConfig.listenCommand("-f ogg", 5000);
-        assertEquals("ffmpeg -hide_banner -loglevel error -f ogg -i tcp://127.0.0.1:5000 -vn -c:a copy -f rtsp {output}",
+        String cmd = Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000);
+        assertEquals(
+                "ffmpeg -hide_banner -loglevel error -f ogg -i tcp://127.0.0.1:5000 -vn -c:a copy -f rtsp {output}",
                 cmd);
     }
 
     @Test
     void talkCommandUsesBackchannelAndCameraRate() {
-        String cmd = Go2RtcConfig.talkCommand(16000, 1, 6000);
+        String cmd = Go2RtcConfig.talkCommand("ffmpeg", 16000, 1, 6000);
         assertTrue(cmd.startsWith("ffmpeg "));
         assertTrue(cmd.contains("-i pipe:0 -ar 16000 -ac 1 -c:a pcm_alaw -f alaw tcp://127.0.0.1:6000"));
         assertTrue(cmd.endsWith("#backchannel=1#audio=alaw/8000"));
@@ -43,7 +44,8 @@ class Go2RtcConfigTest {
     @Test
     void yamlContainsPortsStreamsAndExecPrefix() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                Go2RtcConfig.listenCommand("-f ogg", 5000), "cam_talk", Go2RtcConfig.talkCommand(8000, 1, 6000));
+                Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000), "cam_talk",
+                Go2RtcConfig.talkCommand("ffmpeg", 8000, 1, 6000));
         assertTrue(yaml.contains("api:\n  listen: \":1984\"\n"));
         assertTrue(yaml.contains("webrtc:\n  listen: \":8555\"\n"));
         assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
@@ -54,7 +56,7 @@ class Go2RtcConfigTest {
     @Test
     void yamlOmitsTalkStreamWhenNotAvailable() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                Go2RtcConfig.listenCommand("-f ogg", 5000), null, null);
+                Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000), null, null);
         assertFalse(yaml.contains("cam_talk"));
         assertTrue(yaml.endsWith("\"\n"));
     }

@@ -37,7 +37,6 @@ import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 @NonNullByDefault
 public final class FfmpegAudioConverter {
 
-    private static final String FFMPEG = "ffmpeg";
 
     private FfmpegAudioConverter() {
     }
@@ -87,12 +86,14 @@ public final class FfmpegAudioConverter {
      * Builds the listen command: SRTP camera audio described by {@code sdpFile} in, the codec's container out on stdout
      * with the packets copied unchanged.
      *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param sdpFile path to an SDP file describing the camera's RTP audio stream and its UDP port
      * @param srtp the camera's SRTP parameters for this audio stream
      * @param codec the declared codec of the stream
      */
-    public static List<String> listenCommand(String sdpFile, SrtpParameters srtp, CameraAudioCodec codec) {
-        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
+    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp,
+            CameraAudioCodec codec) {
+        return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
                 "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
                 sdpFile, "-vn", "-c:a", "copy", "-f", containerFormat(codec.codec()), "pipe:1");
     }
@@ -101,6 +102,7 @@ public final class FfmpegAudioConverter {
      * Builds the talk command: the codec's container on stdin in, SRTP audio to the camera endpoint with the packets
      * copied unchanged. Raw G.711 input has no header, so its sample rate and channel count are given explicitly.
      *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param remoteHost the camera's IP address
      * @param remotePort the camera's audio RTP port
      * @param localPort the local UDP port used as the RTP source
@@ -109,9 +111,9 @@ public final class FfmpegAudioConverter {
      * @param ssrc the RTP SSRC
      * @param codec the declared codec of the stream
      */
-    public static List<String> talkCommand(String remoteHost, int remotePort, int localPort, SrtpParameters srtp,
-            int payloadType, long ssrc, CameraAudioCodec codec) {
-        List<String> command = new ArrayList<>(List.of(FFMPEG, "-hide_banner", "-loglevel", "warning"));
+    public static List<String> talkCommand(String ffmpeg, String remoteHost, int remotePort, int localPort,
+            SrtpParameters srtp, int payloadType, long ssrc, CameraAudioCodec codec) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning"));
         if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
             command.addAll(
                     List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac", String.valueOf(codec.channels())));
