@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
 /**
- * Tests for {@link MicrophoneSession}.
+ * Tests for {@link AudioFeed}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -27,7 +27,7 @@ class MicrophoneSessionTest {
     @Test
     void testSdpDescribesLoopbackOpusStreamOnPort() {
         AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 24);
-        String sdp = MicrophoneSession.sdpContent(40000, 110, opus);
+        String sdp = AudioFeed.sdpContent(40000, 110, opus);
 
         assertTrue(sdp.contains("\nm=audio 40000 RTP/AVP 110\n"), sdp);
         assertTrue(sdp.contains("\na=rtpmap:110 opus/24000/1\n"), sdp);
@@ -37,14 +37,14 @@ class MicrophoneSessionTest {
 
     @Test
     void testSdpNamesG711Encoding() {
-        String sdp = MicrophoneSession.sdpContent(40000, 0, new AudioCodec(AudioCodecType.PCMU, 1, 8));
+        String sdp = AudioFeed.sdpContent(40000, 0, new AudioCodec(AudioCodecType.PCMU, 1, 8));
 
         assertTrue(sdp.contains("\na=rtpmap:0 PCMU/8000/1\n"), sdp);
     }
 
     @Test
     void testSdpDescribesAmrWbWithOctetAlign() {
-        String sdp = MicrophoneSession.sdpContent(40000, 99, new AudioCodec(AudioCodecType.AMR_WB, 1, 16));
+        String sdp = AudioFeed.sdpContent(40000, 99, new AudioCodec(AudioCodecType.AMR_WB, 1, 16));
 
         assertTrue(sdp.contains("\na=rtpmap:99 AMR-WB/16000/1\n"), sdp);
         assertTrue(sdp.contains("\na=fmtp:99 octet-align=1\n"), sdp);
@@ -52,7 +52,7 @@ class MicrophoneSessionTest {
 
     @Test
     void testVideoSdpDescribesH264StreamOnPort() {
-        String sdp = MicrophoneSession.videoSdpContent(40002, 99);
+        String sdp = AudioFeed.videoSdpContent(40002, 99);
 
         assertTrue(sdp.contains("\nm=video 40002 RTP/AVP 99\n"), sdp);
         assertTrue(sdp.contains("\na=rtpmap:99 H264/90000\n"), sdp);

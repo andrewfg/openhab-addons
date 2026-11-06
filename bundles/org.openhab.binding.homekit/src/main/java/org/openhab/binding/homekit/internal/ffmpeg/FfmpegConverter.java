@@ -18,19 +18,13 @@ import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.homekit.internal.audio.AudioCodec;
-import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
+import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
- * Builds ffmpeg command lines that bridge camera audio over SRTP to and from stdin/stdout pipes.
- * ffmpeg never decodes or encodes audio: it only decrypts or encrypts SRTP and remuxes between RTP
- * and a container, copying the native packets of the declared codec.
- * <p>
- * Listen: ffmpeg reads the camera's SRTP audio (described by an SDP file) and writes it to stdout in
- * the codec's container.
- * Talk: ffmpeg reads the codec's container from stdin and writes it as SRTP audio to the camera end-point.
+ * Helper for building ffmpeg commands to bridge HomeKit camera audio and video streams.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -97,14 +91,14 @@ public final class FfmpegConverter {
     }
 
     /**
-     * Builds the video listen command: SRTP camera video described by {@code sdpFile} in, an H.264 Annex B elementary
+     * Builds the video watch command: SRTP camera video described by {@code sdpFile} in, an H.264 Annex B elementary
      * stream on stdout with the packets copied unchanged.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param sdpFile path to an SDP file describing the camera's RTP video stream and its UDP port
      * @param srtp the camera's SRTP parameters for this video stream
      */
-    public static List<String> videoListenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp) {
+    public static List<String> watchCommand(String ffmpeg, String sdpFile, SrtpParameters srtp) {
         return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
                 "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
                 sdpFile, "-an", "-c:v", "copy", "-f", "h264", "pipe:1");

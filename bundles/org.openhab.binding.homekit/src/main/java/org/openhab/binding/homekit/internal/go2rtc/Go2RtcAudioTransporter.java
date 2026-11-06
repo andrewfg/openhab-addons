@@ -41,9 +41,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Go2RtcAudioBridge implements AutoCloseable {
+public class Go2RtcAudioTransporter implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcAudioBridge.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcAudioTransporter.class);
     private static final int QUEUE_CAPACITY = 128;
 
     /**
@@ -72,7 +72,7 @@ public class Go2RtcAudioBridge implements AutoCloseable {
      * @param talkConsumer receives the input stream of each talk connection
      * @throws IOException if the servers cannot be opened
      */
-    public Go2RtcAudioBridge(ListenObserver listenObserver, Consumer<InputStream> talkConsumer) throws IOException {
+    public Go2RtcAudioTransporter(ListenObserver listenObserver, Consumer<InputStream> talkConsumer) throws IOException {
         this.listenObserver = listenObserver;
         this.talkConsumer = talkConsumer;
         this.listenServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
@@ -168,10 +168,10 @@ public class Go2RtcAudioBridge implements AutoCloseable {
                     out.flush();
                 }
             }
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.debug("go2rtc listen client disconnected", e);
+        } catch (IOException e) {
             LOGGER.debug("go2rtc listen client disconnected", e);
         } finally {
             boolean current;

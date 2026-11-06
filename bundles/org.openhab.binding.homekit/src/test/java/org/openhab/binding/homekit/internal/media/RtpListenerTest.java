@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,60 +27,60 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link MicrophoneListener}.
+ * Tests for {@link RtpListener}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class MicrophoneListenerTest {
+class RtpListenerTest {
 
     private static final long TIMEOUT_SECONDS = 5;
 
     @Test
     void testDiscardsDatagramsAndStopsOnClose() throws Exception {
-        MicrophoneListener microphoneListener = new MicrophoneListener();
-        assertTrue(microphoneListener.getPort() > 0);
+        RtpListener rtpListener = new RtpListener();
+        assertTrue(rtpListener.getPort() > 0);
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<?> running = executor.submit(microphoneListener);
+            Future<?> running = executor.submit(rtpListener);
 
             try (DatagramSocket sender = new DatagramSocket()) {
                 byte[] payload = new byte[] { 1, 2, 3 };
                 sender.send(new DatagramPacket(payload, payload.length, InetAddress.getLoopbackAddress(),
-                        microphoneListener.getPort()));
+                        rtpListener.getPort()));
             }
 
             assertFalse(running.isDone(), "receiver must keep running until closed");
 
-            microphoneListener.close();
+            rtpListener.close();
             assertDoesNotThrow(() -> running.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
         } finally {
-            microphoneListener.close();
+            rtpListener.close();
             executor.shutdownNow();
         }
     }
 
     @Test
     void testRelaysDatagramsToForwardPortWhenSet() throws Exception {
-        MicrophoneListener microphoneListener = new MicrophoneListener();
+        RtpListener rtpListener = new RtpListener();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try (DatagramSocket listener = new DatagramSocket(0, InetAddress.getLoopbackAddress());
                 DatagramSocket sender = new DatagramSocket()) {
             listener.setSoTimeout((int) TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS));
-            microphoneListener.setForwardPort(listener.getLocalPort());
-            executor.submit(microphoneListener);
+            rtpListener.setForwardPort(listener.getLocalPort());
+            executor.submit(rtpListener);
 
             byte[] small = new byte[] { 9 };
-            sender.send(new DatagramPacket(small, small.length, InetAddress.getLoopbackAddress(),
-                    microphoneListener.getPort()));
+            sender.send(
+                    new DatagramPacket(small, small.length, InetAddress.getLoopbackAddress(), rtpListener.getPort()));
             assertArrayEquals(small, receiveRelayed(listener));
 
             byte[] large = new byte[] { 1, 2, 3, 4 };
-            sender.send(new DatagramPacket(large, large.length, InetAddress.getLoopbackAddress(),
-                    microphoneListener.getPort()));
+            sender.send(
+                    new DatagramPacket(large, large.length, InetAddress.getLoopbackAddress(), rtpListener.getPort()));
             assertArrayEquals(large, receiveRelayed(listener));
         } finally {
-            microphoneListener.close();
+            rtpListener.close();
             executor.shutdownNow();
         }
     }

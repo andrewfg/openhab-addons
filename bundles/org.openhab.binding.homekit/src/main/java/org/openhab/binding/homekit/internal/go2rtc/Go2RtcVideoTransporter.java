@@ -35,9 +35,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Go2RtcVideoFeed implements AutoCloseable {
+public class Go2RtcVideoTransporter implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcVideoFeed.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcVideoTransporter.class);
     private static final int QUEUE_CAPACITY = 256;
 
     private final ServerSocket server;
@@ -52,7 +52,7 @@ public class Go2RtcVideoFeed implements AutoCloseable {
      *
      * @throws IOException if the server cannot be opened
      */
-    public Go2RtcVideoFeed() throws IOException {
+    public Go2RtcVideoTransporter() throws IOException {
         server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
         Thread thread = new Thread(this::acceptLoop, "OH-binding-homekit-go2rtc-video-accept");
         thread.setDaemon(true);
@@ -127,10 +127,10 @@ public class Go2RtcVideoFeed implements AutoCloseable {
                     out.flush();
                 }
             }
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.debug("go2rtc video client disconnected", e);
+        } catch (IOException e) {
             LOGGER.debug("go2rtc video client disconnected", e);
         } finally {
             synchronized (lock) {

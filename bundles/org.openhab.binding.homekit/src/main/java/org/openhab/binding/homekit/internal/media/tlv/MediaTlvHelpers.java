@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio.tlv;
+package org.openhab.binding.homekit.internal.media.tlv;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -25,9 +25,9 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-final class TlvHelpers {
+final class MediaTlvHelpers {
 
-    private TlvHelpers() {
+    private MediaTlvHelpers() {
     }
 
     static byte[] u8(int value) {

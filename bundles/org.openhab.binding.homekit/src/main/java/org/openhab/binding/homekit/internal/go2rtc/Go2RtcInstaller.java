@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.zip.ZipEntry;
@@ -158,9 +159,22 @@ public class Go2RtcInstaller {
     private static void extractFromZip(Path zipFile, Path destBinary, String url) throws IOException {
         String expected = destBinary.getFileName().toString();
         try (ZipFile zip = new ZipFile(zipFile.toFile())) {
-            ZipEntry entry = zip.stream().filter(e -> !e.isDirectory())
-                    .filter(e -> expected.equals(Paths.get(e.getName()).getFileName().toString())).findFirst()
-                    .orElseThrow(() -> new IOException("Could not find " + expected + " inside archive " + url));
+            ZipEntry entry = null;
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry candidate = entries.nextElement();
+                if (candidate.isDirectory()) {
+                    continue;
+                }
+                Path fileName = Paths.get(candidate.getName()).getFileName();
+                if (fileName != null && expected.equals(fileName.toString())) {
+                    entry = candidate;
+                    break;
+                }
+            }
+            if (entry == null) {
+                throw new IOException("Could not find " + expected + " inside archive " + url);
+            }
             try (InputStream in = zip.getInputStream(entry)) {
                 Files.copy(in, destBinary, StandardCopyOption.REPLACE_EXISTING);
             }

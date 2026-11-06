@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,9 +22,8 @@ import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegConverter;
-import org.openhab.binding.homekit.internal.ffmpeg.FfmpegInstaller;
+import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,14 +33,14 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class MicrophoneSession implements Runnable {
+public class AudioFeed implements Runnable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MicrophoneSession.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioFeed.class);
 
     private static final int BUFFER_SIZE = 4096;
 
     private final Consumer<byte[]> audioConsumer;
-    private final MicrophoneListener microphoneListener;
+    private final RtpListener microphoneListener;
     private final SrtpParameters srtp;
     private final int payloadType;
     private final AudioCodec codec;
@@ -57,9 +56,9 @@ public class MicrophoneSession implements Runnable {
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its audio
      * @param codec the declared audio codec of the camera's stream
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param ffmpeg the ffmpeg executable
      */
-    public MicrophoneSession(Consumer<byte[]> audioConsumer, MicrophoneListener microphoneListener, SrtpParameters srtp,
+    public AudioFeed(Consumer<byte[]> audioConsumer, RtpListener microphoneListener, SrtpParameters srtp,
             int payloadType, AudioCodec codec, String ffmpeg) {
         this.audioConsumer = audioConsumer;
         this.microphoneListener = microphoneListener;

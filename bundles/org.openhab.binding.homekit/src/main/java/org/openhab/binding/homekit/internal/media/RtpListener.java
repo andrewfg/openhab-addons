@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -29,7 +29,7 @@ import org.eclipse.jdt.annotation.Nullable;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class MicrophoneListener implements Runnable {
+public class RtpListener implements Runnable {
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
 
@@ -37,7 +37,7 @@ public class MicrophoneListener implements Runnable {
     private final byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
     private volatile @Nullable InetSocketAddress forwardTo;
 
-    public MicrophoneListener() throws IOException {
+    public RtpListener() throws IOException {
         socket = new DatagramSocket(0);
     }
 

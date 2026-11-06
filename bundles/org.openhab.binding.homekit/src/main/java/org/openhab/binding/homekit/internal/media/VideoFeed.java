@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,9 +22,8 @@ import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegConverter;
-import org.openhab.binding.homekit.internal.ffmpeg.FfmpegInstaller;
+import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,14 +33,14 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class CameraVideoSession implements Runnable {
+public class VideoFeed implements Runnable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CameraVideoSession.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(VideoFeed.class);
 
     private static final int BUFFER_SIZE = 65536;
 
     private final Consumer<byte[]> videoConsumer;
-    private final MicrophoneListener videoListener;
+    private final RtpListener videoListener;
     private final SrtpParameters srtp;
     private final int payloadType;
     private final String ffmpeg;
@@ -55,10 +54,10 @@ public class CameraVideoSession implements Runnable {
      * @param videoListener the receiver that already accepts the camera's RTP for this session
      * @param srtp the camera's video SRTP parameters from the SetupEndpoints response
      * @param payloadType the RTP payload type that the camera uses for its video
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param ffmpeg the ffmpeg executable
      */
-    public CameraVideoSession(Consumer<byte[]> videoConsumer, MicrophoneListener videoListener, SrtpParameters srtp,
-            int payloadType, String ffmpeg) {
+    public VideoFeed(Consumer<byte[]> videoConsumer, RtpListener videoListener, SrtpParameters srtp, int payloadType,
+            String ffmpeg) {
         this.videoConsumer = videoConsumer;
         this.videoListener = videoListener;
         this.srtp = srtp;
@@ -78,8 +77,8 @@ public class CameraVideoSession implements Runnable {
         }
         Path sdp = Files.createTempFile("homekit-video-", ".sdp");
         sdpFile = sdp;
-        Files.writeString(sdp, MicrophoneSession.videoSdpContent(ffmpegPort, payloadType), StandardCharsets.US_ASCII);
-        Process started = new ProcessBuilder(FfmpegConverter.videoListenCommand(ffmpeg, sdp.toString(), srtp))
+        Files.writeString(sdp, AudioFeed.videoSdpContent(ffmpegPort, payloadType), StandardCharsets.US_ASCII);
+        Process started = new ProcessBuilder(FfmpegConverter.watchCommand(ffmpeg, sdp.toString(), srtp))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process = started;
         videoListener.setForwardPort(ffmpegPort);

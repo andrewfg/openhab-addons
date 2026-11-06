@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,15 +18,15 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration;
-import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration.SessionCommand;
-import org.openhab.binding.homekit.internal.audio.tlv.SelectedVideoParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
+import org.openhab.binding.homekit.internal.media.tlv.RtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.media.tlv.RtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.media.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.media.tlv.SelectedVideoParameters;
 
 /**
- * Tests for {@link SelectedRtpStreamConfiguration} TLV encoding.
+ * Tests for {@link RtpStreamConfiguration} TLV encoding.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -45,7 +45,7 @@ class SelectedRtpStreamConfigurationTest {
     @Test
     void testStartEncodesSessionControlAndAudio() {
         Map<Integer, byte[]> root = Tlv8Codec
-                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
+                .decode(new RtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
 
         assertNull(root.get(0x02));
         assertArrayEquals(AUDIO.encode(), root.get(0x03));
@@ -59,8 +59,8 @@ class SelectedRtpStreamConfigurationTest {
 
     @Test
     void testStartWithVideoEncodesVideoBeforeAudio() {
-        Map<Integer, byte[]> root = Tlv8Codec.decode(
-                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, VIDEO, AUDIO).encode());
+        Map<Integer, byte[]> root = Tlv8Codec
+                .decode(new RtpStreamConfiguration(SESSION_ID, SessionCommand.START, VIDEO, AUDIO).encode());
 
         assertArrayEquals(VIDEO.encode(), root.get(0x02));
         assertArrayEquals(AUDIO.encode(), root.get(0x03));
@@ -69,7 +69,7 @@ class SelectedRtpStreamConfigurationTest {
     @Test
     void testEndEncodesCommandZero() {
         Map<Integer, byte[]> root = Tlv8Codec
-                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.END, AUDIO).encode());
+                .decode(new RtpStreamConfiguration(SESSION_ID, SessionCommand.END, AUDIO).encode());
 
         byte[] controlBytes = root.get(0x01);
         assertNotNull(controlBytes);
@@ -80,7 +80,7 @@ class SelectedRtpStreamConfigurationTest {
     @Test
     void testReconfigureEncodesCommandTwo() {
         Map<Integer, byte[]> root = Tlv8Codec
-                .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.RECONFIGURE, AUDIO).encode());
+                .decode(new RtpStreamConfiguration(SESSION_ID, SessionCommand.RECONFIGURE, AUDIO).encode());
 
         byte[] controlBytes = root.get(0x01);
         assertNotNull(controlBytes);
@@ -91,6 +91,6 @@ class SelectedRtpStreamConfigurationTest {
     @Test
     void testRejectsSessionIdOfWrongLength() {
         assertThrows(IllegalArgumentException.class,
-                () -> new SelectedRtpStreamConfiguration(new byte[15], SessionCommand.START, AUDIO));
+                () -> new RtpStreamConfiguration(new byte[15], SessionCommand.START, AUDIO));
     }
 }

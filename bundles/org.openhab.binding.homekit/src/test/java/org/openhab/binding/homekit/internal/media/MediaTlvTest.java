@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,21 +20,21 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsRequest;
-import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsResponse;
-import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
+import org.openhab.binding.homekit.internal.media.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.media.tlv.SetupEndpointsRequest;
+import org.openhab.binding.homekit.internal.media.tlv.SetupEndpointsResponse;
+import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
  * Tests for the HomeKit camera talk-back TLV records.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class AudioTlvTest {
+class MediaTlvTest {
 
     private static final byte[] SESSION_ID = new byte[16];
     private static final byte[] KEY_16 = new byte[16];
@@ -121,7 +121,7 @@ class AudioTlvTest {
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(SetupEndpointsStatus.SUCCESS, response.status());
         assertEquals(0x12345678L, response.audioSsrc());
-        SrtpParameters audioSrtp = response.audioSrtp();
+        SrtpParameters audioSrtp = response.audioParameters();
         assertNotNull(audioSrtp);
         assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, audioSrtp.cryptoSuite());
         assertArrayEquals(srtp.masterKey(), audioSrtp.masterKey());
@@ -163,7 +163,7 @@ class AudioTlvTest {
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(0x87654321L, response.videoSsrc());
         assertEquals(0x3039, response.videoPort());
-        SrtpParameters videoSrtp = response.videoSrtp();
+        SrtpParameters videoSrtp = response.videoParameters();
         assertNotNull(videoSrtp);
         assertEquals(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80, videoSrtp.cryptoSuite());
     }

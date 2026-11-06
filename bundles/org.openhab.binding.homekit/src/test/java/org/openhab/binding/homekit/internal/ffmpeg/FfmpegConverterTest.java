@@ -18,10 +18,10 @@ import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.audio.AudioCodec;
-import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
+import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
  * Tests for {@link FfmpegConverter} command construction.
@@ -86,7 +86,7 @@ class FfmpegConverterTest {
 
     @Test
     void testVideoListenCommandReadsSrtpAndWritesAnnexBToStdout() {
-        List<String> cmd = FfmpegConverter.videoListenCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
+        List<String> cmd = FfmpegConverter.watchCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("h264", valueAfter(cmd, "-f"));

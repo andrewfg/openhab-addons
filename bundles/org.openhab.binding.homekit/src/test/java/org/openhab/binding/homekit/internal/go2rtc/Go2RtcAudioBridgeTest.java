@@ -25,14 +25,14 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link Go2RtcAudioBridge}.
+ * Tests for {@link Go2RtcAudioTransporter}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 class Go2RtcAudioBridgeTest {
 
     private static final int TIMEOUT_SECONDS = 10;
-    private static final Go2RtcAudioBridge.ListenObserver NO_OP_OBSERVER = new Go2RtcAudioBridge.ListenObserver() {
+    private static final Go2RtcAudioTransporter.ListenObserver NO_OP_OBSERVER = new Go2RtcAudioTransporter.ListenObserver() {
         @Override
         public void listenConnected() {
         }
@@ -45,7 +45,7 @@ class Go2RtcAudioBridgeTest {
     @Test
     void publishedAudioReachesListenClient() throws Exception {
         CompletableFuture<InputStream> talk = new CompletableFuture<>();
-        try (Go2RtcAudioBridge bridge = new Go2RtcAudioBridge(NO_OP_OBSERVER, talk::complete);
+        try (Go2RtcAudioTransporter bridge = new Go2RtcAudioTransporter(NO_OP_OBSERVER, talk::complete);
                 Socket client = new Socket(InetAddress.getLoopbackAddress(), bridge.listenPort())) {
             client.setSoTimeout(TIMEOUT_SECONDS * 1000);
             InputStream in = client.getInputStream();
@@ -64,7 +64,7 @@ class Go2RtcAudioBridgeTest {
     @Test
     void talkConnectionIsDeliveredToConsumer() throws Exception {
         CompletableFuture<byte[]> received = new CompletableFuture<>();
-        try (Go2RtcAudioBridge bridge = new Go2RtcAudioBridge(NO_OP_OBSERVER, in -> {
+        try (Go2RtcAudioTransporter bridge = new Go2RtcAudioTransporter(NO_OP_OBSERVER, in -> {
             try {
                 received.complete(in.readAllBytes());
             } catch (IOException e) {

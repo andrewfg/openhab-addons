@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio;
+package org.openhab.binding.homekit.internal.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,11 +20,11 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link SupportedVideoConfiguration#decode(byte[])}.
+ * Tests for {@link VideoSupportedConfiguration#decode(byte[])}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class SupportedVideoConfigurationTest {
+class VideoSupportedConfigurationTest {
 
     @Test
     void decodesHighestProfileAndLevelAndFirstAttribute() {
@@ -32,10 +32,10 @@ class SupportedVideoConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute), tlv(0x03, attribute));
 
-        Optional<SupportedVideoConfiguration> config = SupportedVideoConfiguration.decode(tlv(0x01, entry));
+        Optional<VideoSupportedConfiguration> config = VideoSupportedConfiguration.decode(tlv(0x01, entry));
 
         assertTrue(config.isPresent());
-        assertEquals(new SupportedVideoConfiguration(2, 2, 1920, 1080, 30), config.get());
+        assertEquals(new VideoSupportedConfiguration(2, 2, 1920, 1080, 30), config.get());
     }
 
     @Test
@@ -45,10 +45,10 @@ class SupportedVideoConfigurationTest {
         byte[] nonH264 = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
         byte[] h264 = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute));
 
-        Optional<SupportedVideoConfiguration> config = SupportedVideoConfiguration
+        Optional<VideoSupportedConfiguration> config = VideoSupportedConfiguration
                 .decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
 
-        assertEquals(new SupportedVideoConfiguration(1, 0, 320, 240, 15), config.orElseThrow());
+        assertEquals(new VideoSupportedConfiguration(1, 0, 320, 240, 15), config.orElseThrow());
     }
 
     @Test
@@ -57,13 +57,13 @@ class SupportedVideoConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
 
-        assertTrue(SupportedVideoConfiguration.decode(tlv(0x01, entry)).isEmpty());
+        assertTrue(VideoSupportedConfiguration.decode(tlv(0x01, entry)).isEmpty());
     }
 
     @Test
     void returnsEmptyForEmptyOrTruncatedInput() {
-        assertTrue(SupportedVideoConfiguration.decode(new byte[0]).isEmpty());
-        assertTrue(SupportedVideoConfiguration.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
+        assertTrue(VideoSupportedConfiguration.decode(new byte[0]).isEmpty());
+        assertTrue(VideoSupportedConfiguration.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
     }
 
     private static byte[] tlv(int type, int... value) {

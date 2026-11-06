@@ -10,9 +10,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio.tlv;
+package org.openhab.binding.homekit.internal.media.tlv;
 
-import static org.openhab.binding.homekit.internal.audio.tlv.TlvHelpers.*;
+import static org.openhab.binding.homekit.internal.media.tlv.MediaTlvHelpers.*;
 
 import java.util.Map;
 
@@ -31,8 +31,8 @@ import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
  */
 @NonNullByDefault
 public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus status, @Nullable Long audioSsrc,
-        @Nullable SrtpParameters audioSrtp, @Nullable Integer audioPort, @Nullable Long videoSsrc,
-        @Nullable SrtpParameters videoSrtp, @Nullable Integer videoPort) {
+        @Nullable SrtpParameters audioParameters, @Nullable Integer audioPort, @Nullable Long videoSsrc,
+        @Nullable SrtpParameters videoParameters, @Nullable Integer videoPort) {
 
     private static final int TYPE_SESSION_ID = 0x01;
     private static final int TYPE_STATUS = 0x02;
@@ -47,7 +47,7 @@ public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus stat
 
     public SetupEndpointsResponse {
         requireLength(sessionId, 16);
-        if (status == SetupEndpointsStatus.SUCCESS && (audioSsrc == null || audioSrtp == null)) {
+        if (status == SetupEndpointsStatus.SUCCESS && (audioSsrc == null || audioParameters == null)) {
             throw new IllegalArgumentException("Audio SSRC or SRTP missing from successful SetupEndpoints response");
         }
     }

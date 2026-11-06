@@ -10,9 +10,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio.tlv;
+package org.openhab.binding.homekit.internal.media.tlv;
 
-import static org.openhab.binding.homekit.internal.audio.tlv.TlvHelpers.*;
+import static org.openhab.binding.homekit.internal.media.tlv.MediaTlvHelpers.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -28,7 +28,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  */
 @NonNullByDefault
 public record SetupEndpointsRequest(byte[] sessionId, boolean ipv6, String controllerAddress, int videoPort,
-        int audioPort, SrtpParameters video, SrtpParameters audio) {
+        int audioPort, SrtpParameters videoParameters, SrtpParameters audioParameters) {
 
     private static final int TYPE_SESSION_ID = 0x01;
     private static final int TYPE_CONTROLLER_ADDRESS = 0x03;
@@ -57,8 +57,8 @@ public record SetupEndpointsRequest(byte[] sessionId, boolean ipv6, String contr
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(TYPE_SESSION_ID, sessionId);
         tlv.put(TYPE_CONTROLLER_ADDRESS, Tlv8Codec.encode(address));
-        tlv.put(TYPE_VIDEO_SRTP, video.encode());
-        tlv.put(TYPE_AUDIO_SRTP, audio.encode());
+        tlv.put(TYPE_VIDEO_SRTP, videoParameters.encode());
+        tlv.put(TYPE_AUDIO_SRTP, audioParameters.encode());
         return Tlv8Codec.encode(tlv);
     }
 }

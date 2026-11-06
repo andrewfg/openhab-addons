@@ -10,9 +10,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio.tlv;
+package org.openhab.binding.homekit.internal.media.tlv;
 
-import static org.openhab.binding.homekit.internal.audio.tlv.TlvHelpers.*;
+import static org.openhab.binding.homekit.internal.media.tlv.MediaTlvHelpers.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

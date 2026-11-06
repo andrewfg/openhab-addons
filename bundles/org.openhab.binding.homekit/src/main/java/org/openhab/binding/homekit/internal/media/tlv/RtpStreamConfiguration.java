@@ -10,9 +10,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.audio.tlv;
+package org.openhab.binding.homekit.internal.media.tlv;
 
-import static org.openhab.binding.homekit.internal.audio.tlv.TlvHelpers.*;
+import static org.openhab.binding.homekit.internal.media.tlv.MediaTlvHelpers.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,8 +28,8 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand command, @Nullable SelectedVideoParameters video,
-        SelectedAudioParameters audio) {
+public record RtpStreamConfiguration(byte[] sessionId, SessionCommand command,
+        @Nullable SelectedVideoParameters videoParameters, SelectedAudioParameters audioParameters) {
 
     public enum SessionCommand {
         END(0),
@@ -54,11 +54,11 @@ public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand co
     private static final int TYPE_SESSION_IDENTIFIER = 0x01;
     private static final int TYPE_SESSION_COMMAND = 0x02;
 
-    public SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand command, SelectedAudioParameters audio) {
-        this(sessionId, command, null, audio);
+    public RtpStreamConfiguration(byte[] sessionId, SessionCommand command, SelectedAudioParameters audioParameters) {
+        this(sessionId, command, null, audioParameters);
     }
 
-    public SelectedRtpStreamConfiguration {
+    public RtpStreamConfiguration {
         requireLength(sessionId, 16);
     }
 
@@ -66,13 +66,13 @@ public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand co
         Map<Integer, byte[]> control = new LinkedHashMap<>();
         control.put(TYPE_SESSION_IDENTIFIER, sessionId);
         control.put(TYPE_SESSION_COMMAND, u8(command.getCode()));
-
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(TYPE_SESSION_CONTROL, Tlv8Codec.encode(control));
-        if (video != null) {
-            tlv.put(TYPE_VIDEO, video.encode());
+        SelectedVideoParameters videoParams = videoParameters;
+        if (videoParams != null) {
+            tlv.put(TYPE_VIDEO, videoParams.encode());
         }
-        tlv.put(TYPE_AUDIO, audio.encode());
+        tlv.put(TYPE_AUDIO, audioParameters.encode());
         return Tlv8Codec.encode(tlv);
     }
 }
