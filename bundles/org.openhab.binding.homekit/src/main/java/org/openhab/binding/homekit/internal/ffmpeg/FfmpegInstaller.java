@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.ffmpeg;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -46,8 +47,8 @@ public final class FfmpegInstaller {
             + VERSION + "/";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FfmpegInstaller.class);
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(30)).build();
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)
+            .connectTimeout(Duration.ofSeconds(30)).build();
 
     private FfmpegInstaller() {
     }
@@ -61,8 +62,8 @@ public final class FfmpegInstaller {
      * @throws InterruptedException if interrupted while downloading
      */
     public static synchronized String ensureBinary(Path baseDir) throws IOException, InterruptedException {
-        String os = System.getProperty("os.name", "");
-        String arch = System.getProperty("os.arch", "");
+        String os = Objects.requireNonNull(System.getProperty("os.name", ""));
+        String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
         if (isOnPath(NAME, os)) {
             return NAME;
         }

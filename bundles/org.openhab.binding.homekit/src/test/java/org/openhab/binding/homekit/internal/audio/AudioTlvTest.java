@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.audio;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,10 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
-import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;
-import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsRequest;
+import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsResponse;
+import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
@@ -34,7 +34,7 @@ import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class CameraTlvTest {
+class AudioTlvTest {
 
     private static final byte[] SESSION_ID = new byte[16];
     private static final byte[] KEY_16 = new byte[16];

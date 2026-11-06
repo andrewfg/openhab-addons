@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.audio;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,8 +22,9 @@ import java.util.function.Consumer;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
-import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
+import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegConverter;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegInstaller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,10 +44,11 @@ public class MicrophoneSession implements Runnable {
     private final MicrophoneListener microphoneListener;
     private final SrtpParameters srtp;
     private final int payloadType;
-    private final CameraAudioCodec codec;
+    private final AudioCodec codec;
     private final String ffmpeg;
 
     private @Nullable Path sdpFile;
+    private @Nullable volatile Process process;
     private volatile boolean closed = false;
 
     /**
@@ -58,7 +60,7 @@ public class MicrophoneSession implements Runnable {
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      */
     public MicrophoneSession(Consumer<byte[]> audioConsumer, MicrophoneListener microphoneListener, SrtpParameters srtp,
-            int payloadType, CameraAudioCodec codec, String ffmpeg) {
+            int payloadType, AudioCodec codec, String ffmpeg) {
         this.audioConsumer = audioConsumer;
         this.microphoneListener = microphoneListener;
         this.srtp = srtp;
@@ -80,7 +82,7 @@ public class MicrophoneSession implements Runnable {
         Path sdp = Files.createTempFile("homekit-listen-", ".sdp");
         sdpFile = sdp;
         Files.writeString(sdp, sdpContent(ffmpegPort, payloadType, codec), StandardCharsets.US_ASCII);
-        Process started = new ProcessBuilder(FfmpegAudioConverter.listenCommand(ffmpeg, sdp.toString(), srtp, codec))
+        Process started = new ProcessBuilder(FfmpegConverter.listenCommand(ffmpeg, sdp.toString(), srtp, codec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process = started;
         microphoneListener.setForwardPort(ffmpegPort);
@@ -132,7 +134,7 @@ public class MicrophoneSession implements Runnable {
         }
     }
 
-    static String sdpContent(int ffmpegPort, int payloadType, CameraAudioCodec codec) {
+    static String sdpContent(int ffmpegPort, int payloadType, AudioCodec codec) {
         String encoding = switch (codec.codec()) {
             case OPUS -> "opus";
             case PCMU -> "PCMU";

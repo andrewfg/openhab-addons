@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.audio;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,25 +18,23 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
 /**
- * Tests for {@link CameraAudioCodec} decoding of SupportedAudioStreamConfiguration.
+ * Tests for {@link AudioCodec} decoding of SupportedAudioStreamConfiguration.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class CameraAudioCodecTest {
+class AudioCodecTest {
 
     @Test
     void testDecodesEveryDeclaredCodecAndRate() {
         byte[] tlv = tlv(entry(AudioCodecType.OPUS, 1, 0x00, 0x01, 0x02), entry(AudioCodecType.PCMU, 1, 0x00));
 
-        List<CameraAudioCodec> codecs = CameraAudioCodec.decodeSupportedConfiguration(tlv);
+        List<AudioCodec> codecs = AudioCodec.decodeSupportedConfiguration(tlv);
 
-        assertEquals(List.of(new CameraAudioCodec(AudioCodecType.OPUS, 1, 8),
-                new CameraAudioCodec(AudioCodecType.OPUS, 1, 16), new CameraAudioCodec(AudioCodecType.OPUS, 1, 24),
-                new CameraAudioCodec(AudioCodecType.PCMU, 1, 8)), codecs);
+        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8), new AudioCodec(AudioCodecType.OPUS, 1, 16),
+                new AudioCodec(AudioCodecType.OPUS, 1, 24), new AudioCodec(AudioCodecType.PCMU, 1, 8)), codecs);
     }
 
     @Test
@@ -44,37 +42,35 @@ class CameraAudioCodecTest {
         byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x02), entry(AudioCodecType.MSBC, 1, 0x00),
                 entry(AudioCodecType.PCMA, 1, 0x01));
 
-        assertEquals(List.of(), CameraAudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(), AudioCodec.decodeSupportedConfiguration(tlv));
     }
 
     @Test
     void testRejectsRatesThatCodecDoesNotAllow() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR_WB, 1, 0x00, 0x01), entry(AudioCodecType.PCMU, 1, 0x01));
 
-        assertEquals(List.of(new CameraAudioCodec(AudioCodecType.AMR_WB, 1, 16)),
-                CameraAudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR_WB, 1, 16)),
+                AudioCodec.decodeSupportedConfiguration(tlv));
     }
 
     @Test
     void testReadsRepeatedCodecEntriesInSequence() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR, 1, 0x00), entry(AudioCodecType.AMR, 1, 0x00));
 
-        assertEquals(List.of(new CameraAudioCodec(AudioCodecType.AMR, 1, 8)),
-                CameraAudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR, 1, 8)), AudioCodec.decodeSupportedConfiguration(tlv));
     }
 
     @Test
     void testIgnoresUnknownCodecType() {
         byte[] tlv = tlv(entry(0x7F, 1, 0x00), entry(AudioCodecType.PCMU, 1, 0x00));
 
-        assertEquals(List.of(new CameraAudioCodec(AudioCodecType.PCMU, 1, 8)),
-                CameraAudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.PCMU, 1, 8)), AudioCodec.decodeSupportedConfiguration(tlv));
     }
 
     @Test
     void testRtpClockRateAndBitrate() {
-        assertEquals(16000, new CameraAudioCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
-        assertEquals(24, new CameraAudioCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
+        assertEquals(16000, new AudioCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
+        assertEquals(24, new AudioCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
     }
 
     /** Builds one AUDIO_CODEC_CONFIGURATION entry with the given codec, channel count and sample-rate codes. */

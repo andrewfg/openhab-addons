@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.go2rtc;
+package org.openhab.binding.homekit.internal.go2rtc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,14 +25,14 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link AudioBridge}.
+ * Tests for {@link Go2RtcAudioBridge}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class AudioBridgeTest {
+class Go2RtcAudioBridgeTest {
 
     private static final int TIMEOUT_SECONDS = 10;
-    private static final AudioBridge.ListenObserver NO_OP_OBSERVER = new AudioBridge.ListenObserver() {
+    private static final Go2RtcAudioBridge.ListenObserver NO_OP_OBSERVER = new Go2RtcAudioBridge.ListenObserver() {
         @Override
         public void listenConnected() {
         }
@@ -45,7 +45,7 @@ class AudioBridgeTest {
     @Test
     void publishedAudioReachesListenClient() throws Exception {
         CompletableFuture<InputStream> talk = new CompletableFuture<>();
-        try (AudioBridge bridge = new AudioBridge(NO_OP_OBSERVER, talk::complete);
+        try (Go2RtcAudioBridge bridge = new Go2RtcAudioBridge(NO_OP_OBSERVER, talk::complete);
                 Socket client = new Socket(InetAddress.getLoopbackAddress(), bridge.listenPort())) {
             client.setSoTimeout(TIMEOUT_SECONDS * 1000);
             InputStream in = client.getInputStream();
@@ -64,7 +64,7 @@ class AudioBridgeTest {
     @Test
     void talkConnectionIsDeliveredToConsumer() throws Exception {
         CompletableFuture<byte[]> received = new CompletableFuture<>();
-        try (AudioBridge bridge = new AudioBridge(NO_OP_OBSERVER, in -> {
+        try (Go2RtcAudioBridge bridge = new Go2RtcAudioBridge(NO_OP_OBSERVER, in -> {
             try {
                 received.complete(in.readAllBytes());
             } catch (IOException e) {

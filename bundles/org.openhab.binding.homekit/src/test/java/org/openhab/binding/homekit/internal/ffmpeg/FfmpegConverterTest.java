@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.ffmpeg;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,24 +18,24 @@ import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
-import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
+import org.openhab.binding.homekit.internal.audio.AudioCodec;
+import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
- * Tests for {@link FfmpegAudioConverter} command construction.
+ * Tests for {@link FfmpegConverter} command construction.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class FfmpegAudioConverterTest {
+class FfmpegConverterTest {
 
     private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16],
             new byte[14]);
-    private static final CameraAudioCodec OPUS = new CameraAudioCodec(AudioCodecType.OPUS, 1, 24);
-    private static final CameraAudioCodec PCMU_8K = new CameraAudioCodec(AudioCodecType.PCMU, 1, 8);
-    private static final CameraAudioCodec PCMA_8K = new CameraAudioCodec(AudioCodecType.PCMA, 1, 8);
-    private static final CameraAudioCodec AMR_WB_16K = new CameraAudioCodec(AudioCodecType.AMR_WB, 1, 16);
+    private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 24);
+    private static final AudioCodec PCMU_8K = new AudioCodec(AudioCodecType.PCMU, 1, 8);
+    private static final AudioCodec PCMA_8K = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+    private static final AudioCodec AMR_WB_16K = new AudioCodec(AudioCodecType.AMR_WB, 1, 16);
 
     @Test
     void testParamsAreBase64OfKeyThenSalt() {
@@ -47,7 +47,7 @@ class FfmpegAudioConverterTest {
         for (int i = 0; i < salt.length; i++) {
             salt[i] = (byte) (0x80 + i);
         }
-        String params = FfmpegAudioConverter
+        String params = FfmpegConverter
                 .toFfmpegParams(new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt));
         byte[] decoded = Base64.getDecoder().decode(params);
         assertEquals(30, decoded.length);
@@ -59,21 +59,19 @@ class FfmpegAudioConverterTest {
     @Test
     void testNoneSuiteRejected() {
         SrtpParameters none = new SrtpParameters(SrtpCryptoSuite.NONE, new byte[0], new byte[0]);
-        assertThrows(IllegalArgumentException.class, () -> FfmpegAudioConverter.toFfmpegSuite(SrtpCryptoSuite.NONE));
-        assertThrows(IllegalArgumentException.class, () -> FfmpegAudioConverter.toFfmpegParams(none));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.NONE));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegConverter.toFfmpegParams(none));
     }
 
     @Test
     void testSuiteNames() {
-        assertEquals("AES_CM_128_HMAC_SHA1_80",
-                FfmpegAudioConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80));
-        assertEquals("AES_CM_256_HMAC_SHA1_80",
-                FfmpegAudioConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80));
+        assertEquals("AES_CM_128_HMAC_SHA1_80", FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80));
+        assertEquals("AES_CM_256_HMAC_SHA1_80", FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80));
     }
 
     @Test
     void testListenCommandReadsSrtpAndCopiesContainerToStdout() {
-        List<String> cmd = FfmpegAudioConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
+        List<String> cmd = FfmpegConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("ogg", valueAfter(cmd, "-f"));
@@ -81,7 +79,7 @@ class FfmpegAudioConverterTest {
         assertFalse(cmd.contains("-ar"));
         assertFalse(cmd.contains("libopus"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
-        assertEquals(FfmpegAudioConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
+        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
         assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
         assertFalse(cmd.contains("-srtp_out_suite"));
     }
@@ -95,14 +93,15 @@ class FfmpegAudioConverterTest {
 
     @Test
     void testTalkCommandReadsContainerAndWritesSrtpToCamera() {
-        List<String> cmd = FfmpegAudioConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, OPUS);
+        List<String> cmd = FfmpegConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L,
+                OPUS);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
         assertEquals("ogg", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:a"));
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_out_suite"));
-        assertEquals(FfmpegAudioConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
+        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
         assertEquals("rtp://192.168.1.50:5004?localport=6000", cmd.get(cmd.size() - 1));
         assertFalse(cmd.contains("-srtp_in_suite"));
         assertFalse(cmd.contains("-ar"));
@@ -123,12 +122,12 @@ class FfmpegAudioConverterTest {
         assertFalse(talk(AMR_WB_16K).contains("-ar"));
     }
 
-    private static List<String> listen(CameraAudioCodec codec) {
-        return FfmpegAudioConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
+    private static List<String> listen(AudioCodec codec) {
+        return FfmpegConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
     }
 
-    private static List<String> talk(CameraAudioCodec codec) {
-        return FfmpegAudioConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
+    private static List<String> talk(AudioCodec codec) {
+        return FfmpegConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
     }
 
     private static String valueAfter(List<String> cmd, String option) {

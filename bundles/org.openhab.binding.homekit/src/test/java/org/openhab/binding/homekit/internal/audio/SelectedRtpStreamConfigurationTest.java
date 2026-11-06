@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.audio;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,9 +18,9 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.tlv.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration;
-import org.openhab.binding.homekit.internal.camera.tlv.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration.SessionCommand;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 

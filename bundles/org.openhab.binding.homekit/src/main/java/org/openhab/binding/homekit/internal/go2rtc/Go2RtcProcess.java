@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.go2rtc;
+package org.openhab.binding.homekit.internal.go2rtc;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -136,8 +136,8 @@ public class Go2RtcProcess {
     }
 
     private static void logOutput(Process p) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream(),
-                StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 LOGGER.debug("go2rtc: {}", line);

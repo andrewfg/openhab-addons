@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.go2rtc;
+package org.openhab.binding.homekit.internal.go2rtc;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,6 +19,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -40,9 +41,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class AudioBridge implements AutoCloseable {
+public class Go2RtcAudioBridge implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AudioBridge.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcAudioBridge.class);
     private static final int QUEUE_CAPACITY = 128;
 
     /**
@@ -71,7 +72,7 @@ public class AudioBridge implements AutoCloseable {
      * @param talkConsumer receives the input stream of each talk connection
      * @throws IOException if the servers cannot be opened
      */
-    public AudioBridge(ListenObserver listenObserver, Consumer<InputStream> talkConsumer) throws IOException {
+    public Go2RtcAudioBridge(ListenObserver listenObserver, Consumer<InputStream> talkConsumer) throws IOException {
         this.listenObserver = listenObserver;
         this.talkConsumer = talkConsumer;
         this.listenServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
@@ -175,7 +176,7 @@ public class AudioBridge implements AutoCloseable {
         } finally {
             boolean current;
             synchronized (lock) {
-                current = listenClient == socket;
+                current = Objects.equals(listenClient, socket);
                 if (current) {
                     listenClient = null;
                 }

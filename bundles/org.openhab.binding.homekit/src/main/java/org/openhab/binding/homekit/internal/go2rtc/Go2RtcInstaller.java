@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.go2rtc;
+package org.openhab.binding.homekit.internal.go2rtc;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +25,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -62,8 +63,8 @@ public class Go2RtcInstaller {
      * @throws InterruptedException if interrupted while downloading
      */
     public Path ensureBinary() throws IOException, InterruptedException {
-        String os = System.getProperty("os.name", "");
-        String arch = System.getProperty("os.arch", "");
+        String os = Objects.requireNonNull(System.getProperty("os.name", ""));
+        String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
         if (isOnPath(NAME, os)) {
             return Paths.get(NAME);
         }
@@ -135,8 +136,7 @@ public class Go2RtcInstaller {
         Files.createDirectories(destDir);
         Path tmp = Files.createTempFile(destDir, "go2rtc-download-", ".tmp");
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(2)).GET()
-                    .build();
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(2)).GET().build();
             HttpResponse<Path> response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(tmp));
             if (response.statusCode() != 200) {
                 throw new IOException("Unexpected HTTP status " + response.statusCode() + " for " + url);

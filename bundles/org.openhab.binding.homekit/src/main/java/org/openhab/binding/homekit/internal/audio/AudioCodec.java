@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.tlv;
+package org.openhab.binding.homekit.internal.audio;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record CameraAudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) {
+public record AudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CameraAudioCodec.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioCodec.class);
 
     private static final int TYPE_AUDIO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -45,8 +45,8 @@ public record CameraAudioCodec(AudioCodecType codec, int channels, int sampleRat
      * Returns the audio codec configurations declared by a SupportedAudioStreamConfiguration TLV8 value. Codecs that
      * the binding cannot bridge with stream copy, and sample rates a codec does not allow, are skipped.
      */
-    public static List<CameraAudioCodec> decodeSupportedConfiguration(byte[] tlv) {
-        List<CameraAudioCodec> result = new ArrayList<>();
+    public static List<AudioCodec> decodeSupportedConfiguration(byte[] tlv) {
+        List<AudioCodec> result = new ArrayList<>();
         // The codec entries share one tag, so they are read in sequence rather than through Tlv8Codec.decode(),
         // which would merge them.
         int offset = 0;
@@ -82,7 +82,7 @@ public record CameraAudioCodec(AudioCodecType codec, int channels, int sampleRat
         };
     }
 
-    private static void decodeEntry(byte[] entry, List<CameraAudioCodec> result) {
+    private static void decodeEntry(byte[] entry, List<AudioCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
@@ -108,7 +108,7 @@ public record CameraAudioCodec(AudioCodecType codec, int channels, int sampleRat
         }
         for (byte rateCode : rateCodes) {
             int sampleRateKhz = sampleRateKhz(rateCode & 0xFF);
-            CameraAudioCodec candidate = new CameraAudioCodec(codec, channels, sampleRateKhz);
+            AudioCodec candidate = new AudioCodec(codec, channels, sampleRateKhz);
             if (Arrays.stream(allowedRates).anyMatch(rate -> rate == sampleRateKhz) && !result.contains(candidate)) {
                 result.add(candidate);
             }

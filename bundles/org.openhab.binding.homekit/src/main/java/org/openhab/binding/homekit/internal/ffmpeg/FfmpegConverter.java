@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.ffmpeg;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -18,8 +18,8 @@ import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
-import org.openhab.binding.homekit.internal.camera.tlv.SrtpParameters;
+import org.openhab.binding.homekit.internal.audio.AudioCodec;
+import org.openhab.binding.homekit.internal.audio.tlv.SrtpParameters;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
@@ -35,10 +35,9 @@ import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public final class FfmpegAudioConverter {
+public final class FfmpegConverter {
 
-
-    private FfmpegAudioConverter() {
+    private FfmpegConverter() {
     }
 
     /**
@@ -91,8 +90,7 @@ public final class FfmpegAudioConverter {
      * @param srtp the camera's SRTP parameters for this audio stream
      * @param codec the declared codec of the stream
      */
-    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp,
-            CameraAudioCodec codec) {
+    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp, AudioCodec codec) {
         return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
                 "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
                 sdpFile, "-vn", "-c:a", "copy", "-f", containerFormat(codec.codec()), "pipe:1");
@@ -112,7 +110,7 @@ public final class FfmpegAudioConverter {
      * @param codec the declared codec of the stream
      */
     public static List<String> talkCommand(String ffmpeg, String remoteHost, int remotePort, int localPort,
-            SrtpParameters srtp, int payloadType, long ssrc, CameraAudioCodec codec) {
+            SrtpParameters srtp, int payloadType, long ssrc, AudioCodec codec) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning"));
         if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
             command.addAll(
