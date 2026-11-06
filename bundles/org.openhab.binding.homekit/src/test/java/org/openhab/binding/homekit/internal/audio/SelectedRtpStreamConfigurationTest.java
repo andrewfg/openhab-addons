@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration.SessionCommand;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedVideoParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
@@ -34,6 +35,8 @@ class SelectedRtpStreamConfigurationTest {
     private static final byte[] SESSION_ID = new byte[16];
     private static final SelectedAudioParameters AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1, false, 24,
             20, 110, 0x12345678L, 24, 0.5f, false, 13);
+    private static final SelectedVideoParameters VIDEO = new SelectedVideoParameters(0x00, 0x02, 1280, 720, 30, 99,
+            0x87654321L, 300, 0.5f);
 
     static {
         Arrays.fill(SESSION_ID, (byte) 0x11);
@@ -44,13 +47,23 @@ class SelectedRtpStreamConfigurationTest {
         Map<Integer, byte[]> root = Tlv8Codec
                 .decode(new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, AUDIO).encode());
 
-        assertArrayEquals(AUDIO.encode(), root.get(0x02));
+        assertNull(root.get(0x02));
+        assertArrayEquals(AUDIO.encode(), root.get(0x03));
 
         byte[] controlBytes = root.get(0x01);
         assertNotNull(controlBytes);
         Map<Integer, byte[]> control = Tlv8Codec.decode(controlBytes);
         assertArrayEquals(SESSION_ID, control.get(0x01));
         assertArrayEquals(new byte[] { 1 }, control.get(0x02));
+    }
+
+    @Test
+    void testStartWithVideoEncodesVideoBeforeAudio() {
+        Map<Integer, byte[]> root = Tlv8Codec.decode(
+                new SelectedRtpStreamConfiguration(SESSION_ID, SessionCommand.START, VIDEO, AUDIO).encode());
+
+        assertArrayEquals(VIDEO.encode(), root.get(0x02));
+        assertArrayEquals(AUDIO.encode(), root.get(0x03));
     }
 
     @Test
