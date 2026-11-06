@@ -64,8 +64,7 @@ class Go2RtcTransporterTest {
     @Test
     void publishedVideoReachesListenClient() throws Exception {
         try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER, in -> {
-        });
-                Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.videoListenPort())) {
+        }); Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.videoListenPort())) {
             client.setSoTimeout(TIMEOUT_SECONDS * 1000);
             InputStream in = client.getInputStream();
 

@@ -213,7 +213,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable AudioFeed audioFeed = null;
     private @Nullable RtpListener audioListener = null;
     private @Nullable SrtpParameters audioParameters = null;
-    private volatile @Nullable Go2RtcTransporter transporter = null;
     private @Nullable AudioCodec audioCodec = null;
 
     private @Nullable VideoFeed videoFeed = null;
@@ -224,9 +223,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private volatile @Nullable TalkRoute talkBackRoute = null;
 
     private @Nullable Go2RtcProcess go2rtcProcess = null;
+    private volatile @Nullable Go2RtcTransporter go2rtcTransporter = null;
+    private boolean go2rtcStarting = false;
+
     private volatile String ffmpegPath = "ffmpeg";
     private byte[] sessionId = new byte[16];
-    private boolean go2rtcStarting = false;
     private int sessionUsers = 0;
     private int listenStreams = 0;
 
@@ -1459,7 +1460,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
         String controllerAddress = lanAddress(ipAddress);
         VideoSupportedConfiguration videoConfig = videoConfiguration;
-        boolean withVideo = videoConfig != null && transporter != null;
+        boolean withVideo = videoConfig != null && go2rtcTransporter != null;
         RtpListener audioReceiver = new RtpListener();
         RtpListener videoReceiver = withVideo ? new RtpListener() : null;
         try {
@@ -1616,7 +1617,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         RtpListener listener = videoListener;
         SrtpParameters srtp = videoParameters;
         VideoSupportedConfiguration config = videoConfiguration;
-        if (listener == null || srtp == null || config == null || transporter == null) {
+        if (listener == null || srtp == null || config == null || go2rtcTransporter == null) {
             return;
         }
         VideoFeed feed = new VideoFeed(this::publishCameraVideo, listener, srtp, VIDEO_PAYLOAD_TYPE, ffmpegPath);
@@ -1690,7 +1691,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     private void startGo2rtc(AudioCodec codec, String ipAddress) {
-        Go2RtcTransporter trans = null;
+        Go2RtcTransporter transporter = null;
         Go2RtcProcess process = null;
         boolean published = false;
         try {
@@ -1699,7 +1700,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
                     Go2RtcProcess.freePort());
             String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
-            trans = new Go2RtcTransporter(new Go2RtcTransporter.ListenObserver() {
+            transporter = new Go2RtcTransporter(new Go2RtcTransporter.ListenObserver() {
                 @Override
                 public void listenConnected() {
                     try {
@@ -1717,10 +1718,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
             boolean withVideo = videoConfiguration != null;
             String listenCommand = withVideo
-                    ? Go2RtcConfig.listenCommand(ffmpeg, listenInput, trans.audioListenPort(), trans.videoListenPort())
-                    : Go2RtcConfig.listenCommand(ffmpeg, listenInput, trans.audioListenPort());
+                    ? Go2RtcConfig.listenCommand(ffmpeg, listenInput, transporter.audioListenPort(),
+                            transporter.videoListenPort())
+                    : Go2RtcConfig.listenCommand(ffmpeg, listenInput, transporter.audioListenPort());
             String yaml = Go2RtcConfig.toYaml(ports, stream, listenCommand, stream + "_talk",
-                    Go2RtcConfig.talkCommand(ffmpeg, codec.rtpClockRate(), codec.channels(), trans.talkPort()));
+                    Go2RtcConfig.talkCommand(ffmpeg, codec.rtpClockRate(), codec.channels(), transporter.talkPort()));
             process = new Go2RtcProcess(binary);
             process.start(yaml);
             if (!awaitGo2rtcReady(process, ports.api())) {
@@ -1732,7 +1734,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 if (disposing.get()) {
                     return;
                 }
-                transporter = trans;
+                go2rtcTransporter = transporter;
                 go2rtcProcess = process;
             }
             updateState(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), new StringType(url));
@@ -1746,8 +1748,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 if (process != null) {
                     process.stop();
                 }
-                if (trans != null) {
-                    trans.close();
+                if (transporter != null) {
+                    transporter.close();
                 }
             }
         }
@@ -1755,15 +1757,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     private synchronized void stopGo2rtc() {
         Go2RtcProcess process = go2rtcProcess;
-        Go2RtcTransporter trans = transporter;
+        Go2RtcTransporter transporter = go2rtcTransporter;
         go2rtcProcess = null;
-        transporter = null;
+        go2rtcTransporter = null;
         go2rtcStarting = false;
         if (process != null) {
             process.stop();
         }
-        if (trans != null) {
-            trans.close();
+        if (transporter != null) {
+            transporter.close();
         }
     }
 
@@ -1801,14 +1803,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * Sends the microphone audio to go2rtc first, because a stalled openHAB stream can block the call.
      */
     private void publishMicrophoneAudio(byte[] data) {
-        Go2RtcTransporter trans = transporter;
+        Go2RtcTransporter trans = go2rtcTransporter;
         if (trans != null) {
             trans.publishAudio(data, 0, data.length);
         }
     }
 
     private void publishCameraVideo(byte[] data) {
-        Go2RtcTransporter trans = transporter;
+        Go2RtcTransporter trans = go2rtcTransporter;
         if (trans != null) {
             trans.publishVideo(data, 0, data.length);
         }

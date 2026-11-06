@@ -240,7 +240,8 @@ public class Go2RtcTransporter implements AutoCloseable {
                 }
                 listener.listenConnected();
             }
-            Thread writer = new Thread(() -> write(socket, clientQueue), "OH-binding-homekit-go2rtc-" + name + "-writer");
+            Thread writer = new Thread(() -> write(socket, clientQueue),
+                    "OH-binding-homekit-go2rtc-" + name + "-writer");
             writer.setDaemon(true);
             writer.start();
         }
