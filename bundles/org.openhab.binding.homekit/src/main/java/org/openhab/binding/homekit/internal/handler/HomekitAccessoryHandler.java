@@ -196,7 +196,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Long mediaSetupIid = null;
     private @Nullable Long mediaSelectedIid = null;
 
-    private @Nullable AudioCodec audioCodec = null;
+    private boolean mediaSessionOpen = false;
     private @Nullable VideoSupportedConfiguration videoConfiguration = null;
 
     private @Nullable Go2RtcProcess go2rtcProcess = null;
@@ -502,7 +502,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
             findTalkbackCharacteristics(accessory);
-            if (go2rtcCodec().isPresent()) {
+            if (go2rtcAvailable()) {
                 Channel audioUrlChannel = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), CoreItemFactory.STRING)
                         .withType(CHANNEL_TYPE_AUDIO_URL).build();
@@ -1420,14 +1420,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      *
      * @throws Exception if the camera does not support talk-back or the exchange fails
      */
-    private synchronized void openMediaSession(AudioCodec codec) throws Exception {
-        if (audioCodec != null) {
+    private synchronized void openMediaSession() throws Exception {
+        if (mediaSessionOpen) {
             return;
         }
         Go2RtcTransporter transporter = go2rtcTransporter;
         if (transporter == null) {
             throw new IllegalStateException("go2rtc bridge not available");
         }
+        AudioCodec codec = transporter.codec();
         String ffmpeg = FfmpegInstaller.ensureBinary(cacheDir());
         Long aid = getAccessoryId();
         Long setupIid = mediaSetupIid;
@@ -1475,9 +1476,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 : new RtpStreamConfiguration(session, SessionCommand.START, selectedAudio(codec));
         writeTlvCharacteristic(aid, selectedIid, streamConfig.encode(), false);
         sessionId = session;
-        audioCodec = codec;
-        transporter.startMedia(ffmpeg, codec, audioParams, videoParams);
-        transporter.startTalk(ffmpeg, codec, ipAddress, talkPort, audioParams, AUDIO_SSRC);
+        mediaSessionOpen = true;
+        transporter.startMedia(ffmpeg, audioParams, videoParams);
+        transporter.startTalk(ffmpeg, ipAddress, talkPort, audioParams, AUDIO_SSRC);
     }
 
     /**
@@ -1486,21 +1487,21 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
      */
     private synchronized void closeMediaSession(boolean notifyCamera) {
-        AudioCodec codec = audioCodec;
-        if (codec == null) {
+        if (!mediaSessionOpen) {
             return;
         }
-        audioCodec = null;
+        mediaSessionOpen = false;
         Go2RtcTransporter transporter = go2rtcTransporter;
         if (transporter != null) {
             transporter.stopMedia();
         }
         Long aid = getAccessoryId();
         Long selectedIid = mediaSelectedIid;
-        if (notifyCamera && aid != null && selectedIid != null) {
+        if (notifyCamera && transporter != null && aid != null && selectedIid != null) {
             try {
                 writeTlvCharacteristic(aid, selectedIid,
-                        new RtpStreamConfiguration(sessionId, SessionCommand.END, selectedAudio(codec)).encode(),
+                        new RtpStreamConfiguration(sessionId, SessionCommand.END, selectedAudio(transporter.codec()))
+                                .encode(),
                         false);
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
@@ -1511,11 +1512,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * The first holder starts the session and the last holder ends it.
      */
-    private synchronized void acquireMediaSession(AudioCodec codec) throws Exception {
+    private synchronized void acquireMediaSession() throws Exception {
         if (sessionUsers == 0) {
-            openMediaSession(codec);
-        } else if (!codec.equals(audioCodec)) {
-            throw new IllegalStateException("Camera talk-back is active with " + audioCodec);
+            openMediaSession();
         }
         sessionUsers++;
     }
@@ -1529,8 +1528,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * Opens the camera's talk-back media for one listen stream.
      */
-    private synchronized void openMediaStream(AudioCodec codec) throws Exception {
-        acquireMediaSession(codec);
+    private synchronized void openMediaStream() throws Exception {
+        acquireMediaSession();
         listenStreams++;
     }
 
@@ -1544,8 +1543,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * Opens the camera's talk-back media for one browser talk connection.
      */
-    private synchronized void openMediaTalk(AudioCodec codec) throws Exception {
-        acquireMediaSession(codec);
+    private synchronized void openMediaTalk() throws Exception {
+        acquireMediaSession();
         talkStreams++;
     }
 
@@ -1557,14 +1556,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Returns the codec for the go2rtc browser bridge. go2rtc is only used with A-law, which is the one codec
-     * that go2rtc's ffmpeg bridge handles for both listen and talk.
+     * Returns whether the go2rtc browser bridge can be used, which requires talk-back and A-law audio.
      */
-    private Optional<AudioCodec> go2rtcCodec() {
-        if (!isTalkbackAvailable()) {
-            return Optional.empty();
-        }
-        return audioCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA).findFirst();
+    private boolean go2rtcAvailable() {
+        return isTalkbackAvailable() && Go2RtcTransporter.alawCodec(audioCodecs).isPresent();
     }
 
     /**
@@ -1572,20 +1567,19 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * because the go2rtc binary may need to be downloaded first.
      */
     private synchronized void startGo2rtcIfAvailable() {
-        Optional<AudioCodec> alaw = go2rtcCodec();
-        if (alaw.isEmpty() || go2rtcStarting || !(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
+        if (!go2rtcAvailable() || go2rtcStarting || !(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
             return;
         }
-        AudioCodec codec = alaw.get();
+        List<AudioCodec> cameraCodecs = audioCodecs;
         go2rtcStarting = true;
-        scheduler.submit(() -> startGo2rtc(codec, ipAddress));
+        scheduler.submit(() -> startGo2rtc(cameraCodecs, ipAddress));
     }
 
     private static Path cacheDir() {
         return Paths.get(OpenHAB.getUserDataFolder(), "cache", BINDING_ID);
     }
 
-    private void startGo2rtc(AudioCodec codec, String ipAddress) {
+    private void startGo2rtc(List<AudioCodec> cameraCodecs, String ipAddress) {
         Go2RtcTransporter transporter = null;
         Go2RtcProcess process = null;
         boolean published = false;
@@ -1595,11 +1589,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
                     Go2RtcProcess.freePort());
             String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
-            transporter = new Go2RtcTransporter(new Go2RtcTransporter.ClientObserver() {
+            transporter = new Go2RtcTransporter(cameraCodecs, new Go2RtcTransporter.ClientObserver() {
                 @Override
                 public void listenConnected() {
                     try {
-                        openMediaStream(codec);
+                        openMediaStream();
                     } catch (Exception e) {
                         logger.debug("{} go2rtc listen unavailable: {}", thing.getUID(), e.getMessage());
                     }
@@ -1613,7 +1607,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 @Override
                 public void talkConnected() {
                     try {
-                        openMediaTalk(codec);
+                        openMediaTalk();
                     } catch (Exception e) {
                         logger.debug("{} go2rtc talk unavailable: {}", thing.getUID(), e.getMessage());
                     }
@@ -1630,6 +1624,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 }
                 go2rtcTransporter = transporter;
             }
+            AudioCodec codec = transporter.codec();
             String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
             boolean withVideo = videoConfiguration != null;
             String listenCommand = withVideo

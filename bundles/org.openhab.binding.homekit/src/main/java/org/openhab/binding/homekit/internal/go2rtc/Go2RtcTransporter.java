@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,7 @@ import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegConverter;
 import org.openhab.binding.homekit.internal.media.AudioCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
@@ -78,10 +80,11 @@ public class Go2RtcTransporter implements AutoCloseable {
         void talkDisconnected();
     }
 
-    private record TalkRoute(String ffmpeg, AudioCodec codec, String remoteHost, int remotePort, int localPort,
-            SrtpParameters srtp, long ssrc) {
+    private record TalkRoute(String ffmpeg, String remoteHost, int remotePort, int localPort, SrtpParameters srtp,
+            long ssrc) {
     }
 
+    private final AudioCodec codec;
     private final Channel audio;
     private final Channel video;
     private final ServerSocket talkServer;
@@ -90,12 +93,26 @@ public class Go2RtcTransporter implements AutoCloseable {
     private volatile boolean closed;
 
     /**
+     * Returns the camera's A-law codec, the only codec that go2rtc's ffmpeg bridge handles for both listen and talk.
+     *
+     * @param cameraCodecs the audio codecs the camera supports
+     * @return the A-law codec, or empty if the camera does not support A-law
+     */
+    public static Optional<AudioCodec> alawCodec(List<AudioCodec> cameraCodecs) {
+        return cameraCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA).findFirst();
+    }
+
+    /**
      * Opens loopback servers on ephemeral ports and starts accepting connections.
      *
+     * @param cameraCodecs the audio codecs the camera supports
      * @param observer is notified when the audio listen or talk client connects or disconnects
+     * @throws IllegalArgumentException if the camera does not support A-law
      * @throws IOException if the servers cannot be opened
      */
-    public Go2RtcTransporter(ClientObserver observer) throws IOException {
+    public Go2RtcTransporter(List<AudioCodec> cameraCodecs, ClientObserver observer) throws IOException {
+        this.codec = alawCodec(cameraCodecs)
+                .orElseThrow(() -> new IllegalArgumentException("go2rtc requires A-law audio"));
         this.observer = observer;
         audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
         try {
@@ -106,6 +123,11 @@ public class Go2RtcTransporter implements AutoCloseable {
             throw e;
         }
         startAcceptThread("talk", talkServer, this::onTalkClient);
+    }
+
+    /** @return the camera's audio codec, used for both listen and talk */
+    public AudioCodec codec() {
+        return codec;
     }
 
     /** @return the loopback port that serves the audio listen stream */
@@ -138,12 +160,10 @@ public class Go2RtcTransporter implements AutoCloseable {
      * client is connected to the matching listen channel.
      *
      * @param ffmpeg the ffmpeg executable
-     * @param codec the camera's audio codec
      * @param audioSrtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param videoSrtp the camera's video SRTP parameters, or null if video is not negotiated
      */
-    public void startMedia(String ffmpeg, AudioCodec codec, SrtpParameters audioSrtp,
-            @Nullable SrtpParameters videoSrtp) {
+    public void startMedia(String ffmpeg, SrtpParameters audioSrtp, @Nullable SrtpParameters videoSrtp) {
         Decoder audioSpec = new Decoder(port -> audioSdp(port, AUDIO_PAYLOAD_TYPE, codec),
                 sdpFile -> FfmpegConverter.listenCommand(ffmpeg, sdpFile, audioSrtp, codec));
         if (videoSrtp == null) {
@@ -160,20 +180,19 @@ public class Go2RtcTransporter implements AutoCloseable {
      * route is started.
      *
      * @param ffmpeg the ffmpeg executable
-     * @param codec the camera's audio codec
      * @param remoteHost the camera's address
      * @param remotePort the camera's audio port from the SetupEndpoints response
      * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
      * @param ssrc the RTP SSRC announced to the camera in the selected audio configuration
      * @throws IOException if an ephemeral local port cannot be allocated
      */
-    public void startTalk(String ffmpeg, AudioCodec codec, String remoteHost, int remotePort, SrtpParameters srtp,
-            long ssrc) throws IOException {
+    public void startTalk(String ffmpeg, String remoteHost, int remotePort, SrtpParameters srtp, long ssrc)
+            throws IOException {
         int localPort;
         try (DatagramSocket probe = new DatagramSocket(0)) {
             localPort = probe.getLocalPort();
         }
-        talkRoute = new TalkRoute(ffmpeg, codec, remoteHost, remotePort, localPort, srtp, ssrc);
+        talkRoute = new TalkRoute(ffmpeg, remoteHost, remotePort, localPort, srtp, ssrc);
     }
 
     /**
@@ -280,7 +299,7 @@ public class Go2RtcTransporter implements AutoCloseable {
             return;
         }
         Process process = new ProcessBuilder(FfmpegConverter.talkCommand(route.ffmpeg(), route.remoteHost(),
-                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), route.codec()))
+                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), codec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         try (OutputStream output = process.getOutputStream()) {
             talk.transferTo(output);
