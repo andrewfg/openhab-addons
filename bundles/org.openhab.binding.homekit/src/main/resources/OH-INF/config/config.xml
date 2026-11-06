@@ -15,6 +15,11 @@
 			<description>Unique accessory identifier.</description>
 			<advanced>true</advanced>
 		</parameter>
+		<parameter name="browserAudioId" type="text" required="false">
+			<label>Browser Audio ID</label>
+			<description>Identifier that a browser sends in its audio-pcm INITIALIZE message to talk to and listen to this camera's microphone and speaker. Leave blank to use the Thing ID. Must be unique among cameras.</description>
+			<advanced>true</advanced>
+		</parameter>
 		<parameter name="httpHostHeader" type="text" required="false">
 			<label>HTTP Host Header</label>
 			<description>The server name as discovered by mDNS (needed for HTTP Host headers).</description>

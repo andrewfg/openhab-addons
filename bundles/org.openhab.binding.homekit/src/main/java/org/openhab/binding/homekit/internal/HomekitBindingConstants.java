@@ -74,12 +74,14 @@ public class HomekitBindingConstants {
     public static final String CONFIG_REFRESH_INTERVAL = "refreshInterval";
     public static final String CONFIG_ACCESSORY_ID = "accessoryID";
     public static final String CONFIG_UNIQUE_ID = "uniqueId";
+    public static final String CONFIG_BROWSER_AUDIO_ID = "browserAudioId";
 
     // thing properties
     public static final String PROPERTY_PROTOCOL_VERSION = "protocolVersion";
     public static final String PROPERTY_ACCESSORY_CATEGORY = "accessoryCategory";
     public static final String PROPERTY_UNIQUE_ID = CONFIG_UNIQUE_ID;
     public static final String PROPERTY_CONVERTED_FROM_ACCESSORY = "convertedFromStandaloneAccessory";
+    public static final String PROPERTY_BROWSER_AUDIO_URL = "browserAudioUrl";
 
     // channel properties
     public static final String PROPERTY_IID = "iid";

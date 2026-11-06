@@ -42,6 +42,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.MicrophoneListener;
 import org.openhab.binding.homekit.internal.camera.MicrophoneSession;
 import org.openhab.binding.homekit.internal.camera.SpeakerSession;
+import org.openhab.binding.homekit.internal.camera.service.BrowserAudioBridge;
 import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSink;
 import org.openhab.binding.homekit.internal.camera.service.HomekitAudioSource;
 import org.openhab.binding.homekit.internal.camera.tlv.CameraAudioCodec;
@@ -66,10 +67,12 @@ import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
 import org.openhab.core.audio.AudioException;
+import org.openhab.core.audio.AudioManager;
 import org.openhab.core.audio.AudioSink;
 import org.openhab.core.audio.AudioSource;
 import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.Configuration;
+import org.openhab.core.net.NetworkAddressService;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
 import org.openhab.core.library.CoreItemFactory;
@@ -190,6 +193,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int AUDIO_PAYLOAD_TYPE = 110;
     private static final long AUDIO_SSRC = 0x12345678L;
+    private static final int BROWSER_HTTP_PORT = Integer.getInteger("org.osgi.service.http.port", 8080);
 
     private List<CameraAudioCodec> audioCodecs = List.of();
     private @Nullable CameraAudioCodec audioCodec = null;
@@ -206,6 +210,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable ServiceRegistration<?> audioSinkRegistration = null;
     private int sessionUsers = 0;
     private int listenStreams = 0;
+    private final AudioManager audioManager;
+    private final NetworkAddressService networkAddressService;
+    private @Nullable BrowserAudioBridge browserAudioBridge = null;
 
     private final Bundle bundle;
 
@@ -213,12 +220,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver) {
+            MacResolver macResolver, AudioManager audioManager, NetworkAddressService networkAddressService) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
         this.bundle = bundle;
+        this.audioManager = audioManager;
+        this.networkAddressService = networkAddressService;
     }
 
     /**
@@ -1540,9 +1549,39 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
         audioSourceRegistration = context.registerService(AudioSource.class.getName(), audioSource, new Hashtable<>());
         audioSinkRegistration = context.registerService(AudioSink.class.getName(), audioSink, new Hashtable<>());
+        startBrowserAudio();
+    }
+
+    /**
+     * Starts the browser bridge for this camera and publishes the WebSocket URL a browser must use.
+     */
+    private void startBrowserAudio() {
+        String configuredId = getConfig().get(CONFIG_BROWSER_AUDIO_ID) instanceof String value ? value.trim() : "";
+        String browserId = configuredId.isEmpty() ? thing.getUID().getId() : configuredId;
+        String host = networkAddressService.getPrimaryIpv4HostAddress();
+        if (host == null) {
+            logger.warn("Browser audio disabled: no IPv4 host address found to build the browser URL");
+            return;
+        }
+        BrowserAudioBridge bridge = new BrowserAudioBridge(browserId, thing.getUID().getAsString(), audioManager,
+                audioSource, audioSink, audioCodecs, getScheduler(), ThreadPoolManager.getPool(BINDING_ID));
+        if (!bridge.start()) {
+            return;
+        }
+        browserAudioBridge = bridge;
+        String url = BrowserAudioBridge.webSocketUrl(host, BROWSER_HTTP_PORT);
+        ThingBuilder builder = editThing();
+        builder.withProperty(PROPERTY_BROWSER_AUDIO_URL, url);
+        updateThing(builder.build());
+        logger.info("Browser audio for '{}' is available at {} with id '{}'", thing.getUID(), url, browserId);
     }
 
     private synchronized void unregisterAudioServices() {
+        BrowserAudioBridge bridge = browserAudioBridge;
+        browserAudioBridge = null;
+        if (bridge != null) {
+            bridge.stop();
+        }
         ServiceRegistration<?> sink = audioSinkRegistration;
         audioSinkRegistration = null;
         if (sink != null) {

@@ -123,6 +123,44 @@ class FfmpegAudioConverterTest {
         assertFalse(talk(AMR_WB_16K).contains("-ar"));
     }
 
+    @Test
+    void testBrowserUplinkDecodesCameraContainerToBrowserPcm() {
+        List<String> cmd = FfmpegAudioConverter.browserUplinkCommand(OPUS);
+        assertEquals("ogg", valueAfter(cmd, "-f"));
+        assertTrue(cmd.indexOf("-ar") > cmd.indexOf("s16le"), "only the output rate is set for Opus input");
+
+        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
+    }
+
+    @Test
+    void testBrowserUplinkGivesRawG711InputItsSampleRateAndChannels() {
+        List<String> cmd = FfmpegAudioConverter.browserUplinkCommand(PCMU_8K);
+        assertTrue(cmd.indexOf("-ar") < cmd.indexOf("-i"), "input rate must precede -i");
+        assertEquals("8000", cmd.get(cmd.indexOf("-ar") + 1));
+        assertEquals("mulaw", cmd.get(cmd.indexOf("-f") + 1));
+    }
+
+    @Test
+    void testBrowserDownlinkEncodesBrowserPcmToCameraCodec() {
+        List<String> cmd = FfmpegAudioConverter.browserDownlinkCommand(PCMA_8K);
+        assertEquals("s16le", valueAfter(cmd, "-f"));
+        assertTrue(cmd.indexOf("-ar") < cmd.indexOf("-i"), "input rate must precede -i");
+        assertEquals("pcm_alaw", valueAfter(cmd, "-c:a"));
+        assertEquals("8000", valueAfter(cmd.subList(cmd.indexOf("-i"), cmd.size()), "-ar"));
+        assertEquals("alaw", cmd.get(cmd.size() - 2));
+        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
+    }
+
+    @Test
+    void testBrowserDownlinkUsesOpusEncoder() {
+        List<String> cmd = FfmpegAudioConverter.browserDownlinkCommand(OPUS);
+        assertEquals("libopus", valueAfter(cmd, "-c:a"));
+        assertEquals("ogg", cmd.get(cmd.size() - 2));
+
+        assertEquals("pcm_mulaw", FfmpegAudioConverter.encoderFor(AudioCodecType.PCMU));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegAudioConverter.encoderFor(AudioCodecType.AMR_WB));
+    }
+
     private static List<String> listen(CameraAudioCodec codec) {
         return FfmpegAudioConverter.listenCommand("/tmp/camera.sdp", SRTP, codec);
     }

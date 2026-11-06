@@ -184,6 +184,26 @@ Camera devices that support two-way audio are exposed to openHAB as an `AudioSin
 - Audio is received from the `AudioSource` only while something is reading from it.
 - The audio is passed through in the formats the camera declares (for example Opus, PCMU, PCMA, AMR or AMR-WB), without transcoding.
 
+#### Browser Audio
+
+A browser can talk to and listen to a camera's microphone and speaker through openHAB's `audio-pcm` WebSocket adapter.
+The camera's `AudioSource` and `AudioSink` are bridged to the browser endpoint of the same ID, using ffmpeg to convert between raw browser PCM and the camera's codec.
+
+1. Set the Thing's optional `Browser Audio ID` configuration parameter, or leave it blank to use the Thing ID. Each camera must have a different ID.
+1. Read the Thing property `browserAudioUrl`. It has the form `ws://<openHAB host>:<port>/ws/audio-pcm`, and is also logged at info level when the bridge starts.
+1. From the browser, connect to that URL and send an INITIALIZE message with the same ID, for example `{"cmd":"initialize","args":{"id":"<browser audio id>"}}`.
+
+The browser then sees the camera as a pair of core audio endpoints `pcm::<id>::source` and `pcm::<id>::sink` while it stays connected.
+The browser exchanges raw 16 kHz, 16-bit, mono, little-endian PCM with no WAV header.
+The binding polls for the endpoints every 5 seconds, so the audio pipes start a few seconds after the browser connects.
+
+Requirements and limitations:
+
+- ffmpeg must be installed and available on the `PATH`. Opus output needs an ffmpeg build with `libopus`.
+- Only plain `ws://` is served. The access token is not included in the URL.
+- The port is taken from the `org.osgi.service.http.port` system property, defaulting to 8080. If openHAB is configured with a different HTTP port, adjust the URL accordingly.
+- Only one browser can use a given ID at a time.
+
 ## Integration with Apple Home App / Ecosystem
 
 Many HomeKit accessories are able only to be paired with one client.

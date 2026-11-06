@@ -39,6 +39,10 @@ public final class FfmpegAudioConverter {
 
     private static final String FFMPEG = "ffmpeg";
 
+    /** Raw browser audio format used by core's audio-pcm WebSocket adapter. */
+    static final int BROWSER_SAMPLE_RATE = 16000;
+    static final int BROWSER_CHANNELS = 1;
+
     private FfmpegAudioConverter() {
     }
 
@@ -121,5 +125,49 @@ public final class FfmpegAudioConverter {
                 toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f", "rtp",
                 "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort));
         return List.copyOf(command);
+    }
+
+    /**
+     * Returns the ffmpeg encoder that produces the packets of a declared codec, for browser talk-back.
+     */
+    static String encoderFor(AudioCodecType codec) {
+        return switch (codec) {
+            case OPUS -> "libopus";
+            case PCMU -> "pcm_mulaw";
+            case PCMA -> "pcm_alaw";
+            case AMR, AMR_WB, AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec);
+        };
+    }
+
+    /**
+     * Builds the browser uplink command: the codec's container from the camera microphone on stdin, converted to raw
+     * 16 kHz mono signed 16-bit little-endian PCM on stdout. Raw G.711 input has no header, so its sample rate and
+     * channel count are given explicitly.
+     *
+     * @param codec the declared codec of the camera microphone stream
+     */
+    public static List<String> browserUplinkCommand(CameraAudioCodec codec) {
+        List<String> command = new ArrayList<>(List.of(FFMPEG, "-hide_banner", "-loglevel", "warning"));
+        if (codec.codec() == AudioCodecType.PCMU || codec.codec() == AudioCodecType.PCMA) {
+            command.addAll(
+                    List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac", String.valueOf(codec.channels())));
+        }
+        command.addAll(List.of("-f", containerFormat(codec.codec()), "-i", "pipe:0", "-vn", "-f", "s16le", "-ar",
+                String.valueOf(BROWSER_SAMPLE_RATE), "-ac", String.valueOf(BROWSER_CHANNELS), "pipe:1"));
+        return List.copyOf(command);
+    }
+
+    /**
+     * Builds the browser downlink command: raw 16 kHz mono signed 16-bit little-endian PCM from the browser on stdin,
+     * encoded to the codec's container on stdout, ready for the camera speaker. The output sample rate and channel
+     * count match the camera's declared codec.
+     *
+     * @param codec the declared codec of the camera speaker stream
+     */
+    public static List<String> browserDownlinkCommand(CameraAudioCodec codec) {
+        return List.of(FFMPEG, "-hide_banner", "-loglevel", "warning", "-f", "s16le", "-ar",
+                String.valueOf(BROWSER_SAMPLE_RATE), "-ac", String.valueOf(BROWSER_CHANNELS), "-i", "pipe:0", "-vn",
+                "-c:a", encoderFor(codec.codec()), "-ar", String.valueOf(codec.rtpClockRate()), "-ac",
+                String.valueOf(codec.channels()), "-f", containerFormat(codec.codec()), "pipe:1");
     }
 }

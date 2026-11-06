@@ -23,9 +23,11 @@ import org.openhab.binding.homekit.internal.handler.HomekitAccessoryHandler;
 import org.openhab.binding.homekit.internal.handler.HomekitBridgeHandler;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
+import org.openhab.core.audio.AudioManager;
 import org.openhab.core.config.discovery.mdns.MDNSDiscoveryParticipant;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
+import org.openhab.core.net.NetworkAddressService;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ManagedThingProvider;
 import org.openhab.core.thing.Thing;
@@ -62,6 +64,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
     private final ManagedThingProvider managedThingProvider;
     private final HomekitMdnsDiscoveryParticipant discoveryParticipant;
     private final MacResolver macResolver;
+    private final AudioManager audioManager;
+    private final NetworkAddressService networkAddressService;
 
     /**
      * Constructor.
@@ -76,7 +80,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
             @Reference ChannelGroupTypeRegistry channelGroupTypeRegistry, @Reference HomekitKeyStore keyStore,
             @Reference TranslationProvider translationProvider, @Reference ManagedThingProvider managedThingProvider,
             @Reference(target = "(class.id=homekit)") MDNSDiscoveryParticipant mdnsDiscoveryParticipant,
-            @Reference MacResolver macResolver) {
+            @Reference MacResolver macResolver, @Reference AudioManager audioManager,
+            @Reference NetworkAddressService networkAddressService) {
         this.typeProvider = typeProvider;
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
@@ -86,6 +91,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
         this.managedThingProvider = managedThingProvider;
         this.discoveryParticipant = (HomekitMdnsDiscoveryParticipant) mdnsDiscoveryParticipant;
         this.macResolver = macResolver;
+        this.audioManager = audioManager;
+        this.networkAddressService = networkAddressService;
     }
 
     @Override
@@ -101,7 +108,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
                     macResolver);
         } else if (THING_TYPE_BRIDGED_ACCESSORY.equals(thingTypeUID) || THING_TYPE_ACCESSORY.equals(thingTypeUID)) {
             return new HomekitAccessoryHandler(thing, typeProvider, channelTypeRegistry, channelGroupTypeRegistry,
-                    keyStore, i18nProvider, bundle, managedThingProvider, discoveryParticipant, macResolver);
+                    keyStore, i18nProvider, bundle, managedThingProvider, discoveryParticipant, macResolver,
+                    audioManager, networkAddressService);
         }
         return null;
     }
