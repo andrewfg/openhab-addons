@@ -34,6 +34,14 @@ class Go2RtcConfigTest {
     }
 
     @Test
+    void listenCommandWithVideoMuxesAudioAndH264WithoutTranscoding() {
+        String cmd = Go2RtcConfig.listenCommand("ffmpeg", "-f alaw -ar 8000 -ac 1", 5000, 5001);
+        assertEquals(
+                "ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -f h264 -i tcp://127.0.0.1:5001 -map 0:a -map 1:v -c copy -f rtsp {output}",
+                cmd);
+    }
+
+    @Test
     void talkCommandUsesBackchannelAndCameraRate() {
         String cmd = Go2RtcConfig.talkCommand("ffmpeg", 16000, 1, 6000);
         assertTrue(cmd.startsWith("ffmpeg "));
