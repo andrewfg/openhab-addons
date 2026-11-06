@@ -17,12 +17,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
+import org.openhab.binding.homekit.internal.media.AudioCodec;
 
 /**
  * Tests for {@link Go2RtcTransporter}.
@@ -43,38 +51,94 @@ class Go2RtcTransporterTest {
     };
 
     @Test
-    void publishedAudioReachesListenClient() throws Exception {
-        CompletableFuture<InputStream> talk = new CompletableFuture<>();
-        try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER, talk::complete);
-                Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.audioListenPort())) {
-            client.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            InputStream in = client.getInputStream();
+    void audioSdpDescribesLoopbackOpusStreamOnPort() {
+        String sdp = Go2RtcTransporter.audioSdp(40000, 110, new AudioCodec(AudioCodecType.OPUS, 1, 24));
 
-            byte[] expected = { 1, 2, 3, 4 };
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
-            // the transporter only queues audio once the client has been accepted, so keep publishing until it arrives
-            while (System.nanoTime() < deadline && in.available() < expected.length) {
-                transporter.publishAudio(expected, 0, expected.length);
-                Thread.sleep(10);
+        assertTrue(sdp.contains("\nm=audio 40000 RTP/AVP 110\n"), sdp);
+        assertTrue(sdp.contains("\na=rtpmap:110 opus/24000/1\n"), sdp);
+        assertTrue(sdp.contains("\nc=IN IP4 127.0.0.1\n"), sdp);
+        assertFalse(sdp.contains("fmtp"), sdp);
+    }
+
+    @Test
+    void audioSdpNamesG711Encoding() {
+        String sdp = Go2RtcTransporter.audioSdp(40000, 0, new AudioCodec(AudioCodecType.PCMU, 1, 8));
+
+        assertTrue(sdp.contains("\na=rtpmap:0 PCMU/8000/1\n"), sdp);
+    }
+
+    @Test
+    void audioSdpDescribesAmrWbWithOctetAlign() {
+        String sdp = Go2RtcTransporter.audioSdp(40000, 99, new AudioCodec(AudioCodecType.AMR_WB, 1, 16));
+
+        assertTrue(sdp.contains("\na=rtpmap:99 AMR-WB/16000/1\n"), sdp);
+        assertTrue(sdp.contains("\na=fmtp:99 octet-align=1\n"), sdp);
+    }
+
+    @Test
+    void videoSdpDescribesH264StreamOnPort() {
+        String sdp = Go2RtcTransporter.videoSdp(40002, 99);
+
+        assertTrue(sdp.contains("\nm=video 40002 RTP/AVP 99\n"), sdp);
+        assertTrue(sdp.contains("\na=rtpmap:99 H264/90000\n"), sdp);
+        assertTrue(sdp.contains("\na=fmtp:99 packetization-mode=1\n"), sdp);
+        assertFalse(sdp.contains("m=audio"), sdp);
+    }
+
+    @Test
+    void decoderOutputReachesListenClient() throws Exception {
+        AudioCodec pcmu = new AudioCodec(AudioCodecType.PCMU, 1, 8);
+        CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
+        try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER, in -> {
+        })) {
+            // the decoder command is "cat <sdp file>", so its output is exactly the SDP that was written
+            transporter.startDecoders(new Go2RtcTransporter.Decoder(port -> {
+                decoderPort.complete(port);
+                return Go2RtcTransporter.audioSdp(port, 0, pcmu);
+            }, file -> List.of("cat", file)), null);
+            try (Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.audioListenPort())) {
+                client.setSoTimeout(TIMEOUT_SECONDS * 1000);
+                String expected = Go2RtcTransporter.audioSdp(decoderPort.get(TIMEOUT_SECONDS, TimeUnit.SECONDS), 0,
+                        pcmu);
+                byte[] actual = client.getInputStream().readNBytes(expected.getBytes(StandardCharsets.US_ASCII).length);
+                assertEquals(expected, new String(actual, StandardCharsets.US_ASCII));
             }
-            assertArrayEquals(expected, in.readNBytes(expected.length));
         }
     }
 
     @Test
-    void publishedVideoReachesListenClient() throws Exception {
+    void rtpReceivedWhileListenConnectedIsForwardedToDecoder() throws Exception {
+        InetAddress loopback = InetAddress.getLoopbackAddress();
+        CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
         try (Go2RtcTransporter transporter = new Go2RtcTransporter(NO_OP_OBSERVER, in -> {
-        }); Socket client = new Socket(InetAddress.getLoopbackAddress(), transporter.videoListenPort())) {
-            client.setSoTimeout(TIMEOUT_SECONDS * 1000);
-            InputStream in = client.getInputStream();
-
-            byte[] expected = { 5, 6, 7, 8 };
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
-            while (System.nanoTime() < deadline && in.available() < expected.length) {
-                transporter.publishVideo(expected, 0, expected.length);
-                Thread.sleep(10);
+        })) {
+            // "cat" with no argument stays alive reading stdin, so the decoder keeps running while the test sends RTP
+            transporter.startDecoders(new Go2RtcTransporter.Decoder(port -> {
+                decoderPort.complete(port);
+                return "";
+            }, file -> List.of("cat")), null);
+            try (Socket client = new Socket(loopback, transporter.audioListenPort());
+                    DatagramSocket decoderSocket = new DatagramSocket(
+                            decoderPort.get(TIMEOUT_SECONDS, TimeUnit.SECONDS), loopback);
+                    DatagramSocket camera = new DatagramSocket()) {
+                byte[] payload = { 1, 2, 3, 4 };
+                decoderSocket.setSoTimeout(100);
+                DatagramPacket packet = new DatagramPacket(new byte[2048], 2048);
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
+                boolean received = false;
+                // the relay only forwards once the decoder is running, so keep sending until it arrives
+                while (!received && System.nanoTime() < deadline) {
+                    camera.send(new DatagramPacket(payload, payload.length, loopback, transporter.audioRtpPort()));
+                    try {
+                        decoderSocket.receive(packet);
+                        received = true;
+                    } catch (SocketTimeoutException e) {
+                        // retry until the deadline
+                    }
+                }
+                assertTrue(received, "RTP was not forwarded to the decoder");
+                assertArrayEquals(payload, Arrays.copyOf(packet.getData(), packet.getLength()));
             }
-            assertArrayEquals(expected, in.readNBytes(expected.length));
         }
     }
 
