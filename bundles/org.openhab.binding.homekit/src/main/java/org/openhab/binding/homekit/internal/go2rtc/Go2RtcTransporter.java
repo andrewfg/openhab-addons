@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
@@ -65,31 +64,40 @@ public class Go2RtcTransporter implements AutoCloseable {
     public static final int VIDEO_PAYLOAD_TYPE = 99;
 
     /**
-     * Receives notifications when the audio listen client connects or disconnects. Close of the transporter does not
-     * notify.
+     * Receives notifications when the audio listen or talk client connects or disconnects. Close of the transporter
+     * does not notify. A talk connection is notified before its audio is encoded, so the observer may start the talk
+     * route with {@link #startTalk}.
      */
-    public interface ListenObserver {
+    public interface ClientObserver {
         void listenConnected();
 
         void listenDisconnected();
+
+        void talkConnected();
+
+        void talkDisconnected();
+    }
+
+    private record TalkRoute(String ffmpeg, AudioCodec codec, String remoteHost, int remotePort, int localPort,
+            SrtpParameters srtp, long ssrc) {
     }
 
     private final Channel audio;
     private final Channel video;
     private final ServerSocket talkServer;
-    private final Consumer<InputStream> talkConsumer;
+    private final ClientObserver observer;
+    private volatile @Nullable TalkRoute talkRoute = null;
     private volatile boolean closed;
 
     /**
      * Opens loopback servers on ephemeral ports and starts accepting connections.
      *
-     * @param audioObserver is notified when the audio listen client connects or disconnects
-     * @param talkConsumer receives the input stream of each talk connection
+     * @param observer is notified when the audio listen or talk client connects or disconnects
      * @throws IOException if the servers cannot be opened
      */
-    public Go2RtcTransporter(ListenObserver audioObserver, Consumer<InputStream> talkConsumer) throws IOException {
-        this.talkConsumer = talkConsumer;
-        audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, audioObserver);
+    public Go2RtcTransporter(ClientObserver observer) throws IOException {
+        this.observer = observer;
+        audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
         try {
             video = new Channel("video", VIDEO_QUEUE_CAPACITY, null);
             talkServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
@@ -148,9 +156,31 @@ public class Go2RtcTransporter implements AutoCloseable {
     }
 
     /**
-     * Stops all decoders. The RTP receivers and listen servers stay open for the next session.
+     * Starts encoding browser talk audio, received from go2rtc, to the camera as SRTP. Talk audio is dropped while no
+     * route is started.
+     *
+     * @param ffmpeg the ffmpeg executable
+     * @param codec the camera's audio codec
+     * @param remoteHost the camera's address
+     * @param remotePort the camera's audio port from the SetupEndpoints response
+     * @param srtp the camera's audio SRTP parameters from the SetupEndpoints response
+     * @param ssrc the RTP SSRC announced to the camera in the selected audio configuration
+     * @throws IOException if an ephemeral local port cannot be allocated
+     */
+    public void startTalk(String ffmpeg, AudioCodec codec, String remoteHost, int remotePort, SrtpParameters srtp,
+            long ssrc) throws IOException {
+        int localPort;
+        try (DatagramSocket probe = new DatagramSocket(0)) {
+            localPort = probe.getLocalPort();
+        }
+        talkRoute = new TalkRoute(ffmpeg, codec, remoteHost, remotePort, localPort, srtp, ssrc);
+    }
+
+    /**
+     * Stops all decoders and the talk route. The RTP receivers and servers stay open for the next session.
      */
     public void stopMedia() {
+        talkRoute = null;
         startDecoders(null, null);
     }
 
@@ -227,7 +257,12 @@ public class Go2RtcTransporter implements AutoCloseable {
     private void onTalkClient(Socket socket) {
         Thread reader = new Thread(() -> {
             try (InputStream in = socket.getInputStream()) {
-                talkConsumer.accept(in);
+                observer.talkConnected();
+                try {
+                    encodeTalk(in);
+                } finally {
+                    observer.talkDisconnected();
+                }
             } catch (IOException e) {
                 LOGGER.debug("go2rtc talk client disconnected", e);
             } finally {
@@ -236,6 +271,24 @@ public class Go2RtcTransporter implements AutoCloseable {
         }, "OH-binding-homekit-go2rtc-talk-reader");
         reader.setDaemon(true);
         reader.start();
+    }
+
+    private void encodeTalk(InputStream talk) throws IOException {
+        TalkRoute route = talkRoute;
+        if (route == null) {
+            LOGGER.debug("go2rtc talk route not available");
+            return;
+        }
+        Process process = new ProcessBuilder(FfmpegConverter.talkCommand(route.ffmpeg(), route.remoteHost(),
+                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), route.codec()))
+                .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        try (OutputStream output = process.getOutputStream()) {
+            talk.transferTo(output);
+        } catch (IOException e) {
+            LOGGER.debug("go2rtc talk stream ended: {}", e.getMessage());
+        } finally {
+            process.destroy();
+        }
     }
 
     private static void closeQuietly(@Nullable AutoCloseable closeable) {
@@ -282,7 +335,7 @@ public class Go2RtcTransporter implements AutoCloseable {
 
         private final String name;
         private final int capacity;
-        private final @Nullable ListenObserver observer;
+        private final @Nullable ClientObserver observer;
         private final ServerSocket server;
         private final DatagramSocket rtpSocket;
         private final Object lock = new Object();
@@ -293,7 +346,7 @@ public class Go2RtcTransporter implements AutoCloseable {
         private @Nullable Running running;
         private volatile @Nullable Integer forwardPort;
 
-        Channel(String name, int capacity, @Nullable ListenObserver observer) throws IOException {
+        Channel(String name, int capacity, @Nullable ClientObserver observer) throws IOException {
             this.name = name;
             this.capacity = capacity;
             this.observer = observer;
@@ -443,7 +496,7 @@ public class Go2RtcTransporter implements AutoCloseable {
                 queue = clientQueue;
                 restartDecoderLocked();
             }
-            ListenObserver listener = observer;
+            ClientObserver listener = observer;
             if (listener != null) {
                 if (replaced) {
                     listener.listenDisconnected();
@@ -480,7 +533,7 @@ public class Go2RtcTransporter implements AutoCloseable {
                     }
                 }
                 closeQuietly(socket);
-                ListenObserver listener = observer;
+                ClientObserver listener = observer;
                 if (current && !closed && listener != null) {
                     listener.listenDisconnected();
                 }
