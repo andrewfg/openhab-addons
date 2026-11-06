@@ -18,15 +18,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 
 /**
- * The TLV8 payload of the HAP Selected RTP Stream Configuration characteristic, which starts or ends a session.
+ * The TLV8 payload of the HAP Selected RTP Stream Configuration characteristic, which starts or ends a session. The
+ * video parameters are optional; when absent, only the audio stream is selected.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand command, SelectedAudioParameters audio) {
+public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand command, @Nullable SelectedVideoParameters video,
+        SelectedAudioParameters audio) {
 
     public enum SessionCommand {
         END(0),
@@ -45,10 +48,15 @@ public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand co
     }
 
     private static final int TYPE_SESSION_CONTROL = 0x01;
-    private static final int TYPE_AUDIO = 0x02;
+    private static final int TYPE_VIDEO = 0x02;
+    private static final int TYPE_AUDIO = 0x03;
 
     private static final int TYPE_SESSION_IDENTIFIER = 0x01;
     private static final int TYPE_SESSION_COMMAND = 0x02;
+
+    public SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand command, SelectedAudioParameters audio) {
+        this(sessionId, command, null, audio);
+    }
 
     public SelectedRtpStreamConfiguration {
         requireLength(sessionId, 16);
@@ -61,6 +69,9 @@ public record SelectedRtpStreamConfiguration(byte[] sessionId, SessionCommand co
 
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(TYPE_SESSION_CONTROL, Tlv8Codec.encode(control));
+        if (video != null) {
+            tlv.put(TYPE_VIDEO, video.encode());
+        }
         tlv.put(TYPE_AUDIO, audio.encode());
         return Tlv8Codec.encode(tlv);
     }

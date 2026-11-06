@@ -148,6 +148,27 @@ class AudioTlvTest {
     }
 
     @Test
+    void setupEndpointsResponseCarriesVideoSsrcSrtpAndPort() {
+        SrtpParameters srtp = new SrtpParameters(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80, new byte[32], new byte[14]);
+        Map<Integer, byte[]> address = new LinkedHashMap<>();
+        address.put(0x03, new byte[] { (byte) 0x39, (byte) 0x30 });
+        Map<Integer, byte[]> tlv = new LinkedHashMap<>();
+        tlv.put(0x01, SESSION_ID);
+        tlv.put(0x02, new byte[] { 0 });
+        tlv.put(0x03, Tlv8Codec.encode(address));
+        tlv.put(0x04, srtp.encode());
+        tlv.put(0x05, srtp.encode());
+        tlv.put(0x06, new byte[] { 0x21, 0x43, 0x65, (byte) 0x87 });
+        tlv.put(0x07, new byte[] { 0x78, 0x56, 0x34, 0x12 });
+        SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
+        assertEquals(0x87654321L, response.videoSsrc());
+        assertEquals(0x3039, response.videoPort());
+        SrtpParameters videoSrtp = response.videoSrtp();
+        assertNotNull(videoSrtp);
+        assertEquals(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80, videoSrtp.cryptoSuite());
+    }
+
+    @Test
     void setupEndpointsResponseBusyHasNoSsrc() {
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(0x01, SESSION_ID);

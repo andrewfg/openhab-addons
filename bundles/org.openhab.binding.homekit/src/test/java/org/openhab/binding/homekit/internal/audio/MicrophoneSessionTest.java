@@ -49,4 +49,14 @@ class MicrophoneSessionTest {
         assertTrue(sdp.contains("\na=rtpmap:99 AMR-WB/16000/1\n"), sdp);
         assertTrue(sdp.contains("\na=fmtp:99 octet-align=1\n"), sdp);
     }
+
+    @Test
+    void testVideoSdpDescribesH264StreamOnPort() {
+        String sdp = MicrophoneSession.videoSdpContent(40002, 99);
+
+        assertTrue(sdp.contains("\nm=video 40002 RTP/AVP 99\n"), sdp);
+        assertTrue(sdp.contains("\na=rtpmap:99 H264/90000\n"), sdp);
+        assertTrue(sdp.contains("\na=fmtp:99 packetization-mode=1\n"), sdp);
+        assertFalse(sdp.contains("m=audio"), sdp);
+    }
 }

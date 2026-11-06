@@ -158,4 +158,17 @@ public class MicrophoneSession implements Runnable {
                 %s""".formatted(ffmpegPort, payloadType, payloadType, encoding, codec.rtpClockRate(), codec.channels(),
                 fmtp);
     }
+
+    static String videoSdpContent(int ffmpegPort, int payloadType) {
+        return """
+                v=0
+                o=- 0 0 IN IP4 127.0.0.1
+                s=HomeKit listen video
+                c=IN IP4 127.0.0.1
+                t=0 0
+                m=video %d RTP/AVP %d
+                a=rtpmap:%d H264/90000
+                a=fmtp:%d packetization-mode=1
+                """.formatted(ffmpegPort, payloadType, payloadType, payloadType);
+    }
 }
