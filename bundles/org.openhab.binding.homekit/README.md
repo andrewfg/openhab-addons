@@ -184,6 +184,16 @@ Camera devices that support two-way audio are exposed to openHAB as an `AudioSin
 - Audio is received from the `AudioSource` only while something is reading from it.
 - The audio is passed through in the formats the camera declares (for example Opus, PCMU, PCMA, AMR or AMR-WB), without transcoding.
 
+#### Browser Audio (go2rtc)
+
+Cameras that declare PCMA (G.711 A-law) talk-back also expose an `Audio URL` Channel (`audio-url`).
+The binding downloads and runs a [go2rtc](https://github.com/AlexxIT/go2rtc) process (the same way the UniFi binding installs it) that serves a WebRTC page.
+Opening this URL in a browser lets you listen to the camera microphone and talk through its speaker.
+
+- The URL is served on all network interfaces of the openHAB host, on a port chosen at runtime (shown in the URL). It has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera.
+- Cameras that do not declare PCMA do not get an `Audio URL` Channel.
+- The SRTP encryption and decryption of the HomeKit audio streams is still performed by ffmpeg inside the binding, not by go2rtc.
+
 ## Integration with Apple Home App / Ecosystem
 
 Many HomeKit accessories are able only to be paired with one client.

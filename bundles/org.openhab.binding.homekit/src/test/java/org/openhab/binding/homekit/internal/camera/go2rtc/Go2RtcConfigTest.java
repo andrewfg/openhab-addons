@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+package org.openhab.binding.homekit.internal.camera.go2rtc;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
+ *
+ * @author Andrew Fiddian-Green - Initial contribution
+ */
+class Go2RtcConfigTest {
+
+    @Test
+    void listenCommandPublishesToRtspOutput() {
+        String cmd = Go2RtcConfig.listenCommand("-f ogg", 5000);
+        assertEquals("ffmpeg -hide_banner -loglevel error -f ogg -i tcp://127.0.0.1:5000 -vn -c:a copy -f rtsp {output}",
+                cmd);
+    }
+
+    @Test
+    void talkCommandUsesBackchannelAndCameraRate() {
+        String cmd = Go2RtcConfig.talkCommand(16000, 1, 6000);
+        assertTrue(cmd.startsWith("ffmpeg "));
+        assertTrue(cmd.contains("-i pipe:0 -ar 16000 -ac 1 -c:a pcm_alaw -f alaw tcp://127.0.0.1:6000"));
+        assertTrue(cmd.endsWith("#backchannel=1#audio=alaw/8000"));
+    }
+
+    @Test
+    void yamlContainsPortsStreamsAndExecPrefix() {
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
+                Go2RtcConfig.listenCommand("-f ogg", 5000), "cam_talk", Go2RtcConfig.talkCommand(8000, 1, 6000));
+        assertTrue(yaml.contains("api:\n  listen: \":1984\"\n"));
+        assertTrue(yaml.contains("webrtc:\n  listen: \":8555\"\n"));
+        assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
+        assertTrue(yaml.contains("  cam:\n    - \"exec:ffmpeg "));
+        assertTrue(yaml.contains("  cam_talk:\n    - \"exec:ffmpeg "));
+    }
+
+    @Test
+    void yamlOmitsTalkStreamWhenNotAvailable() {
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
+                Go2RtcConfig.listenCommand("-f ogg", 5000), null, null);
+        assertFalse(yaml.contains("cam_talk"));
+        assertTrue(yaml.endsWith("\"\n"));
+    }
+
+    @Test
+    void assetNameForLinuxIsRawBinary() throws IOException {
+        assertEquals("go2rtc_linux_amd64", Go2RtcInstaller.assetName("Linux", "amd64"));
+        assertEquals("go2rtc_linux_amd64", Go2RtcInstaller.assetName("Linux", "x86_64"));
+        assertEquals("go2rtc_linux_arm64", Go2RtcInstaller.assetName("Linux", "aarch64"));
+    }
+
+    @Test
+    void assetNameForOtherPlatformsIsZip() throws IOException {
+        assertEquals("go2rtc_win64.zip", Go2RtcInstaller.assetName("Windows 11", "amd64"));
+        assertEquals("go2rtc_mac_arm64.zip", Go2RtcInstaller.assetName("Mac OS X", "aarch64"));
+        assertEquals("go2rtc_mac_amd64.zip", Go2RtcInstaller.assetName("Mac OS X", "x86_64"));
+    }
+
+    @Test
+    void assetNameRejectsUnsupportedPlatform() {
+        assertThrows(IOException.class, () -> Go2RtcInstaller.assetName("Linux", "riscv64"));
+    }
+}
