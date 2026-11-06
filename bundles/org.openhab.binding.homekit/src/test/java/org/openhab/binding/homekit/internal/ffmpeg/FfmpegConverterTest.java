@@ -85,6 +85,21 @@ class FfmpegConverterTest {
     }
 
     @Test
+    void testVideoListenCommandReadsSrtpAndWritesAnnexBToStdout() {
+        List<String> cmd = FfmpegConverter.videoListenCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
+        assertEquals("ffmpeg", cmd.get(0));
+        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
+        assertEquals("h264", valueAfter(cmd, "-f"));
+        assertEquals("copy", valueAfter(cmd, "-c:v"));
+        assertTrue(cmd.contains("-an"));
+        assertFalse(cmd.contains("-c:a"));
+        assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
+        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
+        assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
+        assertFalse(cmd.contains("-srtp_out_suite"));
+    }
+
+    @Test
     void testListenCommandUsesContainerOfDeclaredCodec() {
         assertEquals("mulaw", valueAfter(listen(PCMU_8K), "-f"));
         assertEquals("alaw", valueAfter(listen(PCMA_8K), "-f"));

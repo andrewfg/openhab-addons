@@ -43,10 +43,13 @@ import javax.measure.quantity.Angle;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.audio.AudioCodec;
+import org.openhab.binding.homekit.internal.audio.CameraVideoSession;
 import org.openhab.binding.homekit.internal.audio.MicrophoneListener;
 import org.openhab.binding.homekit.internal.audio.MicrophoneSession;
+import org.openhab.binding.homekit.internal.audio.SupportedVideoConfiguration;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedAudioParameters;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration;
+import org.openhab.binding.homekit.internal.audio.tlv.SelectedVideoParameters;
 import org.openhab.binding.homekit.internal.audio.tlv.SelectedRtpStreamConfiguration.SessionCommand;
 import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsRequest;
 import org.openhab.binding.homekit.internal.audio.tlv.SetupEndpointsResponse;
@@ -69,6 +72,7 @@ import org.openhab.binding.homekit.internal.go2rtc.Go2RtcAudioBridge;
 import org.openhab.binding.homekit.internal.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.go2rtc.Go2RtcInstaller;
 import org.openhab.binding.homekit.internal.go2rtc.Go2RtcProcess;
+import org.openhab.binding.homekit.internal.go2rtc.Go2RtcVideoFeed;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
@@ -197,19 +201,27 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int AUDIO_PAYLOAD_TYPE = 110;
     private static final long AUDIO_SSRC = 0x12345678L;
+    private static final int VIDEO_PAYLOAD_TYPE = 99;
+    private static final long VIDEO_SSRC = 0x23456789L;
+    private static final int VIDEO_MAX_BITRATE_KBPS = 2000;
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
 
     // fields for audio talk-back sessions with a camera (if any)
     private List<AudioCodec> audioCodecs = List.of();
+    private @Nullable SupportedVideoConfiguration videoConfiguration = null;
     private @Nullable AudioCodec audioCodec = null;
     private @Nullable Long audioSetupIid = null;
     private @Nullable Long audioSelectedIid = null;
     private @Nullable MicrophoneListener microphoneListener = null;
     private @Nullable MicrophoneSession microphoneSession = null;
     private @Nullable SrtpParameters srtpParameters = null;
+    private @Nullable MicrophoneListener videoListener = null;
+    private @Nullable SrtpParameters videoSrtpParameters = null;
+    private @Nullable CameraVideoSession cameraVideoSession = null;
     private @Nullable Go2RtcProcess go2rtcProcess = null;
     private volatile @Nullable AudioRoute audioRoute = null;
     private volatile @Nullable Go2RtcAudioBridge audioBridge = null;
+    private volatile @Nullable Go2RtcVideoFeed videoFeed = null;
     private volatile String ffmpegPath = "ffmpeg";
     private byte[] audioSessionId = new byte[16];
     private boolean go2rtcStarting = false;
@@ -1445,15 +1457,19 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             throw new IllegalStateException("Camera IP address not configured");
         }
         String controllerAddress = lanAddress(ipAddress);
+        SupportedVideoConfiguration supportedVideo = videoConfiguration;
+        boolean withVideo = supportedVideo != null && videoFeed != null;
         MicrophoneListener receiver = new MicrophoneListener();
+        MicrophoneListener videoReceiver = withVideo ? new MicrophoneListener() : null;
         try {
             byte[] sessionId = new byte[16];
             RANDOM.nextBytes(sessionId);
             int port = receiver.getPort();
-            // no video is selected, so the camera never sends to the video endpoint; it reuses the audio port
+            // without video, the camera reuses the audio port for its (unused) video endpoint
+            int videoPort = videoReceiver != null ? videoReceiver.getPort() : port;
             SrtpParameters talkSrtp = randomSrtp();
-            SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, port, port,
-                    randomSrtp(), talkSrtp);
+            SetupEndpointsRequest request = new SetupEndpointsRequest(sessionId, false, controllerAddress, videoPort,
+                    port, randomSrtp(), talkSrtp);
             SetupEndpointsResponse response = SetupEndpointsResponse
                     .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
             if (response.status() != SetupEndpointsStatus.SUCCESS) {
@@ -1467,23 +1483,40 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             if (cameraAudioPort == null) {
                 throw new IllegalStateException("Camera did not return an audio port");
             }
+            SrtpParameters cameraVideoSrtp = null;
+            if (withVideo) {
+                cameraVideoSrtp = response.videoSrtp();
+                if (cameraVideoSrtp == null || response.videoPort() == null) {
+                    throw new IllegalStateException("Camera did not return video SRTP parameters");
+                }
+            }
             int talkLocalPort;
             try (DatagramSocket talkPort = new DatagramSocket()) {
                 talkLocalPort = talkPort.getLocalPort();
             }
             AudioRoute route = new AudioRoute(talkLocalPort, ipAddress, cameraAudioPort, talkSrtp, AUDIO_SSRC,
                     AUDIO_PAYLOAD_TYPE, codec);
-            writeTlvCharacteristic(aid, selectedIid,
-                    new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedAudio(codec)).encode(),
-                    false);
+            SelectedRtpStreamConfiguration start = supportedVideo != null && withVideo
+                    ? new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedVideo(supportedVideo),
+                            selectedAudio(codec))
+                    : new SelectedRtpStreamConfiguration(sessionId, SessionCommand.START, selectedAudio(codec));
+            writeTlvCharacteristic(aid, selectedIid, start.encode(), false);
             audioSessionId = sessionId;
             audioCodec = codec;
             microphoneListener = receiver;
             srtpParameters = audioSrtp;
             audioRoute = route;
             ThreadPoolManager.getPool(BINDING_ID).submit(receiver);
+            if (videoReceiver != null) {
+                videoListener = videoReceiver;
+                videoSrtpParameters = cameraVideoSrtp;
+                ThreadPoolManager.getPool(BINDING_ID).submit(videoReceiver);
+            }
         } catch (Exception e) {
             receiver.close();
+            if (videoReceiver != null) {
+                videoReceiver.close();
+            }
             throw e;
         }
     }
@@ -1505,6 +1538,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         srtpParameters = null;
         if (listen != null) {
             listen.close();
+        }
+        stopCameraVideo();
+        MicrophoneListener video = videoListener;
+        videoListener = null;
+        videoSrtpParameters = null;
+        if (video != null) {
+            video.close();
         }
         audioRoute = null;
         AudioCodec codec = audioCodec;
@@ -1559,6 +1599,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         listen.start();
         microphoneSession = listen;
         ThreadPoolManager.getPool(BINDING_ID).submit(listen);
+        startCameraVideo();
     }
 
     private synchronized void stopMicrophoneFeed() {
@@ -1566,6 +1607,39 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         microphoneSession = null;
         if (listen != null) {
             listen.close();
+        }
+        stopCameraVideo();
+    }
+
+    /**
+     * Replaces the camera video ffmpeg with a fresh one, if the session negotiated video and go2rtc is listening.
+     */
+    private synchronized void startCameraVideo() {
+        stopCameraVideo();
+        MicrophoneListener receiver = videoListener;
+        SrtpParameters videoSrtp = videoSrtpParameters;
+        SupportedVideoConfiguration supportedVideo = videoConfiguration;
+        if (receiver == null || videoSrtp == null || supportedVideo == null || videoFeed == null) {
+            return;
+        }
+        CameraVideoSession session = new CameraVideoSession(this::publishCameraVideo, receiver, videoSrtp,
+                VIDEO_PAYLOAD_TYPE, ffmpegPath);
+        try {
+            session.start();
+        } catch (IOException e) {
+            logger.debug("{} camera video unavailable: {}", thing.getUID(), e.getMessage());
+            session.close();
+            return;
+        }
+        cameraVideoSession = session;
+        ThreadPoolManager.getPool(BINDING_ID).submit(session);
+    }
+
+    private synchronized void stopCameraVideo() {
+        CameraVideoSession session = cameraVideoSession;
+        cameraVideoSession = null;
+        if (session != null) {
+            session.close();
         }
     }
 
@@ -1622,6 +1696,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     private void startGo2rtc(AudioCodec codec, String ipAddress) {
         Go2RtcAudioBridge bridge = null;
+        Go2RtcVideoFeed video = null;
         Go2RtcProcess process = null;
         boolean published = false;
         try {
@@ -1645,9 +1720,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     closeMicrophoneStream();
                 }
             }, talk -> handleTalk(codec, talk));
+            if (videoConfiguration != null) {
+                video = new Go2RtcVideoFeed();
+            }
             String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
-            String yaml = Go2RtcConfig.toYaml(ports, stream,
-                    Go2RtcConfig.listenCommand(ffmpeg, listenInput, bridge.listenPort()), stream + "_talk",
+            String listenCommand = video != null
+                    ? Go2RtcConfig.listenCommand(ffmpeg, listenInput, bridge.listenPort(), video.port())
+                    : Go2RtcConfig.listenCommand(ffmpeg, listenInput, bridge.listenPort());
+            String yaml = Go2RtcConfig.toYaml(ports, stream, listenCommand, stream + "_talk",
                     Go2RtcConfig.talkCommand(ffmpeg, codec.rtpClockRate(), codec.channels(), bridge.talkPort()));
             process = new Go2RtcProcess(binary);
             process.start(yaml);
@@ -1661,6 +1741,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     return;
                 }
                 audioBridge = bridge;
+                videoFeed = video;
                 go2rtcProcess = process;
             }
             updateState(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), new StringType(url));
@@ -1677,6 +1758,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 if (bridge != null) {
                     bridge.close();
                 }
+                if (video != null) {
+                    video.close();
+                }
             }
         }
     }
@@ -1684,14 +1768,19 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private synchronized void stopGo2rtc() {
         Go2RtcProcess process = go2rtcProcess;
         Go2RtcAudioBridge bridge = audioBridge;
+        Go2RtcVideoFeed video = videoFeed;
         go2rtcProcess = null;
         audioBridge = null;
+        videoFeed = null;
         go2rtcStarting = false;
         if (process != null) {
             process.stop();
         }
         if (bridge != null) {
             bridge.close();
+        }
+        if (video != null) {
+            video.close();
         }
     }
 
@@ -1732,6 +1821,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         Go2RtcAudioBridge bridge = audioBridge;
         if (bridge != null) {
             bridge.publish(data, 0, data.length);
+        }
+    }
+
+    private void publishCameraVideo(byte[] data) {
+        Go2RtcVideoFeed feed = videoFeed;
+        if (feed != null) {
+            feed.publish(data, 0, data.length);
         }
     }
 
@@ -1797,6 +1893,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         audioSetupIid = null;
         audioSelectedIid = null;
         audioCodecs = List.of();
+        videoConfiguration = null;
         final List<Service> services = accessory.services;
         if (services == null) {
             return;
@@ -1814,6 +1911,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     case SETUP_ENDPOINTS -> audioSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> audioSelectedIid = characteristic.iid;
                     case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeSupportedAudio(characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
+                        videoConfiguration = decodeSupportedVideo(characteristic.value);
                     default -> {
                     }
                 }
@@ -1831,6 +1930,23 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static SelectedAudioParameters selectedAudio(AudioCodec codec) {
         return new SelectedAudioParameters(codec.codec(), codec.channels(), false, codec.sampleRateKhz(), 20,
                 AUDIO_PAYLOAD_TYPE, AUDIO_SSRC, codec.maxBitrateKbps(), 0.5f, false, 13);
+    }
+
+    private static SelectedVideoParameters selectedVideo(SupportedVideoConfiguration config) {
+        return new SelectedVideoParameters(config.profile(), config.level(), config.width(), config.height(),
+                config.frameRate(), VIDEO_PAYLOAD_TYPE, VIDEO_SSRC, VIDEO_MAX_BITRATE_KBPS, 0.5f);
+    }
+
+    private @Nullable SupportedVideoConfiguration decodeSupportedVideo(@Nullable JsonElement value) {
+        if (value instanceof JsonPrimitive primitive) {
+            try {
+                byte[] tlv = Base64.getDecoder().decode(primitive.getAsString());
+                return SupportedVideoConfiguration.decode(tlv).orElse(null);
+            } catch (IllegalArgumentException e) {
+                logger.debug("{} invalid supported video configuration: {}", thing.getUID(), e.getMessage());
+            }
+        }
+        return null;
     }
 
     private List<AudioCodec> decodeSupportedAudio(@Nullable JsonElement value) {

@@ -51,6 +51,20 @@ public final class Go2RtcConfig {
     }
 
     /**
+     * Returns an ffmpeg command that muxes the binding's audio and H.264 video into one RTSP stream for go2rtc. Both
+     * inputs are loopback TCP connections served by the binding.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param inputArgs the ffmpeg input format arguments for the audio, see {@link #listenCommand(String, String, int)}
+     * @param inputPort the loopback TCP port the binding serves the listen audio on
+     * @param videoPort the loopback TCP port the binding serves the H.264 Annex B video on
+     */
+    public static String listenCommand(String ffmpeg, String inputArgs, int inputPort, int videoPort) {
+        return ffmpeg + " -hide_banner -loglevel error " + inputArgs + " -i tcp://127.0.0.1:" + inputPort
+                + " -f h264 -i tcp://127.0.0.1:" + videoPort + " -map 0:a -map 1:v -c copy -f rtsp {output}";
+    }
+
+    /**
      * Returns the ffmpeg command for the go2rtc backchannel. go2rtc writes the browser's microphone audio to the
      * command's stdin as A-law at 8 kHz. ffmpeg resamples it to the camera's rate and sends it to the binding's
      * loopback TCP port.

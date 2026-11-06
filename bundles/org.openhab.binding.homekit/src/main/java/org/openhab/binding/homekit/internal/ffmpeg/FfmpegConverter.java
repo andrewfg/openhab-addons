@@ -97,6 +97,20 @@ public final class FfmpegConverter {
     }
 
     /**
+     * Builds the video listen command: SRTP camera video described by {@code sdpFile} in, an H.264 Annex B elementary
+     * stream on stdout with the packets copied unchanged.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param sdpFile path to an SDP file describing the camera's RTP video stream and its UDP port
+     * @param srtp the camera's SRTP parameters for this video stream
+     */
+    public static List<String> videoListenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp) {
+        return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
+                "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
+                sdpFile, "-an", "-c:v", "copy", "-f", "h264", "pipe:1");
+    }
+
+    /**
      * Builds the talk command: the codec's container on stdin in, SRTP audio to the camera endpoint with the packets
      * copied unchanged. Raw G.711 input has no header, so its sample rate and channel count are given explicitly.
      *
