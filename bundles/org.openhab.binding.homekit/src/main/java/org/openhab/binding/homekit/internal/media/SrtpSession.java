@@ -50,6 +50,7 @@ public final class SrtpSession {
     private final byte[] sessionKey;
     private final byte[] sessionSalt;
     private final byte[] authKey;
+    private final CTRModeCipher keystream = SICBlockCipher.newInstance(AESEngine.newInstance());
 
     /** The highest packet index seen so far, or -1 if no packet has been processed. */
     private long highestIndex = -1;
@@ -175,7 +176,7 @@ public final class SrtpSession {
         for (int i = 0; i < 6; i++) {
             iv[8 + i] ^= (byte) (index >>> (40 - 8 * i));
         }
-        aesCtr(sessionKey, iv, packet, from, to);
+        aesCtr(keystream, sessionKey, iv, packet, from, to);
     }
 
     /**
@@ -204,15 +205,14 @@ public final class SrtpSession {
         System.arraycopy(masterSalt, 0, iv, 0, masterSalt.length);
         iv[7] ^= label;
         byte[] key = new byte[length];
-        aesCtr(masterKey, iv, key, 0, length);
+        aesCtr(SICBlockCipher.newInstance(AESEngine.newInstance()), masterKey, iv, key, 0, length);
         return key;
     }
 
     /**
      * XORs the AES counter-mode keystream for the given IV into data[from..to), in place.
      */
-    private static void aesCtr(byte[] key, byte[] iv, byte[] data, int from, int to) {
-        CTRModeCipher cipher = SICBlockCipher.newInstance(AESEngine.newInstance());
+    private static void aesCtr(CTRModeCipher cipher, byte[] key, byte[] iv, byte[] data, int from, int to) {
         cipher.init(true, new ParametersWithIV(new KeyParameter(key), iv));
         byte[] block = new byte[BLOCK_LENGTH];
         byte[] out = new byte[BLOCK_LENGTH];

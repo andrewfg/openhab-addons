@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -71,6 +72,7 @@ import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
 import org.openhab.core.OpenHAB;
+import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
@@ -203,6 +205,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Go2RtcProcess go2rtcProcess = null;
     private volatile @Nullable Go2RtcDataPump go2rtcPump = null;
     private boolean go2rtcStarting = false;
+    /**
+     * Runs go2rtc start and stop work, which can block for a download or for process shutdown, away from the shared
+     * scheduler.
+     */
+    private final ExecutorService go2rtcExecutor = ThreadPoolManager.getPool(BINDING_ID + "-go2rtc");
 
     private byte[] sessionId = new byte[16];
 
@@ -1416,10 +1423,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      *
      * @throws Exception if the camera does not support talk-back or the exchange fails
      */
-    private synchronized void openMediaSession(Go2RtcDataPump pump, String remoteAddress) throws Exception {
-        Long aid = getAccessoryId();
-        Long setupIid = mediaSetupIid;
-        Long selectedIid = mediaSelectedIid;
+    private void openMediaSession(Go2RtcDataPump pump, String remoteAddress) throws Exception {
+        Long aid;
+        Long setupIid;
+        Long selectedIid;
+        synchronized (this) {
+            aid = getAccessoryId();
+            setupIid = mediaSetupIid;
+            selectedIid = mediaSelectedIid;
+        }
         if (aid == null || setupIid == null || selectedIid == null) {
             throw new IllegalStateException("Camera talk-back characteristics not available");
         }
@@ -1444,13 +1456,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             throw new IllegalStateException("Camera did not return SRTP parameters or a talk port");
         }
 
+        synchronized (this) {
+            sessionId = session;
+            mediaSessionOpen = true;
+        }
         pump.startSession(audioParams, videoParams, talkParams, remoteAddress, remoteTalkPort);
         RtpStreamConfiguration streamConfig = new RtpStreamConfiguration(session, SessionCommand.START,
                 selectedVideo(pump.videoCodec()), selectedAudio(pump.audioCodec()));
         writeTlvCharacteristic(aid, selectedIid, streamConfig.encode(), false);
-
-        sessionId = session;
-        mediaSessionOpen = true;
     }
 
     /**
@@ -1458,20 +1471,25 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      *
      * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
      */
-    private synchronized void closeMediaSession(Go2RtcDataPump pump, boolean notifyCamera) {
-        if (!mediaSessionOpen) {
-            return;
+    private void closeMediaSession(Go2RtcDataPump pump, boolean notifyCamera) {
+        byte[] id;
+        Long aid;
+        Long selectedIid;
+        synchronized (this) {
+            if (!mediaSessionOpen) {
+                return;
+            }
+            mediaSessionOpen = false;
+            pump.stopSession();
+            id = sessionId;
+            aid = getAccessoryId();
+            selectedIid = mediaSelectedIid;
         }
-        mediaSessionOpen = false;
-        pump.stopSession();
 
-        Long aid = getAccessoryId();
-        Long selectedIid = mediaSelectedIid;
         if (notifyCamera && aid != null && selectedIid != null) {
             try {
                 writeTlvCharacteristic(aid, selectedIid,
-                        new RtpStreamConfiguration(sessionId, SessionCommand.END, selectedAudio(pump.audioCodec()))
-                                .encode(),
+                        new RtpStreamConfiguration(id, SessionCommand.END, selectedAudio(pump.audioCodec())).encode(),
                         false);
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
@@ -1481,7 +1499,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     /**
      * Starts the go2rtc browser bridge once, if the camera declares a usable audio codec. The start runs on the
-     * scheduler because the go2rtc binary may need to be downloaded first.
+     * go2rtc executor because the go2rtc binary may need to be downloaded first. A failed start clears the flag, so
+     * the next call retries it.
      */
     private synchronized void startGo2rtcIfAvailable() {
         if (!isTalkbackAvailable() || go2rtcStarting
@@ -1491,7 +1510,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         List<AudioCodec> audioCodecs = this.audioCodecs;
         List<VideoCodec> videoCodecs = this.videoCodecs;
         go2rtcStarting = true;
-        scheduler.submit(() -> startGo2rtc(audioCodecs, videoCodecs, remoteIpAddress));
+        go2rtcExecutor.execute(() -> startGo2rtc(audioCodecs, videoCodecs, remoteIpAddress));
     }
 
     private static Path cacheDir() {
@@ -1506,8 +1525,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         try {
             String ffmpegBinary = FfmpegInstaller.ensureBinary(cacheDir());
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
-            Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
-                    Go2RtcProcess.freePort());
+            String host = localAddress(remoteIpAddress);
+            Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(host, Go2RtcProcess.freePort(),
+                    Go2RtcProcess.freePort(), Go2RtcProcess.freePort());
             String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
 
             pump = new Go2RtcDataPump(audioCodecs, videoCodecs);
@@ -1528,14 +1548,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
-            if (!awaitGo2rtcReady(process, ports.api())) {
+            if (!awaitGo2rtcReady(process, ports.host(), ports.api())) {
                 throw new IOException("go2rtc did not become ready");
             }
 
             openMediaSession(pump, remoteIpAddress);
 
-            String url = "http://" + localAddress(remoteIpAddress) + ":" + ports.api() + "/stream.html?src=" + stream
-                    + "&mode=webrtc";
+            String url = "http://" + host + ":" + ports.api() + "/stream.html?src=" + stream + "&mode=webrtc";
             synchronized (this) {
                 if (disposing.get()) {
                     return;
@@ -1546,10 +1565,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             published = true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (IOException | IllegalStateException e) {
+            logger.info("{} go2rtc audio bridge unavailable: {}", thing.getUID(), e.getMessage());
         } catch (Exception e) {
-            logger.warn("{} go2rtc audio bridge unavailable: {}", thing.getUID(), e.getMessage());
+            logger.warn("{} go2rtc audio bridge failed unexpectedly", thing.getUID(), e);
         } finally {
             if (!published) {
+                synchronized (this) {
+                    go2rtcStarting = false;
+                }
                 if (process != null) {
                     process.stop();
                 }
@@ -1559,21 +1583,25 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                             go2rtcPump = null;
                         }
                     }
-                    closeMediaSession(pump, false);
+                    closeMediaSession(pump, true);
                     pump.close();
                 }
             }
         }
     }
 
-    private synchronized void stopGo2rtc() {
-        Go2RtcProcess process = go2rtcProcess;
-        Go2RtcDataPump pump = go2rtcPump;
-        go2rtcProcess = null;
-        go2rtcPump = null;
-        go2rtcStarting = false;
+    private void stopGo2rtc() {
+        Go2RtcProcess process;
+        Go2RtcDataPump pump;
+        synchronized (this) {
+            process = go2rtcProcess;
+            pump = go2rtcPump;
+            go2rtcProcess = null;
+            go2rtcPump = null;
+            go2rtcStarting = false;
+        }
         if (process != null) {
-            process.stop();
+            go2rtcExecutor.execute(process::stop);
         }
         if (pump != null) {
             closeMediaSession(pump, false);
@@ -1581,10 +1609,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         }
     }
 
-    private static boolean awaitGo2rtcReady(Go2RtcProcess process, int apiPort) throws InterruptedException {
+    private static boolean awaitGo2rtcReady(Go2RtcProcess process, String host, int apiPort)
+            throws InterruptedException {
         Instant deadline = Instant.now().plusSeconds(GO2RTC_READY_TIMEOUT_SECONDS);
         while (Instant.now().isBefore(deadline) && process.isRunning()) {
-            if (process.isReady(apiPort)) {
+            if (process.isReady(host, apiPort)) {
                 return true;
             }
             Thread.sleep(200);

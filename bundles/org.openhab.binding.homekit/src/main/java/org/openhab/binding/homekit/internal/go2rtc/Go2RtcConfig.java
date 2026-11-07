@@ -30,10 +30,11 @@ import org.eclipse.jdt.annotation.Nullable;
 public final class Go2RtcConfig {
 
     /**
-     * The ports that go2rtc listens on. The API and WebRTC ports are reachable from the browser, while RTSP is
-     * bound to loopback so that only the local ffmpeg exec can publish to it.
+     * The address and ports that go2rtc listens on. The API and WebRTC ports are bound to the host address that routes
+     * to the camera, so the browser can reach them without exposing them on other interfaces. RTSP is bound to
+     * loopback so that only the local ffmpeg exec can publish to it.
      */
-    public record Ports(int api, int webrtc, int rtsp) {
+    public record Ports(String host, int api, int webrtc, int rtsp) {
     }
 
     /**
@@ -58,9 +59,9 @@ public final class Go2RtcConfig {
             @Nullable String talkStream, @Nullable List<String> talkCommand) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
-        yaml.append("  listen: \":").append(ports.api()).append("\"\n");
+        yaml.append("  listen: \"").append(ports.host()).append(":").append(ports.api()).append("\"\n");
         yaml.append("webrtc:\n");
-        yaml.append("  listen: \":").append(ports.webrtc()).append("\"\n");
+        yaml.append("  listen: \"").append(ports.host()).append(":").append(ports.webrtc()).append("\"\n");
         yaml.append("rtsp:\n");
         yaml.append("  listen: \"127.0.0.1:").append(ports.rtsp()).append("\"\n");
         yaml.append("streams:\n");

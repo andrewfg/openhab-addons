@@ -117,25 +117,51 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @throws IOException if the sockets or SDP files cannot be created
      */
     public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs) throws IOException {
+        this(audioCodecs, videoCodecs, freeLoopbackPort(), freeLoopbackPort());
+    }
+
+    /**
+     * Creates a data pump that forwards to the given loopback ports of the ffmpeg instances.
+     */
+    Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs, int audioFfmpegPort,
+            int videoFfmpegPort) throws IOException {
         audioCodec = preferredAudioCodec(audioCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
         videoCodec = preferredVideoCodec(videoCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires video"));
+        this.audioFfmpegPort = audioFfmpegPort;
+        this.videoFfmpegPort = videoFfmpegPort;
 
-        audioFfmpegPort = freeLoopbackPort();
-        videoFfmpegPort = freeLoopbackPort();
-        audioSocket = new DatagramSocket(0);
+        DatagramSocket audio = new DatagramSocket(0);
+        @Nullable
+        DatagramSocket video = null;
+        @Nullable
+        DatagramSocket talk = null;
+        @Nullable
+        DatagramSocket sender = null;
+        @Nullable
+        Path audioSdp = null;
+        @Nullable
+        Path videoSdp = null;
         try {
-            videoSocket = new DatagramSocket(0);
-        } catch (IOException e) {
-            audioSocket.close();
+            video = new DatagramSocket(0);
+            talk = new DatagramSocket(0, InetAddress.getLoopbackAddress());
+            sender = new DatagramSocket(0);
+            audioSdp = writeSdp("homekit-audio-", audioSdp(audioFfmpegPort, AUDIO_PAYLOAD_TYPE, audioCodec));
+            videoSdp = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE));
+        } catch (IOException | RuntimeException e) {
+            audio.close();
+            closeQuietly(video, talk, sender);
+            deleteQuietly(audioSdp);
+            deleteQuietly(videoSdp);
             throw e;
         }
-        talkSocket = new DatagramSocket(0, InetAddress.getLoopbackAddress());
-        talkSender = new DatagramSocket(0);
-
-        audioSdpFile = writeSdp("homekit-audio-", audioSdp(audioFfmpegPort, AUDIO_PAYLOAD_TYPE, audioCodec));
-        videoSdpFile = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE));
+        audioSocket = audio;
+        videoSocket = video;
+        talkSocket = talk;
+        talkSender = sender;
+        audioSdpFile = audioSdp;
+        videoSdpFile = videoSdp;
 
         startThread("audio-rtp", () -> relayListen(audioSocket, audioFfmpegPort, Session::audioIn));
         startThread("video-rtp", () -> relayListen(videoSocket, videoFfmpegPort, Session::videoIn));
@@ -339,11 +365,22 @@ public class Go2RtcDataPump implements AutoCloseable {
         return file;
     }
 
-    private static void deleteQuietly(Path file) {
+    private static void deleteQuietly(@Nullable Path file) {
+        if (file == null) {
+            return;
+        }
         try {
             Files.deleteIfExists(file);
         } catch (IOException e) {
             LOGGER.debug("Failed to delete go2rtc temp file {}: {}", file, e.getMessage());
+        }
+    }
+
+    private static void closeQuietly(@Nullable DatagramSocket... sockets) {
+        for (DatagramSocket socket : sockets) {
+            if (socket != null) {
+                socket.close();
+            }
         }
     }
 }

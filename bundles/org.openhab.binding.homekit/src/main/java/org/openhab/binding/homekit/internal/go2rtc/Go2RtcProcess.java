@@ -84,11 +84,12 @@ public class Go2RtcProcess {
     /**
      * Returns true if go2rtc answers on its API port.
      *
+     * @param host the API address from the configuration
      * @param apiPort the API port from the configuration
      */
-    public boolean isReady(int apiPort) {
+    public boolean isReady(String host, int apiPort) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + apiPort + "/api/config"))
+            HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + apiPort + "/api/config"))
                     .timeout(Duration.ofSeconds(2)).GET().build();
             return httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
         } catch (IOException e) {

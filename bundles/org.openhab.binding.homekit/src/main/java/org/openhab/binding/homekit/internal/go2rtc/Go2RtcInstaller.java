@@ -78,7 +78,9 @@ public class Go2RtcInstaller {
             logger.debug("Downloading {} to {}", asset, destBinary);
             download(RELEASE_URL + asset, asset, destDir, destBinary, os);
         }
-        destBinary.toFile().setExecutable(true);
+        if (!destBinary.toFile().setExecutable(true)) {
+            throw new IOException("Cannot make " + destBinary + " executable");
+        }
         return destBinary;
     }
 
@@ -151,8 +153,8 @@ public class Go2RtcInstaller {
         } finally {
             Files.deleteIfExists(tmp);
         }
-        if (!isWindows(os)) {
-            destBinary.toFile().setExecutable(true);
+        if (!isWindows(os) && !destBinary.toFile().setExecutable(true)) {
+            throw new IOException("Cannot make " + destBinary + " executable");
         }
     }
 

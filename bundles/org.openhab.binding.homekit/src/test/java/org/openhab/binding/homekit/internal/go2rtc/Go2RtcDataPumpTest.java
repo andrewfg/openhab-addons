@@ -81,6 +81,12 @@ class Go2RtcDataPumpTest {
         return p;
     }
 
+    private Go2RtcDataPump newPump(int audioFfmpegPort, int videoFfmpegPort) throws IOException {
+        Go2RtcDataPump p = new Go2RtcDataPump(List.of(PCMA), List.of(VIDEO), audioFfmpegPort, videoFfmpegPort);
+        pump = p;
+        return p;
+    }
+
     @Test
     void testPrefersPcmaOverOpus() throws IOException {
         assertEquals(AudioCodecType.PCMA, newPump(List.of(OPUS, PCMA)).audioCodec().codecType());
@@ -114,15 +120,14 @@ class Go2RtcDataPumpTest {
 
     @Test
     void testListenRelayDecryptsAndForwardsPlainRtp() throws Exception {
-        Go2RtcDataPump p = newPump(List.of(PCMA));
-        p.startSession(LISTEN_AUDIO, LISTEN_VIDEO, TALK, "127.0.0.1", camera().getLocalPort());
-
-        int ffmpegPort = portFromSdp(p.audioSdpFile(), "m=audio");
-        byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 1, 160, 0x11223344, new byte[] { 1, 2, 3, 4 });
-
-        try (DatagramSocket ffmpeg = new DatagramSocket(ffmpegPort, InetAddress.getLoopbackAddress());
+        try (DatagramSocket ffmpeg = new DatagramSocket(0, InetAddress.getLoopbackAddress());
+                DatagramSocket ffmpegVideo = new DatagramSocket(0, InetAddress.getLoopbackAddress());
                 DatagramSocket sender = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
             ffmpeg.setSoTimeout(TIMEOUT_MS);
+            Go2RtcDataPump p = newPump(ffmpeg.getLocalPort(), ffmpegVideo.getLocalPort());
+            p.startSession(LISTEN_AUDIO, LISTEN_VIDEO, TALK, "127.0.0.1", camera().getLocalPort());
+
+            byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 1, 160, 0x11223344, new byte[] { 1, 2, 3, 4 });
             byte[] srtp = SrtpSession.create(LISTEN_AUDIO).protect(plain);
             sender.send(new DatagramPacket(srtp, srtp.length, InetAddress.getLoopbackAddress(), p.audioRtpPort()));
 
@@ -159,12 +164,12 @@ class Go2RtcDataPumpTest {
         p.startSession(LISTEN_AUDIO, LISTEN_VIDEO, TALK, "127.0.0.1", cam.getLocalPort());
         p.stopSession();
 
+        // sent after stopSession() returned, so the pump must see no active session when it reads this packet
         byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 1, 0, 1, new byte[] { 1 });
         try (DatagramSocket ffmpeg = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
             ffmpeg.send(new DatagramPacket(plain, plain.length, InetAddress.getLoopbackAddress(), p.talkRtpPort()));
         }
 
-        cam.setSoTimeout(300);
         assertThrows(java.net.SocketTimeoutException.class,
                 () -> cam.receive(new DatagramPacket(new byte[2048], 2048)));
     }
@@ -173,12 +178,6 @@ class Go2RtcDataPumpTest {
         DatagramSocket c = camera;
         assertNotNull(c);
         return c;
-    }
-
-    private static int portFromSdp(String sdpFile, String mediaLine) throws IOException {
-        Matcher m = Pattern.compile(Pattern.quote(mediaLine) + " (\\d+) ").matcher(Files.readString(Path.of(sdpFile)));
-        assertTrue(m.find(), "media line not found: " + mediaLine);
-        return Integer.parseInt(m.group(1));
     }
 
     private static byte[] rtp(int payloadType, int seq, int timestamp, int ssrc, byte[] payload) {
