@@ -1573,15 +1573,16 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Returns whether the go2rtc browser bridge can be used, which requires talk-back and A-law audio.
+     * Returns whether the go2rtc browser bridge can be used, which requires talk-back and audio that ffmpeg can
+     * transcode.
      */
     private boolean go2rtcAvailable() {
-        return isTalkbackAvailable() && Go2RtcDataPump.alawCodec(audioCodecs).isPresent();
+        return isTalkbackAvailable() && Go2RtcDataPump.preferredCodec(audioCodecs).isPresent();
     }
 
     /**
-     * Starts the go2rtc browser bridge once, if the camera declares A-law audio. The start runs on the scheduler
-     * because the go2rtc binary may need to be downloaded first.
+     * Starts the go2rtc browser bridge once, if the camera declares a usable audio codec. The start runs on the
+     * scheduler because the go2rtc binary may need to be downloaded first.
      */
     private synchronized void startGo2rtcIfAvailable() {
         if (!go2rtcAvailable() || go2rtcStarting || !(getConfig().get(CONFIG_IP_ADDRESS) instanceof String ipAddress)) {
@@ -1645,15 +1646,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            AudioCodec codec = pump.codec();
-            String listenInput = "-f alaw -ar " + codec.rtpClockRate() + " -ac " + codec.channels();
             boolean withVideo = videoConfiguration != null;
             String listenCommand = withVideo
-                    ? Go2RtcConfig.listenCommand(ffmpegBinary, listenInput, pump.audioListenPort(),
+                    ? Go2RtcConfig.listenCommand(ffmpegBinary, Go2RtcConfig.AUDIO_FORMAT, pump.audioListenPort(),
                             pump.videoListenPort())
-                    : Go2RtcConfig.listenCommand(ffmpegBinary, listenInput, pump.audioListenPort());
+                    : Go2RtcConfig.listenCommand(ffmpegBinary, Go2RtcConfig.AUDIO_FORMAT, pump.audioListenPort());
             String yaml = Go2RtcConfig.toYaml(ports, stream, listenCommand, stream + "_talk",
-                    Go2RtcConfig.talkCommand(ffmpegBinary, codec.rtpClockRate(), codec.channels(), pump.talkPort()));
+                    Go2RtcConfig.talkCommand(ffmpegBinary, pump.talkPort()));
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);

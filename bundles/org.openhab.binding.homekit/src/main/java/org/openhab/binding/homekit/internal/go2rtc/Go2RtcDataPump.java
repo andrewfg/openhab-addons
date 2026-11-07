@@ -93,13 +93,17 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile boolean closed;
 
     /**
-     * Returns the camera's A-law codec, the only codec that go2rtc's ffmpeg bridge handles for both listen and talk.
+     * Returns the codec the data pump uses for listen and talk. A-law is preferred because go2rtc uses it natively, so
+     * ffmpeg only copies packets. Other codecs are transcoded by ffmpeg.
      *
      * @param cameraCodecs the audio codecs the camera supports
-     * @return the A-law codec, or empty if the camera does not support A-law
+     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can transcode
      */
-    public static Optional<AudioCodec> alawCodec(List<AudioCodec> cameraCodecs) {
-        return cameraCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA).findFirst();
+    public static Optional<AudioCodec> preferredCodec(List<AudioCodec> cameraCodecs) {
+        Optional<AudioCodec> alaw = cameraCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA)
+                .findFirst();
+        return alaw.or(() -> cameraCodecs.stream().filter(
+                codec -> codec.codec() != AudioCodecType.AAC_ELD && codec.codec() != AudioCodecType.MSBC).findFirst());
     }
 
     /**
@@ -107,11 +111,11 @@ public class Go2RtcDataPump implements AutoCloseable {
      *
      * @param codecs the audio codecs the camera supports
      * @param observer is notified when the audio listen or talk client connects or disconnects
-     * @throws IllegalArgumentException if the camera does not support A-law
+     * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can transcode
      * @throws IOException if the servers cannot be opened
      */
     public Go2RtcDataPump(List<AudioCodec> codecs, ClientObserver observer) throws IOException {
-        audioCodec = alawCodec(codecs).orElseThrow(() -> new IllegalArgumentException("go2rtc requires A-law audio"));
+        audioCodec = preferredCodec(codecs).orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
         clienObserver = observer;
         audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
         try {

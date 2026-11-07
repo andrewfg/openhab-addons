@@ -122,21 +122,32 @@ class Go2RtcDataPumpTest {
     }
 
     @Test
-    void alawCodecIsSelectedFromCameraCodecs() throws IOException {
+    void preferredCodecPrefersAlawOverOtherCodecs() throws IOException {
         AudioCodec alaw = new AudioCodec(AudioCodecType.PCMA, 1, 8);
         List<AudioCodec> codecs = List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24), alaw);
 
-        assertEquals(alaw, Go2RtcDataPump.alawCodec(codecs).orElseThrow());
+        assertEquals(alaw, Go2RtcDataPump.preferredCodec(codecs).orElseThrow());
         try (Go2RtcDataPump pump = new Go2RtcDataPump(codecs, NO_OP_OBSERVER)) {
             assertEquals(alaw, pump.codec());
         }
     }
 
     @Test
-    void constructorRejectsCameraWithoutAlaw() {
-        List<AudioCodec> codecs = List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24));
+    void constructorAcceptsCameraWithoutAlawAndUsesFirstTranscodableCodec() throws IOException {
+        AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 24);
+        List<AudioCodec> codecs = List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16), opus);
 
-        assertTrue(Go2RtcDataPump.alawCodec(codecs).isEmpty());
+        assertEquals(opus, Go2RtcDataPump.preferredCodec(codecs).orElseThrow());
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(codecs, NO_OP_OBSERVER)) {
+            assertEquals(opus, pump.codec());
+        }
+    }
+
+    @Test
+    void constructorRejectsCameraWithoutTranscodableCodec() {
+        List<AudioCodec> codecs = List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16));
+
+        assertTrue(Go2RtcDataPump.preferredCodec(codecs).isEmpty());
         assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(codecs, NO_OP_OBSERVER));
     }
 

@@ -34,6 +34,11 @@ public final class Go2RtcConfig {
     public record Ports(int api, int webrtc, int rtsp) {
     }
 
+    /**
+     * The ffmpeg input and output format of the audio that go2rtc publishes and receives: 8 kHz mono A-law.
+     */
+    public static final String AUDIO_FORMAT = "-f alaw -ar 8000 -ac 1";
+
     private Go2RtcConfig() {
     }
 
@@ -66,18 +71,15 @@ public final class Go2RtcConfig {
 
     /**
      * Returns the ffmpeg command for the go2rtc backchannel. go2rtc writes the browser's microphone audio to the
-     * command's stdin as A-law at 8 kHz. ffmpeg resamples it to the camera's rate and sends it to the binding's
-     * loopback TCP port.
+     * command's stdin as 8 kHz mono A-law. ffmpeg sends it unchanged to the binding's loopback TCP port, which
+     * transcodes it to the camera's codec.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param outputSampleRate the sample rate expected by the camera talk codec, in Hz
-     * @param outputChannels the channel count expected by the camera talk codec
      * @param outputPort the loopback TCP port the binding listens on for talk audio
      */
-    public static String talkCommand(String ffmpeg, int outputSampleRate, int outputChannels, int outputPort) {
-        return ffmpeg + " -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i pipe:0 -ar " + outputSampleRate
-                + " -ac " + outputChannels + " -c:a pcm_alaw -f alaw tcp://127.0.0.1:" + outputPort
-                + "#backchannel=1#audio=alaw/8000";
+    public static String talkCommand(String ffmpeg, int outputPort) {
+        return ffmpeg + " -hide_banner -loglevel error " + AUDIO_FORMAT + " -i pipe:0 -c:a pcm_alaw " + AUDIO_FORMAT
+                + " tcp://127.0.0.1:" + outputPort + "#backchannel=1#audio=alaw/8000";
     }
 
     /**

@@ -70,18 +70,27 @@ class FfmpegHelpersTest {
     }
 
     @Test
-    void testListenCommandReadsSrtpAndCopiesContainerToStdout() {
-        List<String> cmd = FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
+    void testListenCommandCopiesAlawAndReadsSrtp() {
+        List<String> cmd = listen(PCMA_8K);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-        assertEquals("ogg", valueAfter(cmd, "-f"));
+        assertEquals("alaw", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:a"));
         assertFalse(cmd.contains("-ar"));
-        assertFalse(cmd.contains("libopus"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
         assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
         assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
         assertFalse(cmd.contains("-srtp_out_suite"));
+    }
+
+    @Test
+    void testListenCommandTranscodesOtherCodecsToAlaw() {
+        List<String> cmd = listen(OPUS);
+        assertEquals("alaw", valueAfter(cmd, "-f"));
+        assertEquals("8000", valueAfter(cmd, "-ar"));
+        assertEquals("1", valueAfter(cmd, "-ac"));
+        assertEquals("pcm_alaw", valueAfter(cmd, "-c:a"));
+        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
     }
 
     @Test
@@ -100,41 +109,42 @@ class FfmpegHelpersTest {
     }
 
     @Test
-    void testListenCommandUsesContainerOfDeclaredCodec() {
-        assertEquals("mulaw", valueAfter(listen(PCMU_8K), "-f"));
-        assertEquals("alaw", valueAfter(listen(PCMA_8K), "-f"));
-        assertEquals("amr", valueAfter(listen(AMR_WB_16K), "-f"));
+    void testListenCommandTranscodesEveryNonAlawCodec() {
+        assertEquals("pcm_alaw", valueAfter(listen(PCMU_8K), "-c:a"));
+        assertEquals("pcm_alaw", valueAfter(listen(AMR_WB_16K), "-c:a"));
     }
 
     @Test
-    void testTalkCommandReadsContainerAndWritesSrtpToCamera() {
+    void testTalkCommandReadsAlawAndWritesSrtpToCamera() {
         List<String> cmd = FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L,
                 OPUS);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
-        assertEquals("ogg", valueAfter(cmd, "-f"));
-        assertEquals("copy", valueAfter(cmd, "-c:a"));
+        assertEquals("alaw", valueAfter(cmd, "-f"));
+        assertEquals("8000", valueAfter(cmd, "-ar"));
+        assertEquals("1", valueAfter(cmd, "-ac"));
+        assertEquals("libopus", valueAfter(cmd, "-c:a"));
+        assertEquals("24k", valueAfter(cmd, "-b:a"));
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_out_suite"));
         assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
         assertEquals("rtp://192.168.1.50:5004?localport=6000", cmd.get(cmd.size() - 1));
         assertFalse(cmd.contains("-srtp_in_suite"));
-        assertFalse(cmd.contains("-ar"));
     }
 
     @Test
-    void testTalkCommandGivesRawG711InputItsSampleRateAndChannels() {
-        List<String> cmd = talk(PCMU_8K);
-        assertEquals("8000", valueAfter(cmd, "-ar"));
-        assertEquals("1", valueAfter(cmd, "-ac"));
-        assertEquals("mulaw", valueAfter(cmd, "-f"));
-        assertEquals("pipe:0", valueAfter(cmd, "-i"));
+    void testTalkCommandCopiesAlawToCamera() {
+        List<String> cmd = talk(PCMA_8K);
+        assertEquals("copy", valueAfter(cmd, "-c:a"));
+        assertFalse(cmd.contains("-b:a"));
     }
 
     @Test
-    void testTalkCommandUsesAmrContainerForAmrWb() {
-        assertEquals("amr", valueAfter(talk(AMR_WB_16K), "-f"));
-        assertFalse(talk(AMR_WB_16K).contains("-ar"));
+    void testTalkCommandEncodesAlawToCameraCodec() {
+        assertEquals("pcm_mulaw", valueAfter(talk(PCMU_8K), "-c:a"));
+        List<String> amrWb = talk(AMR_WB_16K);
+        assertEquals("libvo_amrwb", valueAfter(amrWb, "-c:a"));
+        assertTrue(String.join(" ", amrWb).contains("-ar 16000 -ac 1 -c:a libvo_amrwb"));
     }
 
     private static List<String> listen(AudioCodec codec) {
