@@ -68,15 +68,34 @@ public final class FfmpegHelpers {
      */
     public static List<String> go2rtcListenCommand(String ffmpeg, String audioSdpFile, String videoSdpFile,
             AudioCodec audioCodec) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-protocol_whitelist", "file,rtp,udp", "-i", audioSdpFile, "-protocol_whitelist", "file,rtp,udp", "-i",
-                videoSdpFile, "-map", "1:v", "-map", "0:a", "-c:v", "copy"));
+        // @formatter:off
+        List<String> command = new ArrayList<>(List.of(ffmpeg,
+                "-hide_banner", 
+                "-loglevel", "warning",
+                "-protocol_whitelist", "file,rtp,udp", 
+                "-i", audioSdpFile, 
+                "-protocol_whitelist", "file,rtp,udp", 
+                "-i", videoSdpFile, 
+                "-map", "1:v", 
+                "-map", "0:a", 
+                "-c:v", "copy"
+        ));
         if (isGo2rtcAlaw(audioCodec)) {
-            command.addAll(List.of("-c:a", "copy"));
+            command.addAll(List.of(
+                "-c:a", "copy"
+            ));
         } else {
-            command.addAll(List.of("-ar", "8000", "-ac", "1", "-c:a", "pcm_alaw"));
+            command.addAll(List.of(
+                "-ar", "8000", 
+                "-ac", "1", 
+                "-c:a", "pcm_alaw"
+                ));
         }
-        command.addAll(List.of("-f", "rtsp", "{output}"));
+        command.addAll(List.of(
+                "-f", "rtsp", 
+                "{output}"
+            ));
+        // @formatter:on
         return List.copyOf(command);
     }
 
@@ -94,19 +113,39 @@ public final class FfmpegHelpers {
      */
     public static List<String> go2rtcTalkCommand(String ffmpeg, AudioCodec audioCodec, int payloadType, long ssrc,
             int localRtpPort) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-f", "alaw",
-                "-ar", "8000", "-ac", "1", "-i", "pipe:0", "-vn"));
+        // @formatter:off
+        List<String> command = new ArrayList<>(List.of(ffmpeg,
+                "-hide_banner", 
+                "-loglevel", "warning", 
+                "-f", "alaw",
+                "-ar", "8000", 
+                "-ac", "1",
+                "-i", "pipe:0", 
+                "-vn"
+        ));
         if (isGo2rtcAlaw(audioCodec)) {
-            command.addAll(List.of("-c:a", "copy"));
+            command.addAll(List.of(
+                "-c:a", "copy"
+            ));
         } else {
-            command.addAll(List.of("-ar", String.valueOf(audioCodec.rtpClockRate()), "-ac",
-                    String.valueOf(audioCodec.channels()), "-c:a", encoder(audioCodec.codecType())));
+            command.addAll(List.of(
+                "-ar", String.valueOf(audioCodec.rtpClockRate()),
+                "-ac", String.valueOf(audioCodec.channels()),
+                "-c:a", encoder(audioCodec.codecType())
+            ));
             if (audioCodec.codecType() == AudioCodecType.OPUS) {
-                command.addAll(List.of("-b:a", audioCodec.maxBitrateKbps() + "k"));
+                command.addAll(List.of(
+                "-b:a", audioCodec.maxBitrateKbps() + "k"
+                ));
             }
         }
-        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-f", "rtp",
-                "rtp://127.0.0.1:" + localRtpPort));
+        command.addAll(List.of(
+                "-payload_type", String.valueOf(payloadType), 
+                "-ssrc", String.valueOf(ssrc),
+                "-f", "rtp",
+                "rtp://127.0.0.1:" + localRtpPort
+        ));
+        // @formatter:on
         return List.copyOf(command);
     }
 }
