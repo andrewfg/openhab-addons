@@ -197,7 +197,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Long mediaSelectedIid = null;
 
     private boolean mediaSessionOpen = false;
-    private @Nullable VideoSupportedCodec videoSupportedCodec = null;
+    private List<VideoSupportedCodec> videoSupportedCodecs = List.of();
 
     private @Nullable Go2RtcProcess go2rtcProcess = null;
     private volatile @Nullable Go2RtcDataPump go2rtcPump = null;
@@ -1444,8 +1444,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             throw new IllegalStateException("Camera IP address not configured");
         }
 
-        VideoSupportedCodec videoConfig = videoSupportedCodec;
-        boolean withVideo = videoConfig != null;
+        Optional<VideoSupportedCodec> videoConfig = Go2RtcDataPump.preferredVideoCodec(videoSupportedCodecs);
+        boolean withVideo = videoConfig.isPresent();
 
         String controllerAddress = lanAddress(ipAddress);
 
@@ -1485,7 +1485,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         RtpStreamConfiguration streamConfig;
         if (withVideo) {
             streamConfig = new RtpStreamConfiguration(session, SessionCommand.START,
-                    selectedVideo(Objects.requireNonNull(videoConfig)), selectedAudio(codec));
+                    selectedVideo(videoConfig.orElseThrow()), selectedAudio(codec));
         } else {
             streamConfig = new RtpStreamConfiguration(session, SessionCommand.START, selectedAudio(codec));
         }
@@ -1646,7 +1646,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            boolean withVideo = videoSupportedCodec != null;
+            boolean withVideo = !videoSupportedCodecs.isEmpty();
             String listenCommand = withVideo
                     ? Go2RtcConfig.listenCommand(ffmpegBinary, Go2RtcConfig.AUDIO_FORMAT, pump.audioListenPort(),
                             pump.videoListenPort())
@@ -1767,7 +1767,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         mediaSetupIid = null;
         mediaSelectedIid = null;
         audioSupportedCodecs = List.of();
-        videoSupportedCodec = null;
+        videoSupportedCodecs = List.of();
         final List<Service> services = accessory.services;
         if (services == null) {
             return;
@@ -1787,7 +1787,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                     case SUPPORTED_AUDIO_CONFIGURATION ->
                         audioSupportedCodecs = decodeSupportedAudio(characteristic.value);
                     case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
-                        videoSupportedCodec = decodeSupportedVideo(characteristic.value);
+                        videoSupportedCodecs = decodeSupportedVideo(characteristic.value);
                     default -> {
                     }
                 }
@@ -1812,16 +1812,16 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 config.frameRate(), Go2RtcDataPump.VIDEO_PAYLOAD_TYPE, VIDEO_SSRC, VIDEO_MAX_BITRATE_KBPS, 0.5f);
     }
 
-    private @Nullable VideoSupportedCodec decodeSupportedVideo(@Nullable JsonElement value) {
+    private List<VideoSupportedCodec> decodeSupportedVideo(@Nullable JsonElement value) {
         if (value instanceof JsonPrimitive primitive) {
             try {
                 byte[] tlv = Base64.getDecoder().decode(primitive.getAsString());
-                return VideoSupportedCodec.decode(tlv).orElse(null);
+                return VideoSupportedCodec.decode(tlv);
             } catch (IllegalArgumentException e) {
                 logger.debug("{} invalid supported video configuration: {}", thing.getUID(), e.getMessage());
             }
         }
-        return null;
+        return List.of();
     }
 
     private List<AudioSupportedCodec> decodeSupportedAudio(@Nullable JsonElement value) {

@@ -15,7 +15,7 @@ package org.openhab.binding.homekit.internal.media;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Optional;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,27 +27,28 @@ import org.junit.jupiter.api.Test;
 class VideoSupportedConfigurationTest {
 
     @Test
-    void decodesHighestProfileAndLevelAndFirstAttribute() {
+    void decodesEveryProfileLevelCombinationAndFirstAttribute() {
         byte[] params = concat(tlv(0x01, 0x00), tlv(0x01, 0x02), tlv(0x02, 0x00), tlv(0x02, 0x02));
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute), tlv(0x03, attribute));
 
-        Optional<VideoSupportedCodec> config = VideoSupportedCodec.decode(tlv(0x01, entry));
+        List<VideoSupportedCodec> configs = VideoSupportedCodec.decode(tlv(0x01, entry));
 
-        assertTrue(config.isPresent());
-        assertEquals(new VideoSupportedCodec(2, 2, 1920, 1080, 30), config.get());
+        assertEquals(List.of(new VideoSupportedCodec(0, 0, 1920, 1080, 30),
+                new VideoSupportedCodec(0, 2, 1920, 1080, 30), new VideoSupportedCodec(2, 0, 1920, 1080, 30),
+                new VideoSupportedCodec(2, 2, 1920, 1080, 30)), configs);
     }
 
     @Test
-    void skipsNonH264EntriesAndUsesNextH264Entry() {
+    void skipsNonH264EntriesAndKeepsH264Entries() {
         byte[] params = concat(tlv(0x01, 0x01), tlv(0x02, 0x00));
         byte[] attribute = concat(tlv(0x01, 0x40, 0x01), tlv(0x02, 0xF0, 0x00), tlv(0x03, 15));
         byte[] nonH264 = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
         byte[] h264 = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute));
 
-        Optional<VideoSupportedCodec> config = VideoSupportedCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
+        List<VideoSupportedCodec> configs = VideoSupportedCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
 
-        assertEquals(new VideoSupportedCodec(1, 0, 320, 240, 15), config.orElseThrow());
+        assertEquals(List.of(new VideoSupportedCodec(1, 0, 320, 240, 15)), configs);
     }
 
     @Test

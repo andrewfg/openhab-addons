@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,6 +39,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
+import org.openhab.binding.homekit.internal.media.VideoSupportedCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,6 +107,21 @@ public class Go2RtcDataPump implements AutoCloseable {
         return alaw.or(() -> cameraCodecs.stream().filter(
                 codec -> codec.codecType() != AudioCodecType.AAC_ELD && codec.codecType() != AudioCodecType.MSBC)
                 .findFirst());
+    }
+
+    /**
+     * Returns the video codec configuration the data pump uses. H.264 Baseline is preferred because browsers accept it
+     * for WebRTC, so go2rtc can pass the camera's stream through without transcoding. Among Baseline configurations,
+     * the highest level is chosen. Other H.264 profiles are used when the camera offers no Baseline configuration.
+     *
+     * @param cameraCodecs the video configurations the camera supports
+     * @return the preferred configuration, or empty if the camera supports none
+     */
+    public static Optional<VideoSupportedCodec> preferredVideoCodec(List<VideoSupportedCodec> cameraCodecs) {
+        Optional<VideoSupportedCodec> baseline = cameraCodecs.stream()
+                .filter(codec -> codec.profile() == VideoSupportedCodec.PROFILE_BASELINE)
+                .max(Comparator.comparingInt(VideoSupportedCodec::level));
+        return baseline.or(() -> cameraCodecs.stream().findFirst());
     }
 
     /**

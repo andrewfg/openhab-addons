@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
+import org.openhab.binding.homekit.internal.media.VideoSupportedCodec;
 
 /**
  * Tests for {@link Go2RtcDataPump}.
@@ -150,6 +151,25 @@ class Go2RtcDataPumpTest {
 
         assertTrue(Go2RtcDataPump.preferredCodec(codecs).isEmpty());
         assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(codecs, NO_OP_OBSERVER));
+    }
+
+    @Test
+    void preferredVideoCodecPrefersHighestLevelBaselineProfile() {
+        VideoSupportedCodec baselineLevel31 = new VideoSupportedCodec(0, 0, 1920, 1080, 30);
+        VideoSupportedCodec baselineLevel40 = new VideoSupportedCodec(0, 2, 1280, 720, 30);
+        List<VideoSupportedCodec> codecs = List.of(new VideoSupportedCodec(2, 2, 1920, 1080, 30), baselineLevel31,
+                baselineLevel40);
+
+        assertEquals(baselineLevel40, Go2RtcDataPump.preferredVideoCodec(codecs).orElseThrow());
+    }
+
+    @Test
+    void preferredVideoCodecFallsBackToFirstWithoutBaseline() {
+        VideoSupportedCodec main = new VideoSupportedCodec(1, 0, 640, 480, 15);
+        List<VideoSupportedCodec> codecs = List.of(main, new VideoSupportedCodec(2, 2, 1920, 1080, 30));
+
+        assertEquals(main, Go2RtcDataPump.preferredVideoCodec(codecs).orElseThrow());
+        assertTrue(Go2RtcDataPump.preferredVideoCodec(List.of()).isEmpty());
     }
 
     @Test

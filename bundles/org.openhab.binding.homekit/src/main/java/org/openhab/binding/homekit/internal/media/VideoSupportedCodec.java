@@ -16,21 +16,27 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 
 /**
- * The H.264 configuration chosen from a camera's SupportedVideoStreamConfiguration characteristic: the highest
- * advertised profile and level, and the first advertised image size and frame rate.
+ * An H.264 configuration that a HomeKit camera declares it can send, as found in its SupportedVideoStreamConfiguration
+ * characteristic. Each instance is one selectable combination of profile, level, image size and frame rate.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
 public record VideoSupportedCodec(int profile, int level, int width, int height, int frameRate) {
+
+    /** The H.264 Baseline profile, which every browser's WebRTC decoder accepts. */
+    public static final int PROFILE_BASELINE = 0x00;
 
     private static final int TYPE_VIDEO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -44,54 +50,60 @@ public record VideoSupportedCodec(int profile, int level, int width, int height,
     private static final int CODEC_TYPE_H264 = 0x00;
 
     /**
-     * Decodes the first H.264 entry of a SupportedVideoStreamConfiguration value.
+     * Returns the H.264 configurations declared by a SupportedVideoStreamConfiguration value. Every combination of
+     * profile, level and image attributes within an H.264 entry is returned, in the camera's order.
      *
      * @param tlv the decoded TLV8 bytes of the characteristic
-     * @return the chosen configuration, or empty when the camera does not advertise H.264
+     * @return the configurations, or an empty list when the camera does not advertise H.264
      */
-    public static Optional<VideoSupportedCodec> decode(byte[] tlv) {
+    public static List<VideoSupportedCodec> decode(byte[] tlv) {
+        List<VideoSupportedCodec> result = new ArrayList<>();
         try {
             for (byte[] entry : entries(tlv, TYPE_VIDEO_CODEC_CONFIGURATION)) {
-                Optional<VideoSupportedCodec> config = decodeEntry(entry);
-                if (config.isPresent()) {
-                    return config;
-                }
+                decodeEntry(entry, result);
             }
         } catch (SecurityException e) {
-            return Optional.empty();
+            return List.of();
         }
-        return Optional.empty();
+        return result;
     }
 
-    private static Optional<VideoSupportedCodec> decodeEntry(byte[] entry) {
+    private static void decodeEntry(byte[] entry, List<VideoSupportedCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] codecType = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
         if (codecType == null || codecType.length != 1 || (codecType[0] & 0xFF) != CODEC_TYPE_H264
                 || parameters == null) {
-            return Optional.empty();
+            return;
         }
         Map<Integer, byte[]> codecParameters = Tlv8Codec.decode(parameters);
         byte[] profiles = codecParameters.get(TYPE_PROFILE_ID);
         byte[] levels = codecParameters.get(TYPE_LEVEL);
-        List<byte[]> attributes = entries(entry, TYPE_VIDEO_ATTRIBUTES);
-        if (profiles == null || profiles.length == 0 || levels == null || levels.length == 0 || attributes.isEmpty()) {
-            return Optional.empty();
+        if (profiles == null || profiles.length == 0 || levels == null || levels.length == 0) {
+            return;
         }
-        Map<Integer, byte[]> attribute = Tlv8Codec.decode(attributes.get(0));
-        byte[] widthBytes = attribute.get(TYPE_IMAGE_WIDTH);
-        byte[] heightBytes = attribute.get(TYPE_IMAGE_HEIGHT);
-        byte[] frameRateBytes = attribute.get(TYPE_FRAME_RATE);
-        if (widthBytes == null || widthBytes.length != 2 || heightBytes == null || heightBytes.length != 2
-                || frameRateBytes == null || frameRateBytes.length != 1) {
-            return Optional.empty();
+        for (byte[] attributeTlv : entries(entry, TYPE_VIDEO_ATTRIBUTES)) {
+            Map<Integer, byte[]> attribute = Tlv8Codec.decode(attributeTlv);
+            byte[] widthBytes = attribute.get(TYPE_IMAGE_WIDTH);
+            byte[] heightBytes = attribute.get(TYPE_IMAGE_HEIGHT);
+            byte[] frameRateBytes = attribute.get(TYPE_FRAME_RATE);
+            if (widthBytes == null || widthBytes.length != 2 || heightBytes == null || heightBytes.length != 2
+                    || frameRateBytes == null || frameRateBytes.length != 1) {
+                continue;
+            }
+            int width = ByteBuffer.wrap(widthBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
+            int height = ByteBuffer.wrap(heightBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
+            int frameRate = frameRateBytes[0] & 0xFF;
+            for (byte profile : profiles) {
+                for (byte level : levels) {
+                    VideoSupportedCodec candidate = new VideoSupportedCodec(profile & 0xFF, level & 0xFF, width,
+                            height, frameRate);
+                    if (!result.contains(candidate)) {
+                        result.add(candidate);
+                    }
+                }
+            }
         }
-        int profile = maxUnsigned(profiles);
-        int level = maxUnsigned(levels);
-        int width = ByteBuffer.wrap(widthBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
-        int height = ByteBuffer.wrap(heightBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
-        int frameRate = frameRateBytes[0] & 0xFF;
-        return Optional.of(new VideoSupportedCodec(profile, level, width, height, frameRate));
     }
 
     /**
@@ -111,13 +123,5 @@ public record VideoSupportedCodec(int profile, int level, int width, int height,
             offset = end;
         }
         return result;
-    }
-
-    private static int maxUnsigned(byte[] values) {
-        int max = 0;
-        for (byte value : values) {
-            max = Math.max(max, value & 0xFF);
-        }
-        return max;
     }
 }
