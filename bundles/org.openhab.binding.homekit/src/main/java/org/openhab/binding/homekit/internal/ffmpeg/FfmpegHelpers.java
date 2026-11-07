@@ -20,7 +20,7 @@ import java.util.List;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
-import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
@@ -66,8 +66,8 @@ public final class FfmpegHelpers {
      * Returns true if the codec is the 8 kHz mono A-law stream that go2rtc uses on both pipes, so its packets can be
      * copied without transcoding.
      */
-    static boolean isGo2rtcAlaw(AudioCodec codec) {
-        return codec.codec() == AudioCodecType.PCMA && codec.rtpClockRate() == 8000 && codec.channels() == 1;
+    static boolean isGo2rtcAlaw(AudioSupportedCodec codec) {
+        return codec.codecType() == AudioCodecType.PCMA && codec.rtpClockRate() == 8000 && codec.channels() == 1;
     }
 
     /**
@@ -93,7 +93,8 @@ public final class FfmpegHelpers {
      * @param srtp the camera's SRTP parameters for this audio stream
      * @param codec the declared codec of the stream
      */
-    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp, AudioCodec codec) {
+    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp,
+            AudioSupportedCodec codec) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
                 "-protocol_whitelist", "file,rtp,udp,srtp", "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()),
                 "-srtp_in_params", toFfmpegParams(srtp), "-i", sdpFile, "-vn"));
@@ -135,15 +136,15 @@ public final class FfmpegHelpers {
      * @param codec the declared codec of the stream
      */
     public static List<String> talkCommand(String ffmpeg, String remoteHost, int remotePort, int localPort,
-            SrtpParameters srtp, int payloadType, long ssrc, AudioCodec codec) {
+            SrtpParameters srtp, int payloadType, long ssrc, AudioSupportedCodec codec) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-f", "alaw",
                 "-ar", "8000", "-ac", "1", "-i", "pipe:0", "-vn"));
         if (isGo2rtcAlaw(codec)) {
             command.addAll(List.of("-c:a", "copy"));
         } else {
             command.addAll(List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac", String.valueOf(codec.channels()),
-                    "-c:a", encoder(codec.codec())));
-            if (codec.codec() == AudioCodecType.OPUS) {
+                    "-c:a", encoder(codec.codecType())));
+            if (codec.codecType() == AudioCodecType.OPUS) {
                 command.addAll(List.of("-b:a", codec.maxBitrateKbps() + "k"));
             }
         }

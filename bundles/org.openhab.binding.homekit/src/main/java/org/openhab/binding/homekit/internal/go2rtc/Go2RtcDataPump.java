@@ -37,7 +37,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
-import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,7 +84,7 @@ public class Go2RtcDataPump implements AutoCloseable {
             long ssrc) {
     }
 
-    private final AudioCodec audioCodec;
+    private final AudioSupportedCodec audioCodec;
     private final Channel audio;
     private final Channel video;
     private final ServerSocket talkServer;
@@ -99,11 +99,12 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @param cameraCodecs the audio codecs the camera supports
      * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can transcode
      */
-    public static Optional<AudioCodec> preferredCodec(List<AudioCodec> cameraCodecs) {
-        Optional<AudioCodec> alaw = cameraCodecs.stream().filter(codec -> codec.codec() == AudioCodecType.PCMA)
-                .findFirst();
+    public static Optional<AudioSupportedCodec> preferredCodec(List<AudioSupportedCodec> cameraCodecs) {
+        Optional<AudioSupportedCodec> alaw = cameraCodecs.stream()
+                .filter(codec -> codec.codecType() == AudioCodecType.PCMA).findFirst();
         return alaw.or(() -> cameraCodecs.stream().filter(
-                codec -> codec.codec() != AudioCodecType.AAC_ELD && codec.codec() != AudioCodecType.MSBC).findFirst());
+                codec -> codec.codecType() != AudioCodecType.AAC_ELD && codec.codecType() != AudioCodecType.MSBC)
+                .findFirst());
     }
 
     /**
@@ -114,7 +115,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can transcode
      * @throws IOException if the servers cannot be opened
      */
-    public Go2RtcDataPump(List<AudioCodec> codecs, ClientObserver observer) throws IOException {
+    public Go2RtcDataPump(List<AudioSupportedCodec> codecs, ClientObserver observer) throws IOException {
         audioCodec = preferredCodec(codecs).orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
         clienObserver = observer;
         audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
@@ -131,7 +132,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     /**
      * @return the camera's audio codec, used for both listen and talk
      */
-    public AudioCodec codec() {
+    public AudioSupportedCodec codec() {
         return audioCodec;
     }
 
@@ -225,16 +226,16 @@ public class Go2RtcDataPump implements AutoCloseable {
         video.setDecoder(videoSpec);
     }
 
-    static String audioSdp(int ffmpegPort, int payloadType, AudioCodec codec) {
-        String encoding = switch (codec.codec()) {
+    static String audioSdp(int ffmpegPort, int payloadType, AudioSupportedCodec codec) {
+        String encoding = switch (codec.codecType()) {
             case OPUS -> "opus";
             case PCMU -> "PCMU";
             case PCMA -> "PCMA";
             case AMR -> "AMR";
             case AMR_WB -> "AMR-WB";
-            case AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec.codec());
+            case AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec.codecType());
         };
-        String fmtp = switch (codec.codec()) {
+        String fmtp = switch (codec.codecType()) {
             case AMR, AMR_WB -> "a=fmtp:%d octet-align=1\n".formatted(payloadType);
             default -> "";
         };

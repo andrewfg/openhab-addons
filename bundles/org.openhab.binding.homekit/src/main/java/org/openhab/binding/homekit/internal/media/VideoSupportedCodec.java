@@ -30,7 +30,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record VideoSupportedConfiguration(int profile, int level, int width, int height, int frameRate) {
+public record VideoSupportedCodec(int profile, int level, int width, int height, int frameRate) {
 
     private static final int TYPE_VIDEO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -49,10 +49,10 @@ public record VideoSupportedConfiguration(int profile, int level, int width, int
      * @param tlv the decoded TLV8 bytes of the characteristic
      * @return the chosen configuration, or empty when the camera does not advertise H.264
      */
-    public static Optional<VideoSupportedConfiguration> decode(byte[] tlv) {
+    public static Optional<VideoSupportedCodec> decode(byte[] tlv) {
         try {
             for (byte[] entry : entries(tlv, TYPE_VIDEO_CODEC_CONFIGURATION)) {
-                Optional<VideoSupportedConfiguration> config = decodeEntry(entry);
+                Optional<VideoSupportedCodec> config = decodeEntry(entry);
                 if (config.isPresent()) {
                     return config;
                 }
@@ -63,7 +63,7 @@ public record VideoSupportedConfiguration(int profile, int level, int width, int
         return Optional.empty();
     }
 
-    private static Optional<VideoSupportedConfiguration> decodeEntry(byte[] entry) {
+    private static Optional<VideoSupportedCodec> decodeEntry(byte[] entry) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] codecType = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
@@ -91,7 +91,7 @@ public record VideoSupportedConfiguration(int profile, int level, int width, int
         int width = ByteBuffer.wrap(widthBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
         int height = ByteBuffer.wrap(heightBytes).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
         int frameRate = frameRateBytes[0] & 0xFF;
-        return Optional.of(new VideoSupportedConfiguration(profile, level, width, height, frameRate));
+        return Optional.of(new VideoSupportedCodec(profile, level, width, height, frameRate));
     }
 
     /**

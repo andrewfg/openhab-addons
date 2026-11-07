@@ -20,7 +20,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link VideoSupportedConfiguration#decode(byte[])}.
+ * Tests for {@link VideoSupportedCodec#decode(byte[])}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -32,10 +32,10 @@ class VideoSupportedConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute), tlv(0x03, attribute));
 
-        Optional<VideoSupportedConfiguration> config = VideoSupportedConfiguration.decode(tlv(0x01, entry));
+        Optional<VideoSupportedCodec> config = VideoSupportedCodec.decode(tlv(0x01, entry));
 
         assertTrue(config.isPresent());
-        assertEquals(new VideoSupportedConfiguration(2, 2, 1920, 1080, 30), config.get());
+        assertEquals(new VideoSupportedCodec(2, 2, 1920, 1080, 30), config.get());
     }
 
     @Test
@@ -45,10 +45,9 @@ class VideoSupportedConfigurationTest {
         byte[] nonH264 = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
         byte[] h264 = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute));
 
-        Optional<VideoSupportedConfiguration> config = VideoSupportedConfiguration
-                .decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
+        Optional<VideoSupportedCodec> config = VideoSupportedCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
 
-        assertEquals(new VideoSupportedConfiguration(1, 0, 320, 240, 15), config.orElseThrow());
+        assertEquals(new VideoSupportedCodec(1, 0, 320, 240, 15), config.orElseThrow());
     }
 
     @Test
@@ -57,13 +56,13 @@ class VideoSupportedConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
 
-        assertTrue(VideoSupportedConfiguration.decode(tlv(0x01, entry)).isEmpty());
+        assertTrue(VideoSupportedCodec.decode(tlv(0x01, entry)).isEmpty());
     }
 
     @Test
     void returnsEmptyForEmptyOrTruncatedInput() {
-        assertTrue(VideoSupportedConfiguration.decode(new byte[0]).isEmpty());
-        assertTrue(VideoSupportedConfiguration.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
+        assertTrue(VideoSupportedCodec.decode(new byte[0]).isEmpty());
+        assertTrue(VideoSupportedCodec.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
     }
 
     private static byte[] tlv(int type, int... value) {

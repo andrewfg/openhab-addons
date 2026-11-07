@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
 /**
- * Tests for {@link AudioCodec} decoding of SupportedAudioStreamConfiguration.
+ * Tests for {@link AudioSupportedCodec} decoding of SupportedAudioStreamConfiguration.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -31,10 +31,12 @@ class AudioCodecTest {
     void testDecodesEveryDeclaredCodecAndRate() {
         byte[] tlv = tlv(entry(AudioCodecType.OPUS, 1, 0x00, 0x01, 0x02), entry(AudioCodecType.PCMU, 1, 0x00));
 
-        List<AudioCodec> codecs = AudioCodec.decodeSupportedConfiguration(tlv);
+        List<AudioSupportedCodec> codecs = AudioSupportedCodec.decode(tlv);
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8), new AudioCodec(AudioCodecType.OPUS, 1, 16),
-                new AudioCodec(AudioCodecType.OPUS, 1, 24), new AudioCodec(AudioCodecType.PCMU, 1, 8)), codecs);
+        assertEquals(List.of(new AudioSupportedCodec(AudioCodecType.OPUS, 1, 8),
+                new AudioSupportedCodec(AudioCodecType.OPUS, 1, 16),
+                new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24),
+                new AudioSupportedCodec(AudioCodecType.PCMU, 1, 8)), codecs);
     }
 
     @Test
@@ -42,35 +44,34 @@ class AudioCodecTest {
         byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x02), entry(AudioCodecType.MSBC, 1, 0x00),
                 entry(AudioCodecType.PCMA, 1, 0x01));
 
-        assertEquals(List.of(), AudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(), AudioSupportedCodec.decode(tlv));
     }
 
     @Test
     void testRejectsRatesThatCodecDoesNotAllow() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR_WB, 1, 0x00, 0x01), entry(AudioCodecType.PCMU, 1, 0x01));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR_WB, 1, 16)),
-                AudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioSupportedCodec(AudioCodecType.AMR_WB, 1, 16)), AudioSupportedCodec.decode(tlv));
     }
 
     @Test
     void testReadsRepeatedCodecEntriesInSequence() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR, 1, 0x00), entry(AudioCodecType.AMR, 1, 0x00));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR, 1, 8)), AudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioSupportedCodec(AudioCodecType.AMR, 1, 8)), AudioSupportedCodec.decode(tlv));
     }
 
     @Test
     void testIgnoresUnknownCodecType() {
         byte[] tlv = tlv(entry(0x7F, 1, 0x00), entry(AudioCodecType.PCMU, 1, 0x00));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.PCMU, 1, 8)), AudioCodec.decodeSupportedConfiguration(tlv));
+        assertEquals(List.of(new AudioSupportedCodec(AudioCodecType.PCMU, 1, 8)), AudioSupportedCodec.decode(tlv));
     }
 
     @Test
     void testRtpClockRateAndBitrate() {
-        assertEquals(16000, new AudioCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
-        assertEquals(24, new AudioCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
+        assertEquals(16000, new AudioSupportedCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
+        assertEquals(24, new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
     }
 
     /** Builds one AUDIO_CODEC_CONFIGURATION entry with the given codec, channel count and sample-rate codes. */

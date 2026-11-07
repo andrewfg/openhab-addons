@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record AudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) {
+public record AudioSupportedCodec(AudioCodecType codecType, int channels, int sampleRateKhz) {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AudioCodec.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioSupportedCodec.class);
 
     private static final int TYPE_AUDIO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -42,11 +42,10 @@ public record AudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) 
     private static final int TYPE_SAMPLE_RATE = 0x03;
 
     /**
-     * Returns the audio codec configurations declared by a SupportedAudioStreamConfiguration TLV8 value. Codecs that
-     * the binding cannot bridge with stream copy, and sample rates a codec does not allow, are skipped.
+     * Returns the audio codec configurations declared by a TLV8 value.
      */
-    public static List<AudioCodec> decodeSupportedConfiguration(byte[] tlv) {
-        List<AudioCodec> result = new ArrayList<>();
+    public static List<AudioSupportedCodec> decode(byte[] tlv) {
+        List<AudioSupportedCodec> result = new ArrayList<>();
         // The codec entries share one tag, so they are read in sequence rather than through Tlv8Codec.decode(),
         // which would merge them.
         int offset = 0;
@@ -73,30 +72,30 @@ public record AudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) 
      * Returns the maximum bit rate in kbps that the RTP parameters of a selected stream may request.
      */
     public int maxBitrateKbps() {
-        return switch (codec) {
+        return switch (codecType) {
             case OPUS -> 24;
             case PCMU, PCMA -> 64;
             case AMR -> 13;
             case AMR_WB -> 24;
-            case AAC_ELD, MSBC -> throw new IllegalStateException("Unsupported codec: " + codec);
+            case AAC_ELD, MSBC -> throw new IllegalStateException("Unsupported codec: " + codecType);
         };
     }
 
-    private static void decodeEntry(byte[] entry, List<AudioCodec> result) {
+    private static void decodeEntry(byte[] entry, List<AudioSupportedCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
         if (typeValue == null || typeValue.length != 1 || parameters == null) {
             return;
         }
-        AudioCodecType codec = codecOf(typeValue[0] & 0xFF);
-        if (codec == null) {
+        AudioCodecType codecType = codecTypeOf(typeValue[0] & 0xFF);
+        if (codecType == null) {
             LOGGER.debug("Ignoring camera audio codec with unknown type {}", typeValue[0] & 0xFF);
             return;
         }
-        int[] allowedRates = allowedSampleRatesKhz(codec);
+        int[] allowedRates = allowedSampleRatesKhz(codecType);
         if (allowedRates.length == 0) {
-            LOGGER.debug("Ignoring camera audio codec {} that the binding cannot bridge", codec);
+            LOGGER.debug("Ignoring camera audio codec {} that the binding cannot bridge", codecType);
             return;
         }
         Map<Integer, byte[]> codecParameters = Tlv8Codec.decode(parameters);
@@ -108,24 +107,24 @@ public record AudioCodec(AudioCodecType codec, int channels, int sampleRateKhz) 
         }
         for (byte rateCode : rateCodes) {
             int sampleRateKhz = sampleRateKhz(rateCode & 0xFF);
-            AudioCodec candidate = new AudioCodec(codec, channels, sampleRateKhz);
+            AudioSupportedCodec candidate = new AudioSupportedCodec(codecType, channels, sampleRateKhz);
             if (Arrays.stream(allowedRates).anyMatch(rate -> rate == sampleRateKhz) && !result.contains(candidate)) {
                 result.add(candidate);
             }
         }
     }
 
-    private static @Nullable AudioCodecType codecOf(int value) {
-        for (AudioCodecType codec : AudioCodecType.values()) {
-            if (codec.value == value) {
-                return codec;
+    private static @Nullable AudioCodecType codecTypeOf(int value) {
+        for (AudioCodecType codecType : AudioCodecType.values()) {
+            if (codecType.value == value) {
+                return codecType;
             }
         }
         return null;
     }
 
-    private static int[] allowedSampleRatesKhz(AudioCodecType codec) {
-        return switch (codec) {
+    private static int[] allowedSampleRatesKhz(AudioCodecType codecType) {
+        return switch (codecType) {
             case OPUS -> new int[] { 8, 16, 24 };
             case PCMU, PCMA, AMR -> new int[] { 8 };
             case AMR_WB -> new int[] { 16 };

@@ -20,7 +20,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
-import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
@@ -32,10 +32,10 @@ class FfmpegHelpersTest {
 
     private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16],
             new byte[14]);
-    private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 24);
-    private static final AudioCodec PCMU_8K = new AudioCodec(AudioCodecType.PCMU, 1, 8);
-    private static final AudioCodec PCMA_8K = new AudioCodec(AudioCodecType.PCMA, 1, 8);
-    private static final AudioCodec AMR_WB_16K = new AudioCodec(AudioCodecType.AMR_WB, 1, 16);
+    private static final AudioSupportedCodec OPUS = new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24);
+    private static final AudioSupportedCodec PCMU_8K = new AudioSupportedCodec(AudioCodecType.PCMU, 1, 8);
+    private static final AudioSupportedCodec PCMA_8K = new AudioSupportedCodec(AudioCodecType.PCMA, 1, 8);
+    private static final AudioSupportedCodec AMR_WB_16K = new AudioSupportedCodec(AudioCodecType.AMR_WB, 1, 16);
 
     @Test
     void testParamsAreBase64OfKeyThenSalt() {
@@ -147,11 +147,11 @@ class FfmpegHelpersTest {
         assertTrue(String.join(" ", amrWb).contains("-ar 16000 -ac 1 -c:a libvo_amrwb"));
     }
 
-    private static List<String> listen(AudioCodec codec) {
+    private static List<String> listen(AudioSupportedCodec codec) {
         return FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
     }
 
-    private static List<String> talk(AudioCodec codec) {
+    private static List<String> talk(AudioSupportedCodec codec) {
         return FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
     }
 
