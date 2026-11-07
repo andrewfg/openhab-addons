@@ -6,6 +6,7 @@ import java.util.Arrays;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.macs.HMac;
+import org.bouncycastle.crypto.modes.CTRModeCipher;
 import org.bouncycastle.crypto.modes.SICBlockCipher;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
@@ -199,7 +200,7 @@ public final class SrtpSession {
      * XORs the AES counter-mode keystream for the given IV into data[from..to), in place.
      */
     private static void aesCtr(byte[] key, byte[] iv, byte[] data, int from, int to) {
-        SICBlockCipher cipher = new SICBlockCipher(new AESEngine());
+        CTRModeCipher cipher = SICBlockCipher.newInstance(AESEngine.newInstance());
         cipher.init(true, new ParametersWithIV(new KeyParameter(key), iv));
         byte[] block = new byte[BLOCK_LENGTH];
         byte[] out = new byte[BLOCK_LENGTH];
