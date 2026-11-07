@@ -14,14 +14,11 @@ package org.openhab.binding.homekit.internal.ffmpeg;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 import org.openhab.binding.homekit.internal.media.AudioCodec;
-import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
  * Tests for {@link FfmpegHelpers} command construction.
@@ -30,151 +27,83 @@ import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
  */
 class FfmpegHelpersTest {
 
-    private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16],
-            new byte[14]);
     private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 24);
-    private static final AudioCodec PCMU_8K = new AudioCodec(AudioCodecType.PCMU, 1, 8);
-    private static final AudioCodec PCMA_8K = new AudioCodec(AudioCodecType.PCMA, 1, 8);
-    private static final AudioCodec AMR_WB_16K = new AudioCodec(AudioCodecType.AMR_WB, 1, 16);
+    private static final AudioCodec PCMU = new AudioCodec(AudioCodecType.PCMU, 1, 8);
+    private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+    private static final AudioCodec AAC_ELD = new AudioCodec(AudioCodecType.AAC_ELD, 1, 24);
 
     @Test
-    void testParamsAreBase64OfKeyThenSalt() {
-        byte[] key = new byte[16];
-        byte[] salt = new byte[14];
-        for (int i = 0; i < key.length; i++) {
-            key[i] = (byte) i;
-        }
-        for (int i = 0; i < salt.length; i++) {
-            salt[i] = (byte) (0x80 + i);
-        }
-        String params = FfmpegHelpers
-                .toFfmpegParams(new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt));
-        byte[] decoded = Base64.getDecoder().decode(params);
-        assertEquals(30, decoded.length);
-        assertEquals((byte) 0x00, decoded[0]);
-        assertEquals((byte) 0x0F, decoded[15]);
-        assertEquals((byte) 0x80, decoded[16]);
-    }
-
-    @Test
-    void testNoneSuiteRejected() {
-        SrtpParameters none = new SrtpParameters(SrtpCryptoSuite.NONE, new byte[0], new byte[0]);
-        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.NONE));
-        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.toFfmpegParams(none));
-    }
-
-    @Test
-    void testSuiteNames() {
-        assertEquals("AES_CM_128_HMAC_SHA1_80", FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80));
-        assertEquals("AES_CM_256_HMAC_SHA1_80", FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80));
-    }
-
-    @Test
-    void testListenCommandCopiesAlawAndReadsSrtp() {
-        List<String> cmd = listen(PCMA_8K);
+    void listenCopiesAlawAndMapsBothSdpInputs() {
+        List<String> cmd = listen(PCMA);
         assertEquals("ffmpeg", cmd.get(0));
-        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-        assertEquals("alaw", valueAfter(cmd, "-f"));
-        assertEquals("copy", valueAfter(cmd, "-c:a"));
-        assertFalse(cmd.contains("-ar"));
-        assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
-        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
-        assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
-        assertFalse(cmd.contains("-srtp_out_suite"));
-    }
-
-    @Test
-    void testListenCommandTranscodesOtherCodecsToAlaw() {
-        List<String> cmd = listen(OPUS);
-        assertEquals("alaw", valueAfter(cmd, "-f"));
-        assertEquals("8000", valueAfter(cmd, "-ar"));
-        assertEquals("1", valueAfter(cmd, "-ac"));
-        assertEquals("pcm_alaw", valueAfter(cmd, "-c:a"));
-        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-    }
-
-    @Test
-    void testVideoListenCommandReadsSrtpAndWritesAnnexBToStdout() {
-        List<String> cmd = FfmpegHelpers.watchCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
-        assertEquals("ffmpeg", cmd.get(0));
-        assertEquals("pipe:1", cmd.get(cmd.size() - 1));
-        assertEquals("h264", valueAfter(cmd, "-f"));
+        assertEquals("{output}", cmd.get(cmd.size() - 1));
+        assertEquals("rtsp", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:v"));
-        assertTrue(cmd.contains("-an"));
-        assertFalse(cmd.contains("-c:a"));
-        assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
-        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
-        assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
-        assertFalse(cmd.contains("-srtp_out_suite"));
+        assertEquals("copy", valueAfter(cmd, "-c:a"));
+        assertEquals("/tmp/a.sdp", valueAfter(cmd, "-i"));
+        assertEquals(2, cmd.stream().filter("file,rtp,udp"::equals).count());
+        assertEquals(2, cmd.stream().filter("-i"::equals).count());
+        assertTrue(String.join(" ", cmd).contains("-map 1:v -map 0:a"));
+        assertFalse(cmd.contains("-ar"));
     }
 
     @Test
-    void testListenCommandTranscodesEveryNonAlawCodec() {
-        assertEquals("pcm_alaw", valueAfter(listen(PCMU_8K), "-c:a"));
-        assertEquals("pcm_alaw", valueAfter(listen(AMR_WB_16K), "-c:a"));
+    void listenTranscodesNonAlawAudioToAlaw() {
+        for (AudioCodec codec : List.of(OPUS, PCMU)) {
+            List<String> cmd = listen(codec);
+            assertEquals("pcm_alaw", valueAfter(cmd, "-c:a"));
+            assertEquals("8000", valueAfter(cmd, "-ar"));
+            assertEquals("1", valueAfter(cmd, "-ac"));
+        }
     }
 
     @Test
-    void testTalkCommandReadsAlawAndWritesSrtpToCamera() {
-        List<String> cmd = FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L,
-                OPUS);
+    void talkCopiesAlawAndSetsRtpPayloadAndSsrc() {
+        List<String> cmd = talk(PCMA);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
         assertEquals("alaw", valueAfter(cmd, "-f"));
-        assertEquals("8000", valueAfter(cmd, "-ar"));
-        assertEquals("1", valueAfter(cmd, "-ac"));
-        assertEquals("libopus", valueAfter(cmd, "-c:a"));
-        assertEquals("24k", valueAfter(cmd, "-b:a"));
+        assertEquals("copy", valueAfter(cmd, "-c:a"));
+        assertFalse(cmd.contains("-b:a"));
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
-        assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_out_suite"));
-        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
-        assertEquals("rtp://192.168.1.50:5004?localport=6000", cmd.get(cmd.size() - 1));
-        assertFalse(cmd.contains("-srtp_in_suite"));
+        assertTrue(String.join(" ", cmd).endsWith("-payload_type 110 -ssrc 305419896 -f rtp rtp://127.0.0.1:6000"));
     }
 
     @Test
-    void testTalkCommandCopiesAlawToCamera() {
-        List<String> cmd = talk(PCMA_8K);
-        assertEquals("copy", valueAfter(cmd, "-c:a"));
+    void talkEncodesOpusWithBitrateAtCodecRate() {
+        List<String> cmd = talk(OPUS);
+        assertEquals("libopus", valueAfter(cmd, "-c:a"));
+        assertEquals("24k", valueAfter(cmd, "-b:a"));
+        assertTrue(String.join(" ", cmd).contains("-ar " + OPUS.rtpClockRate() + " -ac 1 -c:a libopus"));
+    }
+
+    @Test
+    void talkEncodesPcmuWithoutBitrate() {
+        List<String> cmd = talk(PCMU);
+        assertEquals("pcm_mulaw", valueAfter(cmd, "-c:a"));
         assertFalse(cmd.contains("-b:a"));
     }
 
     @Test
-    void testTalkCommandEncodesAlawToCameraCodec() {
-        assertEquals("pcm_mulaw", valueAfter(talk(PCMU_8K), "-c:a"));
-        List<String> amrWb = talk(AMR_WB_16K);
-        assertEquals("libvo_amrwb", valueAfter(amrWb, "-c:a"));
-        assertTrue(String.join(" ", amrWb).contains("-ar 16000 -ac 1 -c:a libvo_amrwb"));
+    void encoderRejectsUnsupportedCodecs() {
+        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.encoder(AudioCodecType.AAC_ELD));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.encoder(AudioCodecType.MSBC));
+        assertThrows(IllegalArgumentException.class, () -> talk(AAC_ELD));
     }
 
     @Test
-    void go2rtcListenCommandPublishesAudioToRtspOutput() {
-        assertEquals("ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -vn -c:a copy "
-                + "-f rtsp {output}", String.join(" ", FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000)));
-    }
-
-    @Test
-    void go2rtcListenCommandWithVideoMuxesAudioAndH264WithoutTranscoding() {
-        assertEquals("ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -f h264 "
-                + "-i tcp://127.0.0.1:5001 -map 0:a -map 1:v -c copy -f rtsp {output}",
-                String.join(" ", FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000, 5001)));
-    }
-
-    @Test
-    void go2rtcTalkCommandUsesFixedAlawBackchannel() {
-        String cmd = String.join(" ", FfmpegHelpers.go2rtcTalkCommand("ffmpeg", 6000));
-        assertTrue(cmd.startsWith("ffmpeg "));
-        assertTrue(cmd.contains(
-                "-f alaw -ar 8000 -ac 1 -i pipe:0 -c:a pcm_alaw -f alaw -ar 8000 -ac 1 tcp://127.0.0.1:6000"));
-        assertTrue(cmd.endsWith("#backchannel=1#audio=alaw/8000"));
+    void alawDetectionRequiresEightKilohertzMono() {
+        assertTrue(FfmpegHelpers.isGo2rtcAlaw(PCMA));
+        assertFalse(FfmpegHelpers.isGo2rtcAlaw(PCMU));
+        assertFalse(FfmpegHelpers.isGo2rtcAlaw(OPUS));
     }
 
     private static List<String> listen(AudioCodec codec) {
-        return FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
+        return FfmpegHelpers.go2rtcListenCommand("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", codec);
     }
 
     private static List<String> talk(AudioCodec codec) {
-        return FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
+        return FfmpegHelpers.go2rtcTalkCommand("ffmpeg", codec, 110, 0x12345678L, 6000);
     }
 
     private static String valueAfter(List<String> cmd, String option) {

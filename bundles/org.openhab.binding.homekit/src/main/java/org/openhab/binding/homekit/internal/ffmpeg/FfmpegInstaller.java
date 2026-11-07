@@ -32,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Locates or downloads the ffmpeg binary used for the camera audio SRTP encryption and decryption. As in the unifi
+ * Locates or downloads the ffmpeg binary used to transcode and mux the plain RTP streams for go2rtc. As in the unifi
  * binding, an ffmpeg on the PATH is used directly, otherwise the homebridge static build is downloaded into the
  * binding's cache directory.
  *

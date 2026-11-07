@@ -21,9 +21,9 @@ import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 /**
  * Builds the go2rtc YAML configuration and the ffmpeg exec commands that connect go2rtc to the binding.
  *
- * The binding owns all HomeKit/SRTP work. go2rtc only serves the browser: the listen stream is an RTSP source
- * fed from the binding's audio, and the talk stream is a WebRTC backchannel whose output is delivered back to the
- * binding over TCP.
+ * The binding owns all HomeKit SRTP work. go2rtc only serves the browser: the listen stream is an RTSP source fed by
+ * the forward ffmpeg command, and the talk stream is a WebRTC backchannel whose audio is written to the back ffmpeg
+ * command's stdin. Both ffmpeg commands exchange plain RTP with the binding over loopback UDP.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -37,6 +37,12 @@ public final class Go2RtcConfig {
     public record Ports(int api, int webrtc, int rtsp) {
     }
 
+    /**
+     * go2rtc reads this fragment only at the end of the exec string. It makes go2rtc write browser audio as A-law into
+     * the command's stdin.
+     */
+    private static final String TALK_BACKCHANNEL = " #backchannel=1#audio=alaw/8000";
+
     private Go2RtcConfig() {
     }
 
@@ -46,10 +52,11 @@ public final class Go2RtcConfig {
      * @param ports the ports to listen on
      * @param listenStream the name of the stream the browser listens to
      * @param listenCommand the exec command that produces the listen stream, see
-     *            {@link FfmpegHelpers#go2rtcListenCommand(String, int)}
+     *            {@link FfmpegHelpers#go2rtcListenCommand(String, String, String, org.openhab.binding.homekit.internal.media.AudioCodec)}
      * @param talkStream the name of the stream the browser talks to, or null when talk is not available
      * @param talkCommand the exec command that consumes talk audio, see
-     *            {@link FfmpegHelpers#go2rtcTalkCommand(String, int)}, or null
+     *            {@link FfmpegHelpers#go2rtcTalkCommand(String, org.openhab.binding.homekit.internal.media.AudioCodec, int, long, int)},
+     *            or null. The go2rtc backchannel fragment is appended to this command.
      */
     public static String toYaml(Ports ports, String listenStream, List<String> listenCommand,
             @Nullable String talkStream, @Nullable List<String> talkCommand) {
@@ -65,7 +72,7 @@ public final class Go2RtcConfig {
         yaml.append("    - ").append(quote("exec:" + String.join(" ", listenCommand))).append("\n");
         if (talkStream != null && talkCommand != null) {
             yaml.append("  ").append(talkStream).append(":\n");
-            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommand))).append("\n");
+            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommand) + TALK_BACKCHANNEL)).append("\n");
         }
         return yaml.toString();
     }

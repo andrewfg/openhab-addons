@@ -12,71 +12,37 @@
  */
 package org.openhab.binding.homekit.internal.ffmpeg;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 import org.openhab.binding.homekit.internal.media.AudioCodec;
-import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
- * Helpers for building ffmpeg commands to bridge HomeKit camera audio and video streams.
+ * Helpers for building the two ffmpeg commands that go2rtc runs. Both work on plain RTP only. SRTP is handled in Java
+ * by the go2rtc data pump, so ffmpeg never sees keys.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
 public final class FfmpegHelpers {
 
-    /**
-     * The 8 kHz mono A-law format that go2rtc publishes and receives on its pipes and loopback ports.
-     */
-    private static final List<String> ALAW_8K_MONO = List.of("-f", "alaw", "-ar", "8000", "-ac", "1");
-
     private FfmpegHelpers() {
     }
 
     /**
-     * Returns the SRTP master key and salt concatenated and base64 encoded, as expected by ffmpeg's
-     * {@code srtp_in_params} and {@code srtp_out_params} options.
-     *
-     * @param params the negotiated SRTP parameters; must not use {@link SrtpCryptoSuite#NONE}
-     * @throws IllegalArgumentException if the crypto suite is {@link SrtpCryptoSuite#NONE}
-     */
-    public static String toFfmpegParams(SrtpParameters params) {
-        if (params.cryptoSuite() == SrtpCryptoSuite.NONE) {
-            throw new IllegalArgumentException("SRTP crypto suite NONE cannot be bridged");
-        }
-        byte[] combined = ByteBuffer.allocate(params.masterKey().length + params.masterSalt().length)
-                .put(params.masterKey()).put(params.masterSalt()).array();
-        return Base64.getEncoder().encodeToString(combined);
-    }
-
-    /**
-     * Returns the ffmpeg crypto suite name for an SRTP suite.
-     *
-     * @throws IllegalArgumentException if the crypto suite is {@link SrtpCryptoSuite#NONE}
-     */
-    public static String toFfmpegSuite(SrtpCryptoSuite suite) {
-        return switch (suite) {
-            case AES_CM_128_HMAC_SHA1_80, AES_CM_256_HMAC_SHA1_80 -> suite.name();
-            case NONE -> throw new IllegalArgumentException("SRTP crypto suite NONE cannot be bridged");
-        };
-    }
-
-    /**
-     * Returns true if the codec is the 8 kHz mono A-law stream that go2rtc uses on both pipes, so its packets can be
-     * copied without transcoding.
+     * Returns true if the codec is the 8 kHz mono A-law stream that go2rtc uses, so its packets can be copied without
+     * transcoding.
      */
     static boolean isGo2rtcAlaw(AudioCodec codec) {
         return codec.codecType() == AudioCodecType.PCMA && codec.rtpClockRate() == 8000 && codec.channels() == 1;
     }
 
     /**
-     * Returns the ffmpeg encoder that transcodes between a declared codec and go2rtc's A-law stream.
+     * Returns the ffmpeg encoder that produces the camera's codec from go2rtc's A-law stream.
+     *
+     * @throws IllegalArgumentException if the codec cannot be encoded
      */
     static String encoder(AudioCodecType codec) {
         return switch (codec) {
@@ -90,117 +56,57 @@ public final class FfmpegHelpers {
     }
 
     /**
-     * Builds the listen command: SRTP camera audio described by {@code sdpFile} in, 8 kHz mono A-law on stdout. A-law
-     * packets are copied unchanged, other codecs are decoded and encoded to A-law.
+     * Builds the forward command. It reads the camera's video and audio RTP from two SDP files on loopback and writes
+     * them as one RTSP stream to go2rtc. Video is copied. Audio is copied when it is already go2rtc's A-law, otherwise
+     * it is decoded and encoded to A-law.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param sdpFile path to an SDP file describing the camera's RTP audio stream and its UDP port
-     * @param srtp the camera's SRTP parameters for this audio stream
-     * @param codec the declared codec of the stream
+     * @param audioSdpFile path to the SDP file describing the camera audio RTP stream
+     * @param videoSdpFile path to the SDP file describing the camera video RTP stream
+     * @param audioCodec the camera audio codec carried by the RTP stream
+     * @return the command, with {@code {output}} as the RTSP output placeholder that go2rtc replaces
      */
-    public static List<String> listenCommand(String ffmpeg, String sdpFile, SrtpParameters srtp, AudioCodec codec) {
+    public static List<String> go2rtcListenCommand(String ffmpeg, String audioSdpFile, String videoSdpFile,
+            AudioCodec audioCodec) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-protocol_whitelist", "file,rtp,udp,srtp", "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()),
-                "-srtp_in_params", toFfmpegParams(srtp), "-i", sdpFile, "-vn"));
-        if (isGo2rtcAlaw(codec)) {
+                "-protocol_whitelist", "file,rtp,udp", "-i", audioSdpFile, "-protocol_whitelist", "file,rtp,udp", "-i",
+                videoSdpFile, "-map", "1:v", "-map", "0:a", "-c:v", "copy"));
+        if (isGo2rtcAlaw(audioCodec)) {
             command.addAll(List.of("-c:a", "copy"));
         } else {
             command.addAll(List.of("-ar", "8000", "-ac", "1", "-c:a", "pcm_alaw"));
         }
-        command.addAll(List.of("-f", "alaw", "pipe:1"));
+        command.addAll(List.of("-f", "rtsp", "{output}"));
         return List.copyOf(command);
     }
 
     /**
-     * Builds the video watch command: SRTP camera video described by {@code sdpFile} in, an H.264 Annex B elementary
-     * stream on stdout with the packets copied unchanged.
+     * Builds the back command. It reads go2rtc's A-law audio from stdin and writes plain RTP to a loopback port. The
+     * audio is copied when it is already A-law, otherwise it is encoded to the camera's codec. The camera's payload
+     * type and SSRC are set so the binding can encrypt the packets without changing them.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param sdpFile path to an SDP file describing the camera's RTP video stream and its UDP port
-     * @param srtp the camera's SRTP parameters for this video stream
-     */
-    public static List<String> watchCommand(String ffmpeg, String sdpFile, SrtpParameters srtp) {
-        return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp,srtp",
-                "-srtp_in_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_in_params", toFfmpegParams(srtp), "-i",
-                sdpFile, "-an", "-c:v", "copy", "-f", "h264", "pipe:1");
-    }
-
-    /**
-     * Builds the talk command: 8 kHz mono A-law on stdin in, SRTP audio to the camera endpoint. A-law packets are
-     * copied unchanged, other codecs are encoded from A-law. Raw G.711 input has no header, so its sample rate and
-     * channel count are given explicitly.
-     *
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param remoteHost the camera's IP address
-     * @param remotePort the camera's audio RTP port
-     * @param localPort the local UDP port used as the RTP source
-     * @param srtp the SRTP parameters negotiated for the talk-back session
+     * @param audioCodec the camera audio codec to send
      * @param payloadType the RTP payload type agreed with the camera
      * @param ssrc the RTP SSRC
-     * @param codec the declared codec of the stream
+     * @param localRtpPort the loopback UDP port the binding listens on
+     * @return the command
      */
-    public static List<String> talkCommand(String ffmpeg, String remoteHost, int remotePort, int localPort,
-            SrtpParameters srtp, int payloadType, long ssrc, AudioCodec codec) {
+    public static List<String> go2rtcTalkCommand(String ffmpeg, AudioCodec audioCodec, int payloadType, long ssrc,
+            int localRtpPort) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-f", "alaw",
                 "-ar", "8000", "-ac", "1", "-i", "pipe:0", "-vn"));
-        if (isGo2rtcAlaw(codec)) {
+        if (isGo2rtcAlaw(audioCodec)) {
             command.addAll(List.of("-c:a", "copy"));
         } else {
-            command.addAll(List.of("-ar", String.valueOf(codec.rtpClockRate()), "-ac", String.valueOf(codec.channels()),
-                    "-c:a", encoder(codec.codecType())));
-            if (codec.codecType() == AudioCodecType.OPUS) {
-                command.addAll(List.of("-b:a", codec.maxBitrateKbps() + "k"));
+            command.addAll(List.of("-ar", String.valueOf(audioCodec.rtpClockRate()), "-ac",
+                    String.valueOf(audioCodec.channels()), "-c:a", encoder(audioCodec.codecType())));
+            if (audioCodec.codecType() == AudioCodecType.OPUS) {
+                command.addAll(List.of("-b:a", audioCodec.maxBitrateKbps() + "k"));
             }
         }
-        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc),
-                "-srtp_out_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f",
-                "rtp", "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort));
-        return List.copyOf(command);
-    }
-
-    /**
-     * Builds the go2rtc listen command for audio only: 8 kHz mono A-law read from a loopback TCP port and published to
-     * go2rtc over RTSP. The {@code {output}} placeholder is substituted by go2rtc with its RTSP publish URL.
-     *
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param audioPort the loopback TCP port the binding serves the listen audio on
-     */
-    public static List<String> go2rtcListenCommand(String ffmpeg, int audioPort) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
-        command.addAll(ALAW_8K_MONO);
-        command.addAll(List.of("-i", "tcp://127.0.0.1:" + audioPort, "-vn", "-c:a", "copy", "-f", "rtsp", "{output}"));
-        return List.copyOf(command);
-    }
-
-    /**
-     * Builds the go2rtc listen command for audio and H.264 video: both are read from loopback TCP ports and muxed into
-     * one RTSP stream for go2rtc. Neither stream is transcoded.
-     *
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param audioPort the loopback TCP port the binding serves the listen audio on
-     * @param videoPort the loopback TCP port the binding serves the H.264 Annex B video on
-     */
-    public static List<String> go2rtcListenCommand(String ffmpeg, int audioPort, int videoPort) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
-        command.addAll(ALAW_8K_MONO);
-        command.addAll(List.of("-i", "tcp://127.0.0.1:" + audioPort, "-f", "h264", "-i",
-                "tcp://127.0.0.1:" + videoPort, "-map", "0:a", "-map", "1:v", "-c", "copy", "-f", "rtsp", "{output}"));
-        return List.copyOf(command);
-    }
-
-    /**
-     * Builds the go2rtc talk command: the browser microphone audio that go2rtc writes to stdin as 8 kHz mono A-law is
-     * sent unchanged to the binding's loopback TCP port, which transcodes it to the camera's codec.
-     *
-     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param outputPort the loopback TCP port the binding listens on for talk audio
-     */
-    public static List<String> go2rtcTalkCommand(String ffmpeg, int outputPort) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
-        command.addAll(ALAW_8K_MONO);
-        command.addAll(List.of("-i", "pipe:0", "-c:a", "pcm_alaw"));
-        command.addAll(ALAW_8K_MONO);
-        command.add("tcp://127.0.0.1:" + outputPort + "#backchannel=1#audio=alaw/8000");
+        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-f",
+                "rtp", "rtp://127.0.0.1:" + localRtpPort));
         return List.copyOf(command);
     }
 }

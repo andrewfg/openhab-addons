@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
+import org.openhab.binding.homekit.internal.media.AudioCodec;
 
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
@@ -26,11 +28,13 @@ import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
  */
 class Go2RtcConfigTest {
 
+    private static final AudioCodec ALAW = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+
     @Test
     void yamlContainsPortsStreamsAndExecPrefix() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000), "cam_talk",
-                FfmpegHelpers.go2rtcTalkCommand("ffmpeg", 6000));
+                FfmpegHelpers.go2rtcListenCommand("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), "cam_talk",
+                FfmpegHelpers.go2rtcTalkCommand("ffmpeg", ALAW, 110, 1L, 6000));
         assertTrue(yaml.contains("api:\n  listen: \":1984\"\n"));
         assertTrue(yaml.contains("webrtc:\n  listen: \":8555\"\n"));
         assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
@@ -39,10 +43,19 @@ class Go2RtcConfigTest {
     }
 
     @Test
+    void talkExecEndsWithBackchannelFragment() {
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
+                FfmpegHelpers.go2rtcListenCommand("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), "cam_talk",
+                FfmpegHelpers.go2rtcTalkCommand("ffmpeg", ALAW, 110, 1L, 6000));
+        assertTrue(yaml.contains("#backchannel=1#audio=alaw/8000\""));
+    }
+
+    @Test
     void yamlOmitsTalkStreamWhenNotAvailable() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000), null, null);
+                FfmpegHelpers.go2rtcListenCommand("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), null, null);
         assertFalse(yaml.contains("cam_talk"));
+        assertFalse(yaml.contains("backchannel"));
         assertTrue(yaml.endsWith("\"\n"));
     }
 
