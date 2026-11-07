@@ -1660,10 +1660,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 switch (Characteristic.getCharacteristicType(characteristic.type)) {
                     case SETUP_ENDPOINTS -> mediaSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> mediaSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeAudioSupportedCodecs(
-                            characteristic.value);
-                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION -> videoCodecs = decodeVideoSupportedCodecs(
-                            characteristic.value);
+                    case SUPPORTED_AUDIO_CONFIGURATION ->
+                        audioCodecs = decodeAudioSupportedCodecs(characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
+                        videoCodecs = decodeVideoSupportedCodecs(characteristic.value);
                     default -> {
                     }
                 }

@@ -72,7 +72,8 @@ public final class Go2RtcConfig {
         yaml.append("    - ").append(quote("exec:" + String.join(" ", listenCommand))).append("\n");
         if (talkStream != null && talkCommand != null) {
             yaml.append("  ").append(talkStream).append(":\n");
-            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommand) + TALK_BACKCHANNEL)).append("\n");
+            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommand) + TALK_BACKCHANNEL))
+                    .append("\n");
         }
         return yaml.toString();
     }

@@ -105,8 +105,8 @@ public final class FfmpegHelpers {
                 command.addAll(List.of("-b:a", audioCodec.maxBitrateKbps() + "k"));
             }
         }
-        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-f",
-                "rtp", "rtp://127.0.0.1:" + localRtpPort));
+        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc), "-f", "rtp",
+                "rtp://127.0.0.1:" + localRtpPort));
         return List.copyOf(command);
     }
 }

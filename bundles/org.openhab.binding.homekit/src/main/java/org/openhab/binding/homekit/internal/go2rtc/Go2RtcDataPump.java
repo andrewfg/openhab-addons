@@ -199,7 +199,8 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @param talk the SRTP parameters the binding uses to encrypt talk audio towards the camera
      * @param remoteHost the camera's IP address
      * @param remoteTalkPort the camera's audio port from the SetupEndpoints response
-     * @throws IllegalArgumentException if a crypto suite is {@link org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite#NONE}
+     * @throws IllegalArgumentException if a crypto suite is
+     *             {@link org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite#NONE}
      */
     public void startSession(SrtpParameters listenAudio, SrtpParameters listenVideo, SrtpParameters talk,
             String remoteHost, int remoteTalkPort) {
@@ -277,8 +278,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                 socket.receive(packet);
                 Session current = session;
                 if (current != null) {
-                    byte[] rtp = stream.apply(current)
-                            .unprotect(Arrays.copyOf(packet.getData(), packet.getLength()));
+                    byte[] rtp = stream.apply(current).unprotect(Arrays.copyOf(packet.getData(), packet.getLength()));
                     if (rtp != null) {
                         socket.send(new DatagramPacket(rtp, rtp.length, loopback, ffmpegPort));
                     }

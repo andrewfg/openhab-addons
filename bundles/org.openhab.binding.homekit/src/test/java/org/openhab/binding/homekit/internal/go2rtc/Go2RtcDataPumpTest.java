@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,24 +43,24 @@ import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 class Go2RtcDataPumpTest {
 
     private static final int TIMEOUT_MS = 2000;
-    private static final SrtpParameters LISTEN_AUDIO = new SrtpParameters(
-            SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16], new byte[14]);
-    private static final SrtpParameters LISTEN_VIDEO = new SrtpParameters(
-            SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 },
-            new byte[14]);
+    private static final SrtpParameters LISTEN_AUDIO = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
+            new byte[16], new byte[14]);
+    private static final SrtpParameters LISTEN_VIDEO = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
+            new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }, new byte[14]);
     private static final SrtpParameters TALK = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
             new byte[] { 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, new byte[14]);
     private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 16);
     private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8);
     private static final VideoCodec VIDEO = new VideoCodec(0, 0, 640, 480, 30);
 
-    private @org.eclipse.jdt.annotation.Nullable Go2RtcDataPump pump;
-    private @org.eclipse.jdt.annotation.Nullable DatagramSocket camera;
+    private @Nullable Go2RtcDataPump pump;
+    private @Nullable DatagramSocket camera;
 
     @BeforeEach
     void setUp() throws Exception {
-        camera = new DatagramSocket(0, InetAddress.getLoopbackAddress());
-        camera.setSoTimeout(TIMEOUT_MS);
+        DatagramSocket c = new DatagramSocket(0, InetAddress.getLoopbackAddress());
+        c.setSoTimeout(TIMEOUT_MS);
+        camera = c;
     }
 
     @AfterEach
@@ -164,7 +165,8 @@ class Go2RtcDataPumpTest {
         }
 
         cam.setSoTimeout(300);
-        assertThrows(java.net.SocketTimeoutException.class, () -> cam.receive(new DatagramPacket(new byte[2048], 2048)));
+        assertThrows(java.net.SocketTimeoutException.class,
+                () -> cam.receive(new DatagramPacket(new byte[2048], 2048)));
     }
 
     private DatagramSocket camera() {
