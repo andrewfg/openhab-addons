@@ -20,11 +20,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link VideoSupportedCodec#decode(byte[])}.
+ * Tests for {@link VideoCodec#decode(byte[])}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class VideoSupportedConfigurationTest {
+class VideoCodecTest {
 
     @Test
     void decodesEveryProfileLevelCombinationAndFirstAttribute() {
@@ -32,11 +32,10 @@ class VideoSupportedConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute), tlv(0x03, attribute));
 
-        List<VideoSupportedCodec> configs = VideoSupportedCodec.decode(tlv(0x01, entry));
+        List<VideoCodec> configs = VideoCodec.decode(tlv(0x01, entry));
 
-        assertEquals(List.of(new VideoSupportedCodec(0, 0, 1920, 1080, 30),
-                new VideoSupportedCodec(0, 2, 1920, 1080, 30), new VideoSupportedCodec(2, 0, 1920, 1080, 30),
-                new VideoSupportedCodec(2, 2, 1920, 1080, 30)), configs);
+        assertEquals(List.of(new VideoCodec(0, 0, 1920, 1080, 30), new VideoCodec(0, 2, 1920, 1080, 30),
+                new VideoCodec(2, 0, 1920, 1080, 30), new VideoCodec(2, 2, 1920, 1080, 30)), configs);
     }
 
     @Test
@@ -46,9 +45,9 @@ class VideoSupportedConfigurationTest {
         byte[] nonH264 = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
         byte[] h264 = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute));
 
-        List<VideoSupportedCodec> configs = VideoSupportedCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
+        List<VideoCodec> configs = VideoCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
 
-        assertEquals(List.of(new VideoSupportedCodec(1, 0, 320, 240, 15)), configs);
+        assertEquals(List.of(new VideoCodec(1, 0, 320, 240, 15)), configs);
     }
 
     @Test
@@ -57,13 +56,13 @@ class VideoSupportedConfigurationTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
 
-        assertTrue(VideoSupportedCodec.decode(tlv(0x01, entry)).isEmpty());
+        assertTrue(VideoCodec.decode(tlv(0x01, entry)).isEmpty());
     }
 
     @Test
     void returnsEmptyForEmptyOrTruncatedInput() {
-        assertTrue(VideoSupportedCodec.decode(new byte[0]).isEmpty());
-        assertTrue(VideoSupportedCodec.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
+        assertTrue(VideoCodec.decode(new byte[0]).isEmpty());
+        assertTrue(VideoCodec.decode(new byte[] { 0x01, 0x05, 0x00 }).isEmpty());
     }
 
     private static byte[] tlv(int type, int... value) {

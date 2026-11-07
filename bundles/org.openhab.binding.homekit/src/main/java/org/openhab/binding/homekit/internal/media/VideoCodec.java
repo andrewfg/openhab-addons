@@ -16,10 +16,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +29,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record VideoSupportedCodec(int profile, int level, int width, int height, int frameRate) {
+public record VideoCodec(int profile, int level, int width, int height, int frameRate) {
 
     /** The H.264 Baseline profile, which every browser's WebRTC decoder accepts. */
     public static final int PROFILE_BASELINE = 0x00;
@@ -56,8 +52,8 @@ public record VideoSupportedCodec(int profile, int level, int width, int height,
      * @param tlv the decoded TLV8 bytes of the characteristic
      * @return the configurations, or an empty list when the camera does not advertise H.264
      */
-    public static List<VideoSupportedCodec> decode(byte[] tlv) {
-        List<VideoSupportedCodec> result = new ArrayList<>();
+    public static List<VideoCodec> decode(byte[] tlv) {
+        List<VideoCodec> result = new ArrayList<>();
         try {
             for (byte[] entry : entries(tlv, TYPE_VIDEO_CODEC_CONFIGURATION)) {
                 decodeEntry(entry, result);
@@ -68,7 +64,7 @@ public record VideoSupportedCodec(int profile, int level, int width, int height,
         return result;
     }
 
-    private static void decodeEntry(byte[] entry, List<VideoSupportedCodec> result) {
+    private static void decodeEntry(byte[] entry, List<VideoCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] codecType = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
@@ -96,8 +92,7 @@ public record VideoSupportedCodec(int profile, int level, int width, int height,
             int frameRate = frameRateBytes[0] & 0xFF;
             for (byte profile : profiles) {
                 for (byte level : levels) {
-                    VideoSupportedCodec candidate = new VideoSupportedCodec(profile & 0xFF, level & 0xFF, width,
-                            height, frameRate);
+                    VideoCodec candidate = new VideoCodec(profile & 0xFF, level & 0xFF, width, height, frameRate);
                     if (!result.contains(candidate)) {
                         result.add(candidate);
                     }

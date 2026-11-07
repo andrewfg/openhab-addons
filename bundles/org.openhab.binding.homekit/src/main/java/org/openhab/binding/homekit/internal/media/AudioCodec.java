@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record AudioSupportedCodec(AudioCodecType codecType, int channels, int sampleRateKhz) {
+public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateKhz) {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AudioSupportedCodec.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AudioCodec.class);
 
     private static final int TYPE_AUDIO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -44,8 +44,8 @@ public record AudioSupportedCodec(AudioCodecType codecType, int channels, int sa
     /**
      * Returns the audio codec configurations declared by a TLV8 value.
      */
-    public static List<AudioSupportedCodec> decode(byte[] tlv) {
-        List<AudioSupportedCodec> result = new ArrayList<>();
+    public static List<AudioCodec> decode(byte[] tlv) {
+        List<AudioCodec> result = new ArrayList<>();
         // The codec entries share one tag, so they are read in sequence rather than through Tlv8Codec.decode(),
         // which would merge them.
         int offset = 0;
@@ -81,7 +81,7 @@ public record AudioSupportedCodec(AudioCodecType codecType, int channels, int sa
         };
     }
 
-    private static void decodeEntry(byte[] entry, List<AudioSupportedCodec> result) {
+    private static void decodeEntry(byte[] entry, List<AudioCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
@@ -107,7 +107,7 @@ public record AudioSupportedCodec(AudioCodecType codecType, int channels, int sa
         }
         for (byte rateCode : rateCodes) {
             int sampleRateKhz = sampleRateKhz(rateCode & 0xFF);
-            AudioSupportedCodec candidate = new AudioSupportedCodec(codecType, channels, sampleRateKhz);
+            AudioCodec candidate = new AudioCodec(codecType, channels, sampleRateKhz);
             if (Arrays.stream(allowedRates).anyMatch(rate -> rate == sampleRateKhz) && !result.contains(candidate)) {
                 result.add(candidate);
             }

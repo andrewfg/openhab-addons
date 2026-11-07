@@ -28,7 +28,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SelectedVideoParameters(int profile, int level, int width, int height, int frameRate, int payloadType,
+public record VideoSelectedParameters(int profile, int level, int width, int height, int frameRate, int payloadType,
         long ssrc, int maxBitrateKbps, float minRtcpIntervalSec) {
 
     /** H.264 is the only video codec defined by HAP; its codec type value is zero. */
@@ -53,7 +53,7 @@ public record SelectedVideoParameters(int profile, int level, int width, int hei
     private static final int TYPE_MAX_BIT_RATE = 0x03;
     private static final int TYPE_MIN_RTCP_INTERVAL = 0x04;
 
-    public SelectedVideoParameters {
+    public VideoSelectedParameters {
         if (profile < 0 || profile > 0xFF || level < 0 || level > 0xFF) {
             throw new IllegalArgumentException("H.264 profile or level out of range");
         }

@@ -20,22 +20,23 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
+import org.openhab.binding.homekit.internal.media.tlv.AudioSelectedParameters;
 import org.openhab.binding.homekit.internal.media.tlv.RtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.media.tlv.RtpStreamConfiguration.SessionCommand;
-import org.openhab.binding.homekit.internal.media.tlv.SelectedAudioParameters;
-import org.openhab.binding.homekit.internal.media.tlv.SelectedVideoParameters;
+import org.openhab.binding.homekit.internal.media.tlv.VideoSelectedParameters;
 
 /**
  * Tests for {@link RtpStreamConfiguration} TLV encoding.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class SelectedRtpStreamConfigurationTest {
+class RtpStreamConfigurationTest {
 
     private static final byte[] SESSION_ID = new byte[16];
-    private static final SelectedAudioParameters AUDIO = new SelectedAudioParameters(AudioCodecType.OPUS, 1, false, 24,
+
+    private static final AudioSelectedParameters AUDIO = new AudioSelectedParameters(AudioCodecType.OPUS, 1, false, 24,
             20, 110, 0x12345678L, 24, 0.5f, false, 13);
-    private static final SelectedVideoParameters VIDEO = new SelectedVideoParameters(0x00, 0x02, 1280, 720, 30, 99,
+    private static final VideoSelectedParameters VIDEO = new VideoSelectedParameters(0x00, 0x02, 1280, 720, 30, 99,
             0x87654321L, 300, 0.5f);
 
     static {

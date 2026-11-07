@@ -31,7 +31,7 @@ import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
  */
 @NonNullByDefault
 public record SetupEndpointsResponse(byte[] sessionId, SetupEndpointsStatus status, @Nullable Long audioSsrc,
-        @Nullable SrtpParameters audioParameters, @Nullable Integer audioPort, @Nullable Long videoSsrc,
+        @Nullable SrtpParameters audioParameters, @Nullable Integer talkPort, @Nullable Long videoSsrc,
         @Nullable SrtpParameters videoParameters, @Nullable Integer videoPort) {
 
     private static final int TYPE_SESSION_ID = 0x01;

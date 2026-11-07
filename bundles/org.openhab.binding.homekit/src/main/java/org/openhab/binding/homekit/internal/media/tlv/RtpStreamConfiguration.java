@@ -29,7 +29,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  */
 @NonNullByDefault
 public record RtpStreamConfiguration(byte[] sessionId, SessionCommand command,
-        @Nullable SelectedVideoParameters videoParameters, SelectedAudioParameters audioParameters) {
+        @Nullable VideoSelectedParameters videoParameters, AudioSelectedParameters audioParameters) {
 
     public enum SessionCommand {
         END(0),
@@ -54,7 +54,7 @@ public record RtpStreamConfiguration(byte[] sessionId, SessionCommand command,
     private static final int TYPE_SESSION_IDENTIFIER = 0x01;
     private static final int TYPE_SESSION_COMMAND = 0x02;
 
-    public RtpStreamConfiguration(byte[] sessionId, SessionCommand command, SelectedAudioParameters audioParameters) {
+    public RtpStreamConfiguration(byte[] sessionId, SessionCommand command, AudioSelectedParameters audioParameters) {
         this(sessionId, command, null, audioParameters);
     }
 
@@ -68,7 +68,7 @@ public record RtpStreamConfiguration(byte[] sessionId, SessionCommand command,
         control.put(TYPE_SESSION_COMMAND, u8(command.getCode()));
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(TYPE_SESSION_CONTROL, Tlv8Codec.encode(control));
-        SelectedVideoParameters videoParams = videoParameters;
+        VideoSelectedParameters videoParams = videoParameters;
         if (videoParams != null) {
             tlv.put(TYPE_VIDEO, videoParams.encode());
         }

@@ -22,7 +22,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 
 /**
- * SRTP parameters for one camera stream (video or audio), as carried in SetupEndpoints.
+ * RTP <=> SRTP encryption / decryption parameters for camera streams.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */

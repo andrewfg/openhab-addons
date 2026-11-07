@@ -14,6 +14,7 @@ package org.openhab.binding.homekit.internal.go2rtc;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegInstaller;
 
 /**
  * Builds the go2rtc YAML configuration and the ffmpeg exec commands that connect go2rtc to the binding.

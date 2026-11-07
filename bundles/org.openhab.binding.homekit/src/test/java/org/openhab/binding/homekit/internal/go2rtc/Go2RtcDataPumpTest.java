@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-import org.openhab.binding.homekit.internal.media.AudioSupportedCodec;
-import org.openhab.binding.homekit.internal.media.VideoSupportedCodec;
+import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.VideoCodec;
 
 /**
  * Tests for {@link Go2RtcDataPump}.
@@ -43,8 +43,9 @@ import org.openhab.binding.homekit.internal.media.VideoSupportedCodec;
 class Go2RtcDataPumpTest {
 
     private static final int TIMEOUT_SECONDS = 10;
-    private static final List<AudioSupportedCodec> CAMERA_CODECS = List
-            .of(new AudioSupportedCodec(AudioCodecType.PCMA, 1, 8));
+    private static final List<AudioCodec> AUDIO_CODECS = List.of(new AudioCodec(AudioCodecType.PCMA, 1, 8));
+    private static final List<VideoCodec> VIDEO_CODECS = List.of(new VideoCodec(0, 2, 1280, 720, 30));
+
     private static final Go2RtcDataPump.ClientObserver NO_OP_OBSERVER = new Go2RtcDataPump.ClientObserver() {
         @Override
         public void listenConnected() {
@@ -125,56 +126,56 @@ class Go2RtcDataPumpTest {
 
     @Test
     void preferredCodecPrefersAlawOverOtherCodecs() throws IOException {
-        AudioSupportedCodec alaw = new AudioSupportedCodec(AudioCodecType.PCMA, 1, 8);
-        List<AudioSupportedCodec> codecs = List.of(new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24), alaw);
+        AudioCodec alaw = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+        List<AudioCodec> audioCodecs = List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24), alaw);
 
-        assertEquals(alaw, Go2RtcDataPump.preferredCodec(codecs).orElseThrow());
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(codecs, NO_OP_OBSERVER)) {
-            assertEquals(alaw, pump.codec());
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(audioCodecs, VIDEO_CODECS, NO_OP_OBSERVER)) {
+            assertEquals(alaw, pump.audioCodec());
         }
     }
 
     @Test
     void constructorAcceptsCameraWithoutAlawAndUsesFirstTranscodableCodec() throws IOException {
-        AudioSupportedCodec opus = new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24);
-        List<AudioSupportedCodec> codecs = List.of(new AudioSupportedCodec(AudioCodecType.AAC_ELD, 1, 16), opus);
+        AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 24);
+        List<AudioCodec> audioCodecs = List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16), opus);
 
-        assertEquals(opus, Go2RtcDataPump.preferredCodec(codecs).orElseThrow());
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(codecs, NO_OP_OBSERVER)) {
-            assertEquals(opus, pump.codec());
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(audioCodecs, VIDEO_CODECS, NO_OP_OBSERVER)) {
+            assertEquals(opus, pump.audioCodec());
         }
     }
 
     @Test
     void constructorRejectsCameraWithoutTranscodableCodec() {
-        List<AudioSupportedCodec> codecs = List.of(new AudioSupportedCodec(AudioCodecType.AAC_ELD, 1, 16));
+        List<AudioCodec> audioCodecs = List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16));
 
-        assertTrue(Go2RtcDataPump.preferredCodec(codecs).isEmpty());
-        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(codecs, NO_OP_OBSERVER));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Go2RtcDataPump(audioCodecs, VIDEO_CODECS, NO_OP_OBSERVER));
     }
 
     @Test
-    void preferredVideoCodecPrefersHighestLevelBaselineProfile() {
-        VideoSupportedCodec baselineLevel31 = new VideoSupportedCodec(0, 0, 1920, 1080, 30);
-        VideoSupportedCodec baselineLevel40 = new VideoSupportedCodec(0, 2, 1280, 720, 30);
-        List<VideoSupportedCodec> codecs = List.of(new VideoSupportedCodec(2, 2, 1920, 1080, 30), baselineLevel31,
-                baselineLevel40);
+    void preferredVideoCodecPrefersHighestLevelBaselineProfile() throws IOException {
+        VideoCodec baselineLevel31 = new VideoCodec(0, 0, 1920, 1080, 30);
+        VideoCodec baselineLevel40 = new VideoCodec(0, 2, 1280, 720, 30);
+        List<VideoCodec> videoCodecs = List.of(new VideoCodec(2, 2, 1920, 1080, 30), baselineLevel31, baselineLevel40);
 
-        assertEquals(baselineLevel40, Go2RtcDataPump.preferredVideoCodec(codecs).orElseThrow());
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(AUDIO_CODECS, videoCodecs, NO_OP_OBSERVER)) {
+            assertEquals(baselineLevel40, pump.videoCodec());
+        }
     }
 
     @Test
-    void preferredVideoCodecFallsBackToFirstWithoutBaseline() {
-        VideoSupportedCodec main = new VideoSupportedCodec(1, 0, 640, 480, 15);
-        List<VideoSupportedCodec> codecs = List.of(main, new VideoSupportedCodec(2, 2, 1920, 1080, 30));
+    void preferredVideoCodecFallsBackToFirstWithoutBaseline() throws IOException {
+        VideoCodec main = new VideoCodec(1, 0, 640, 480, 15);
+        List<VideoCodec> videoCodecs = List.of(main, new VideoCodec(2, 2, 1920, 1080, 30));
 
-        assertEquals(main, Go2RtcDataPump.preferredVideoCodec(codecs).orElseThrow());
-        assertTrue(Go2RtcDataPump.preferredVideoCodec(List.of()).isEmpty());
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(AUDIO_CODECS, videoCodecs, NO_OP_OBSERVER)) {
+            assertEquals(main, pump.videoCodec());
+        }
     }
 
     @Test
     void audioSdpDescribesLoopbackOpusStreamOnPort() {
-        String sdp = Go2RtcDataPump.audioSdp(40000, 110, new AudioSupportedCodec(AudioCodecType.OPUS, 1, 24));
+        String sdp = Go2RtcDataPump.audioSdp(40000, 110, new AudioCodec(AudioCodecType.OPUS, 1, 24));
 
         assertTrue(sdp.contains("\nm=audio 40000 RTP/AVP 110\n"), sdp);
         assertTrue(sdp.contains("\na=rtpmap:110 opus/24000/1\n"), sdp);
@@ -184,14 +185,14 @@ class Go2RtcDataPumpTest {
 
     @Test
     void audioSdpNamesG711Encoding() {
-        String sdp = Go2RtcDataPump.audioSdp(40000, 0, new AudioSupportedCodec(AudioCodecType.PCMU, 1, 8));
+        String sdp = Go2RtcDataPump.audioSdp(40000, 0, new AudioCodec(AudioCodecType.PCMU, 1, 8));
 
         assertTrue(sdp.contains("\na=rtpmap:0 PCMU/8000/1\n"), sdp);
     }
 
     @Test
     void audioSdpDescribesAmrWbWithOctetAlign() {
-        String sdp = Go2RtcDataPump.audioSdp(40000, 99, new AudioSupportedCodec(AudioCodecType.AMR_WB, 1, 16));
+        String sdp = Go2RtcDataPump.audioSdp(40000, 99, new AudioCodec(AudioCodecType.AMR_WB, 1, 16));
 
         assertTrue(sdp.contains("\na=rtpmap:99 AMR-WB/16000/1\n"), sdp);
         assertTrue(sdp.contains("\na=fmtp:99 octet-align=1\n"), sdp);
@@ -209,9 +210,9 @@ class Go2RtcDataPumpTest {
 
     @Test
     void decoderOutputReachesListenClient() throws Exception {
-        AudioSupportedCodec pcmu = new AudioSupportedCodec(AudioCodecType.PCMU, 1, 8);
+        AudioCodec pcmu = new AudioCodec(AudioCodecType.PCMU, 1, 8);
         CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(CAMERA_CODECS, NO_OP_OBSERVER)) {
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(AUDIO_CODECS, VIDEO_CODECS, NO_OP_OBSERVER)) {
             // the helper process writes the SDP file to stdout, so decoder output matches the written SDP
             pump.startDecoders(new Go2RtcDataPump.DecoderSpecification(port -> {
                 decoderPort.complete(port);
@@ -230,7 +231,7 @@ class Go2RtcDataPumpTest {
     void rtpReceivedWhileListenConnectedIsForwardedToDecoder() throws Exception {
         InetAddress loopback = InetAddress.getLoopbackAddress();
         CompletableFuture<Integer> decoderPort = new CompletableFuture<>();
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(CAMERA_CODECS, NO_OP_OBSERVER)) {
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(AUDIO_CODECS, VIDEO_CODECS, NO_OP_OBSERVER)) {
             // the helper process blocks on stdin to keep the decoder process alive while the test sends RTP
             pump.startDecoders(new Go2RtcDataPump.DecoderSpecification(port -> {
                 decoderPort.complete(port);
@@ -265,6 +266,7 @@ class Go2RtcDataPumpTest {
     void talkConnectionNotifiesObserverOfConnectAndDisconnect() throws Exception {
         CompletableFuture<Void> connected = new CompletableFuture<>();
         CompletableFuture<Void> disconnected = new CompletableFuture<>();
+
         Go2RtcDataPump.ClientObserver observer = new Go2RtcDataPump.ClientObserver() {
             @Override
             public void listenConnected() {
@@ -284,7 +286,8 @@ class Go2RtcDataPumpTest {
                 disconnected.complete(null);
             }
         };
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(CAMERA_CODECS, observer)) {
+
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(AUDIO_CODECS, VIDEO_CODECS, observer)) {
             try (Socket client = new Socket(InetAddress.getLoopbackAddress(), pump.talkPort())) {
                 connected.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 client.shutdownOutput();

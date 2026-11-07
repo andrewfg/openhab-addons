@@ -28,8 +28,8 @@ import org.openhab.binding.homekit.internal.enums.AudioCodecType;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SelectedAudioParameters(AudioCodecType codec, int channels, boolean constantBitrate, int sampleRateKhz,
-        int packetTimeMs, int payloadType, long ssrc, int maxBitrateKbps, float minRtcpIntervalSec,
+public record AudioSelectedParameters(AudioCodecType codecType, int channels, boolean constantBitrate,
+        int sampleRateKhz, int packetTimeMs, int payloadType, long ssrc, int maxBitrateKbps, float minRtcpIntervalSec,
         boolean comfortNoise, int comfortNoisePayloadType) {
 
     private static final int TYPE_CODEC = 0x01;
@@ -48,7 +48,7 @@ public record SelectedAudioParameters(AudioCodecType codec, int channels, boolea
     private static final int TYPE_MIN_RTCP_INTERVAL = 0x04;
     private static final int TYPE_COMFORT_NOISE_PAYLOAD_TYPE = 0x06;
 
-    public SelectedAudioParameters {
+    public AudioSelectedParameters {
         if (channels < 1 || channels > 0xFF) {
             throw new IllegalArgumentException("Channels out of range: " + channels);
         }
@@ -84,7 +84,7 @@ public record SelectedAudioParameters(AudioCodecType codec, int channels, boolea
         rtpParameters.put(TYPE_COMFORT_NOISE_PAYLOAD_TYPE, u8(comfortNoisePayloadType));
 
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
-        tlv.put(TYPE_CODEC, u8(codec.value));
+        tlv.put(TYPE_CODEC, u8(codecType.value));
         tlv.put(TYPE_CODEC_PARAMETERS, Tlv8Codec.encode(codecParameters));
         tlv.put(TYPE_RTP_PARAMETERS, Tlv8Codec.encode(rtpParameters));
         tlv.put(TYPE_COMFORT_NOISE, u8(comfortNoise ? 1 : 0));

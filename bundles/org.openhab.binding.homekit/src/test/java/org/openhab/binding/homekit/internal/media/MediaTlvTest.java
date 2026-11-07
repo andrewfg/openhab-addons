@@ -24,7 +24,7 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
-import org.openhab.binding.homekit.internal.media.tlv.SelectedAudioParameters;
+import org.openhab.binding.homekit.internal.media.tlv.AudioSelectedParameters;
 import org.openhab.binding.homekit.internal.media.tlv.SetupEndpointsRequest;
 import org.openhab.binding.homekit.internal.media.tlv.SetupEndpointsResponse;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
@@ -180,7 +180,7 @@ class MediaTlvTest {
 
     @Test
     void selectedAudioEncodesCodecAndRtpParameters() {
-        SelectedAudioParameters audio = new SelectedAudioParameters(AudioCodecType.OPUS, 1, true, 16, 20, 110,
+        AudioSelectedParameters audio = new AudioSelectedParameters(AudioCodecType.OPUS, 1, true, 16, 20, 110,
                 0xAABBCCDDL, 24, 0.5f, false, 13);
         Map<Integer, byte[]> tlv = Tlv8Codec.decode(audio.encode());
         byte[] codec = tlv.get(0x01);
@@ -203,11 +203,11 @@ class MediaTlvTest {
 
     @Test
     void selectedAudioRejectsUnsupportedValues() {
-        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true,
+        assertThrows(IllegalArgumentException.class, () -> new AudioSelectedParameters(AudioCodecType.AAC_ELD, 1, true,
                 44, 20, 110, 1, 24, 0.5f, false, 13));
-        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 0, true,
+        assertThrows(IllegalArgumentException.class, () -> new AudioSelectedParameters(AudioCodecType.AAC_ELD, 0, true,
                 16, 20, 110, 1, 24, 0.5f, false, 13));
-        assertThrows(IllegalArgumentException.class, () -> new SelectedAudioParameters(AudioCodecType.AAC_ELD, 1, true,
+        assertThrows(IllegalArgumentException.class, () -> new AudioSelectedParameters(AudioCodecType.AAC_ELD, 1, true,
                 16, 20, 200, 1, 24, 0.5f, false, 13));
     }
 }
