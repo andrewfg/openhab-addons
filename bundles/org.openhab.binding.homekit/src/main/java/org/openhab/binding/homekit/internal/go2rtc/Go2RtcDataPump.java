@@ -13,45 +13,36 @@
 package org.openhab.binding.homekit.internal.go2rtc;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 import org.openhab.binding.homekit.internal.media.AudioCodec;
+import org.openhab.binding.homekit.internal.media.SrtpSession;
 import org.openhab.binding.homekit.internal.media.VideoCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Data pump between the binding's media and go2rtc.
+ * Relays RTP between the camera and go2rtc's ffmpeg instances.
  *
- * Each of the audio and video channels receives the camera's SRTP RTP on an ephemeral UDP port. While a go2rtc client
- * is connected and media is started, the channel relays the RTP to an ffmpeg decoder, and streams the decoder's output
- * to that client over TCP. Data is queued and written by a separate thread, so a stalled client drops data instead of
- * blocking the HomeKit thread. The talk server hands each accepted connection, carrying browser audio from go2rtc, to
- * a consumer.
+ * Camera audio and video arrive as SRTP on UDP ports advertised in the SetupEndpoints request. While a session is
+ * active they are decrypted and forwarded as plain RTP on loopback to the forward ffmpeg instance, which reads them
+ * from SDP files written by this class. Plain RTP that the back ffmpeg instance sends on loopback is encrypted and sent
+ * to the camera's talk port. Packets are dropped while no session is active.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -60,41 +51,30 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcDataPump.class);
 
-    private static final int AUDIO_QUEUE_CAPACITY = 128;
-    private static final int VIDEO_QUEUE_CAPACITY = 256;
     private static final int MAX_DATAGRAM_SIZE = 2048;
-    private static final int BUFFER_SIZE = 65536;
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
     public static final int VIDEO_PAYLOAD_TYPE = 99;
 
     /**
-     * Receives notifications when the audio listen or talk client connects or disconnects. Close of the transporter
-     * does not notify. A talk connection is notified before its audio is encoded, so the observer may start the talk
-     * route with {@link #startTalk}.
+     * The SRTP contexts of one camera session. Each context is used only by its own relay thread.
      */
-    public interface ClientObserver {
-        void listenConnected();
-
-        void listenDisconnected();
-
-        void talkConnected();
-
-        void talkDisconnected();
-    }
-
-    private record TalkRoute(String remoteHost, int remotePort, SrtpParameters srtp, long ssrc, String ffmpeg,
-            int localPort) {
+    private record Session(SrtpSession audioIn, SrtpSession videoIn, SrtpSession talkOut,
+            InetSocketAddress talkTarget) {
     }
 
     private final AudioCodec audioCodec;
     private final VideoCodec videoCodec;
-    private final Channel audioChannel;
-    private final Channel videoChannel;
-    private final ServerSocket talkChannel;
-    private final ClientObserver clientObserver;
+    private final DatagramSocket audioSocket;
+    private final DatagramSocket videoSocket;
+    private final DatagramSocket talkSocket;
+    private final DatagramSocket talkSender;
+    private final int audioFfmpegPort;
+    private final int videoFfmpegPort;
+    private final Path audioSdpFile;
+    private final Path videoSdpFile;
 
-    private volatile @Nullable TalkRoute talkRoute = null;
+    private volatile @Nullable Session session = null;
     private volatile boolean closed;
 
     /**
@@ -128,29 +108,38 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Opens loopback servers on ephemeral ports and starts accepting connections.
+     * Opens the camera-facing and loopback sockets, writes the SDP files for the forward ffmpeg instance and starts the
+     * relay threads.
      *
      * @param audioCodecs the audio codecs the camera supports
-     * @param observer is notified when the audio listen or talk client connects or disconnects
+     * @param videoCodecs the video configurations the camera supports
      * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can transcode
-     * @throws IOException if the servers cannot be opened
+     * @throws IOException if the sockets or SDP files cannot be created
      */
-    public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs, ClientObserver observer)
-            throws IOException {
+    public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs) throws IOException {
         audioCodec = preferredAudioCodec(audioCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
         videoCodec = preferredVideoCodec(videoCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires video"));
-        clientObserver = observer;
-        audioChannel = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
+
+        audioFfmpegPort = freeLoopbackPort();
+        videoFfmpegPort = freeLoopbackPort();
+        audioSocket = new DatagramSocket(0);
         try {
-            videoChannel = new Channel("video", VIDEO_QUEUE_CAPACITY, null);
-            talkChannel = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+            videoSocket = new DatagramSocket(0);
         } catch (IOException e) {
-            audioChannel.close();
+            audioSocket.close();
             throw e;
         }
-        startAcceptThread("talk", talkChannel, this::onTalkClient);
+        talkSocket = new DatagramSocket(0, InetAddress.getLoopbackAddress());
+        talkSender = new DatagramSocket(0);
+
+        audioSdpFile = writeSdp("homekit-audio-", audioSdp(audioFfmpegPort, AUDIO_PAYLOAD_TYPE, audioCodec));
+        videoSdpFile = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE));
+
+        startThread("audio-rtp", () -> relayListen(audioSocket, audioFfmpegPort, Session::audioIn));
+        startThread("video-rtp", () -> relayListen(videoSocket, videoFfmpegPort, Session::videoIn));
+        startThread("talk-rtp", this::relayTalk);
     }
 
     /**
@@ -161,96 +150,68 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * @return the local port that serves the audio listen stream
+     * @return the camera's video configuration
      */
-    public int audioListenPort() {
-        return audioChannel.port();
-    }
-
     public VideoCodec videoCodec() {
         return videoCodec;
     }
 
     /**
-     * @return the local port that serves the video listen stream
-     */
-    public int videoListenPort() {
-        return videoChannel.port();
-    }
-
-    /**
-     * @return the local port that receives the talk audio
-     */
-    public int talkPort() {
-        return talkChannel.getLocalPort();
-    }
-
-    /**
-     * @return the loopback UDP port that receives the camera's audio RTP
+     * @return the UDP port that receives the camera's audio RTP, as advertised in the SetupEndpoints request
      */
     public int audioRtpPort() {
-        return audioChannel.rtpPort();
+        return audioSocket.getLocalPort();
     }
 
     /**
-     * @return the loopback UDP port that receives the camera's video RTP
+     * @return the UDP port that receives the camera's video RTP, as advertised in the SetupEndpoints request
      */
     public int videoRtpPort() {
-        return videoChannel.rtpPort();
+        return videoSocket.getLocalPort();
     }
 
     /**
-     * Starts decoding the camera's audio and video.
-     * Decoders run only while a go2rtc client is connected to the matching listen channel.
-     *
-     * @param ffmpeg the ffmpeg executable
-     * @param audioParams the stream SRTP => RTP de-cryption parameters
-     * @param videoParams the stream SRTP => RTP de-cryption parameters
+     * @return the loopback UDP port that the back ffmpeg instance sends its talk RTP to
      */
-    public void startDecoders(String ffmpeg, SrtpParameters audioParams, SrtpParameters videoParams) {
-        DecoderSpecification audioSpec = //
-                new DecoderSpecification(port -> audioSdp(port, AUDIO_PAYLOAD_TYPE, audioCodec),
-                        sdpFile -> FfmpegHelpers.listenCommand(ffmpeg, sdpFile, audioParams, audioCodec));
-
-        DecoderSpecification videoSpec = //
-                new DecoderSpecification(port -> videoSdp(port, VIDEO_PAYLOAD_TYPE),
-                        sdpFile -> FfmpegHelpers.watchCommand(ffmpeg, sdpFile, videoParams));
-
-        startDecoders(audioSpec, videoSpec);
+    public int talkRtpPort() {
+        return talkSocket.getLocalPort();
     }
 
     /**
-     * Starts encoding browser talk audio, received from go2rtc, to the camera as SRTP. Talk audio is dropped while no
-     * route is started.
-     * 
-     * @param remoteHost the camera's address
-     * @param remotePort the camera's audio port from the SetupEndpoints response
-     * @param talkParams the camera's audio SRTP parameters from the SetupEndpoints response
-     * @param ssrc the RTP SSRC announced to the camera in the selected audio configuration
-     * @param ffmpeg the ffmpeg executable
-     *
-     * @throws IOException if an ephemeral local port cannot be allocated
+     * @return the SDP file that describes the camera audio for the forward ffmpeg instance
      */
-    public void startEncoder(String remoteHost, int remotePort, SrtpParameters talkParams, long ssrc, String ffmpeg)
-            throws IOException {
-        int localPort;
-        try (DatagramSocket probe = new DatagramSocket(0)) {
-            localPort = probe.getLocalPort();
-        }
-        talkRoute = new TalkRoute(remoteHost, remotePort, talkParams, ssrc, ffmpeg, localPort);
+    public String audioSdpFile() {
+        return audioSdpFile.toString();
     }
 
-    public void stopDecoders() {
-        startDecoders(null, null);
+    /**
+     * @return the SDP file that describes the camera video for the forward ffmpeg instance
+     */
+    public String videoSdpFile() {
+        return videoSdpFile.toString();
     }
 
-    public void stopEncoder() {
-        talkRoute = null;
+    /**
+     * Starts relaying media for a camera session, replacing any session already active.
+     *
+     * @param listenAudio the SRTP parameters the camera uses to encrypt its audio
+     * @param listenVideo the SRTP parameters the camera uses to encrypt its video
+     * @param talk the SRTP parameters the binding uses to encrypt talk audio towards the camera
+     * @param remoteHost the camera's IP address
+     * @param remoteTalkPort the camera's audio port from the SetupEndpoints response
+     * @throws IllegalArgumentException if a crypto suite is {@link org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite#NONE}
+     */
+    public void startSession(SrtpParameters listenAudio, SrtpParameters listenVideo, SrtpParameters talk,
+            String remoteHost, int remoteTalkPort) {
+        session = new Session(SrtpSession.create(listenAudio), SrtpSession.create(listenVideo),
+                SrtpSession.create(talk), new InetSocketAddress(remoteHost, remoteTalkPort));
     }
 
-    void startDecoders(@Nullable DecoderSpecification audioSpec, @Nullable DecoderSpecification videoSpec) {
-        audioChannel.setDecoder(audioSpec);
-        videoChannel.setDecoder(videoSpec);
+    /**
+     * Stops relaying media. Packets received afterwards are dropped.
+     */
+    public void stopSession() {
+        session = null;
     }
 
     static String audioSdp(int ffmpegPort, int payloadType, AudioCodec codec) {
@@ -294,78 +255,88 @@ public class Go2RtcDataPump implements AutoCloseable {
     @Override
     public void close() {
         closed = true;
-        audioChannel.close();
-        videoChannel.close();
-        closeQuietly(talkChannel);
+        session = null;
+        audioSocket.close();
+        videoSocket.close();
+        talkSocket.close();
+        talkSender.close();
+        deleteQuietly(audioSdpFile);
+        deleteQuietly(videoSdpFile);
     }
 
-    private void startAcceptThread(String name, ServerSocket server, SocketHandler handler) {
-        Thread thread = new Thread(() -> acceptLoop(server, handler), "OH-binding-homekit-go2rtc-" + name);
+    /**
+     * Decrypts camera RTP and forwards it as plain RTP to the forward ffmpeg instance on loopback.
+     */
+    private void relayListen(DatagramSocket socket, int ffmpegPort, Function<Session, SrtpSession> stream) {
+        InetAddress loopback = InetAddress.getLoopbackAddress();
+        byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        while (!closed) {
+            try {
+                packet.setLength(buffer.length);
+                socket.receive(packet);
+                Session current = session;
+                if (current != null) {
+                    byte[] rtp = stream.apply(current)
+                            .unprotect(Arrays.copyOf(packet.getData(), packet.getLength()));
+                    if (rtp != null) {
+                        socket.send(new DatagramPacket(rtp, rtp.length, loopback, ffmpegPort));
+                    }
+                }
+            } catch (IOException e) {
+                if (closed) {
+                    return;
+                }
+                LOGGER.debug("go2rtc RTP relay failed: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Encrypts plain RTP from the back ffmpeg instance and sends it to the camera's talk port.
+     */
+    private void relayTalk() {
+        byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        while (!closed) {
+            try {
+                packet.setLength(buffer.length);
+                talkSocket.receive(packet);
+                Session current = session;
+                if (current != null) {
+                    byte[] srtp = current.talkOut().protect(Arrays.copyOf(packet.getData(), packet.getLength()));
+                    talkSender.send(new DatagramPacket(srtp, srtp.length, current.talkTarget()));
+                }
+            } catch (IOException e) {
+                if (closed) {
+                    return;
+                }
+                LOGGER.debug("go2rtc talk relay failed: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void startThread(String name, Runnable task) {
+        Thread thread = new Thread(task, "OH-binding-homekit-go2rtc-" + name);
         thread.setDaemon(true);
         thread.start();
     }
 
-    private void acceptLoop(ServerSocket server, SocketHandler handler) {
-        while (!closed) {
-            try {
-                handler.handle(server.accept());
-            } catch (IOException e) {
-                if (!closed) {
-                    LOGGER.debug("go2rtc data pump accept failed", e);
-                }
-                return;
-            }
+    private static int freeLoopbackPort() throws IOException {
+        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
+            return probe.getLocalPort();
         }
     }
 
-    private void onTalkClient(Socket talkSocket) {
-        Thread reader = new Thread(() -> {
-            try (InputStream in = talkSocket.getInputStream()) {
-                clientObserver.talkConnected();
-                try {
-                    encodeTalk(in);
-                } finally {
-                    clientObserver.talkDisconnected();
-                }
-            } catch (IOException e) {
-                LOGGER.debug("go2rtc talk client disconnected", e);
-            } finally {
-                closeQuietly(talkSocket);
-            }
-        }, "OH-binding-homekit-go2rtc-talk-reader");
-
-        reader.setDaemon(true);
-        reader.start();
-    }
-
-    private void encodeTalk(InputStream talkStream) throws IOException {
-        TalkRoute route = talkRoute;
-        if (route == null) {
-            LOGGER.debug("go2rtc talk route not available");
-            return;
-        }
-
-        Process process = new ProcessBuilder(FfmpegHelpers.talkCommand(route.ffmpeg(), route.remoteHost(),
-                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), audioCodec))
-                .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-
-        try (OutputStream outputStream = process.getOutputStream()) {
-            talkStream.transferTo(outputStream);
+    private static Path writeSdp(String prefix, String sdp) throws IOException {
+        Path file = Files.createTempFile(prefix, ".sdp");
+        try {
+            Files.writeString(file, sdp, StandardCharsets.US_ASCII);
         } catch (IOException e) {
-            LOGGER.debug("go2rtc talk stream ended: {}", e.getMessage());
-        } finally {
-            process.destroy();
+            deleteQuietly(file);
+            throw e;
         }
-    }
-
-    private static void closeQuietly(@Nullable AutoCloseable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (Exception e) {
-                LOGGER.trace("Ignoring close failure", e);
-            }
-        }
+        return file;
     }
 
     private static void deleteQuietly(Path file) {
@@ -373,247 +344,6 @@ public class Go2RtcDataPump implements AutoCloseable {
             Files.deleteIfExists(file);
         } catch (IOException e) {
             LOGGER.debug("Failed to delete go2rtc temp file {}: {}", file, e.getMessage());
-        }
-    }
-
-    @FunctionalInterface
-    private interface SocketHandler {
-        void handle(Socket socket) throws IOException;
-    }
-
-    /**
-     * An ffmpeg decoder specification. {@code sdp} builds the SDP that describes the RTP on the given
-     * ffmpeg port, and {@code command} builds the ffmpeg command line that reads that SDP file.
-     */
-    record DecoderSpecification(IntFunction<String> sdp, Function<String, List<String>> command) {
-    }
-
-    /**
-     * A running decoder: its ffmpeg process and the SDP file it reads.
-     */
-    private record Running(Process process, Path sdpFile) {
-    }
-
-    /**
-     * A server that streams decoded data to a single connected go2rtc client. It also receives the
-     * SRTP, relays it to ffmpeg while a decoder runs, and discards it otherwise.
-     */
-    private class Channel implements AutoCloseable {
-
-        private final String name;
-        private final int capacity;
-        private final @Nullable ClientObserver observer;
-        private final ServerSocket server;
-        private final DatagramSocket rtpSocket;
-        private final Object lock = new Object();
-
-        private @Nullable Socket client;
-        private BlockingQueue<byte[]> queue;
-        private @Nullable DecoderSpecification ffmpegSpecification;
-        private @Nullable Running running;
-        private volatile @Nullable Integer forwardPort;
-
-        Channel(String name, int capacity, @Nullable ClientObserver observer) throws IOException {
-            this.name = name;
-            this.capacity = capacity;
-            this.observer = observer;
-            this.queue = new ArrayBlockingQueue<>(capacity);
-            this.rtpSocket = new DatagramSocket(0);
-
-            try {
-                this.server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
-            } catch (IOException e) {
-                rtpSocket.close();
-                throw e;
-            }
-
-            startAcceptThread(name, server, this::onClient);
-
-            Thread relay = new Thread(this::relayRtp, "OH-binding-homekit-go2rtc-" + name + "-rtp");
-            relay.setDaemon(true);
-            relay.start();
-        }
-
-        int port() {
-            return server.getLocalPort();
-        }
-
-        int rtpPort() {
-            return rtpSocket.getLocalPort();
-        }
-
-        void setDecoder(@Nullable DecoderSpecification spec) {
-            synchronized (lock) {
-                ffmpegSpecification = spec;
-                restartFfmpegLocked();
-            }
-        }
-
-        private void relayRtp() {
-            byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            while (!rtpSocket.isClosed()) {
-                try {
-                    packet.setLength(buffer.length);
-                    rtpSocket.receive(packet);
-                    Integer target = forwardPort;
-                    if (target != null) {
-                        rtpSocket.send(new DatagramPacket(buffer, packet.getLength(), InetAddress.getLoopbackAddress(),
-                                target));
-                    }
-                } catch (IOException e) {
-                    // a closed socket ends the loop; any other failure is transient and the datagram is dropped
-                    if (rtpSocket.isClosed()) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        /**
-         * Queues decoded data for the connected client. Data from a decoder that has since been stopped or
-         * replaced is dropped, as is data when no client is connected or the client cannot keep up.
-         */
-        private void publish(Running owner, byte[] buffer, int offset, int length) {
-            synchronized (lock) {
-                if (!Objects.equals(running, owner) || client == null) {
-                    return;
-                }
-                queue.offer(Arrays.copyOfRange(buffer, offset, offset + length));
-            }
-        }
-
-        /**
-         * Must be called while holding {@code lock}.
-         */
-        private void restartFfmpegLocked() {
-            stopFfmpegLocked();
-            DecoderSpecification spec = ffmpegSpecification;
-            if (spec != null && client != null) {
-                try {
-                    startFfmpegLocked(spec);
-                } catch (IOException e) {
-                    LOGGER.warn("Failed to start go2rtc {} decoder: {}", name, e.getMessage());
-                }
-            }
-        }
-
-        /**
-         * Must be called while holding {@code lock}.
-         */
-        private void startFfmpegLocked(DecoderSpecification spec) throws IOException {
-            int ffmpegPort;
-            try (DatagramSocket probe = new DatagramSocket(0)) {
-                ffmpegPort = probe.getLocalPort();
-            }
-            Path sdp = Files.createTempFile("homekit-" + name + "-", ".sdp");
-            try {
-                Files.writeString(sdp, spec.sdp().apply(ffmpegPort), StandardCharsets.US_ASCII);
-                Process process = new ProcessBuilder(spec.command().apply(sdp.toString()))
-                        .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-                Running owner = new Running(process, sdp);
-                running = owner;
-                forwardPort = ffmpegPort;
-                Thread copier = new Thread(() -> copy(owner), "OH-binding-homekit-go2rtc-" + name + "-decoder");
-                copier.setDaemon(true);
-                copier.start();
-            } catch (IOException | RuntimeException e) {
-                deleteQuietly(sdp);
-                throw e;
-            }
-        }
-
-        /**
-         * Must be called while holding {@code lock}.
-         */
-        private void stopFfmpegLocked() {
-            Running current = running;
-            running = null;
-            forwardPort = null;
-            if (current != null) {
-                current.process().destroy();
-                deleteQuietly(current.sdpFile());
-            }
-        }
-
-        private void copy(Running owner) {
-            byte[] buffer = new byte[BUFFER_SIZE];
-            try (InputStream input = owner.process().getInputStream()) {
-                int read;
-                while ((read = input.read(buffer)) != -1) {
-                    publish(owner, buffer, 0, read);
-                }
-            } catch (IOException e) {
-                LOGGER.debug("go2rtc {} decoder ended: {}", name, e.getMessage());
-            }
-        }
-
-        @Override
-        public void close() {
-            closeQuietly(server);
-            closeQuietly(rtpSocket);
-            synchronized (lock) {
-                Socket current = client;
-                client = null;
-                queue.clear();
-                closeQuietly(current);
-                ffmpegSpecification = null;
-                stopFfmpegLocked();
-            }
-        }
-
-        private void onClient(Socket socket) {
-            BlockingQueue<byte[]> clientQueue = new ArrayBlockingQueue<>(capacity);
-            boolean replaced;
-            synchronized (lock) {
-                replaced = client != null;
-                closeQuietly(client);
-                client = socket;
-                queue = clientQueue;
-                restartFfmpegLocked();
-            }
-            ClientObserver listener = observer;
-            if (listener != null) {
-                if (replaced) {
-                    listener.listenDisconnected();
-                }
-                listener.listenConnected();
-            }
-            Thread writer = new Thread(() -> write(socket, clientQueue),
-                    "OH-binding-homekit-go2rtc-" + name + "-writer");
-            writer.setDaemon(true);
-            writer.start();
-        }
-
-        private void write(Socket socket, BlockingQueue<byte[]> clientQueue) {
-            try (OutputStream out = socket.getOutputStream()) {
-                while (!closed && !socket.isClosed()) {
-                    byte[] chunk = clientQueue.poll(1, TimeUnit.SECONDS);
-                    if (chunk != null) {
-                        out.write(chunk);
-                        out.flush();
-                    }
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                LOGGER.debug("go2rtc {} client disconnected", name, e);
-            } catch (IOException e) {
-                LOGGER.debug("go2rtc {} client disconnected", name, e);
-            } finally {
-                boolean current;
-                synchronized (lock) {
-                    current = Objects.equals(client, socket);
-                    if (current) {
-                        client = null;
-                        stopFfmpegLocked();
-                    }
-                }
-                closeQuietly(socket);
-                ClientObserver listener = observer;
-                if (current && !closed && listener != null) {
-                    listener.listenDisconnected();
-                }
-            }
         }
     }
 }
