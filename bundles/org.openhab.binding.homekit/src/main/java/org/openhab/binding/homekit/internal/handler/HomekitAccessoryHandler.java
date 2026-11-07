@@ -52,6 +52,7 @@ import org.openhab.binding.homekit.internal.enums.ServiceType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 import org.openhab.binding.homekit.internal.enums.SrtpCryptoSuite;
 import org.openhab.binding.homekit.internal.enums.StatusCode;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 import org.openhab.binding.homekit.internal.ffmpeg.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.go2rtc.Go2RtcDataPump;
@@ -1636,10 +1637,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            String listenCommand = Go2RtcConfig.listenCommand(ffmpegBinary, Go2RtcConfig.AUDIO_FORMAT,
-                    pump.audioListenPort(), pump.videoListenPort());
-            String yaml = Go2RtcConfig.toYaml(ports, stream, listenCommand, stream + "_talk",
-                    Go2RtcConfig.talkCommand(ffmpegBinary, pump.talkPort()));
+            String yaml = Go2RtcConfig.toYaml(ports, stream,
+                    FfmpegHelpers.go2rtcListenCommand(ffmpegBinary, pump.audioListenPort(), pump.videoListenPort()),
+                    stream + "_talk", FfmpegHelpers.go2rtcTalkCommand(ffmpegBinary, pump.talkPort()));
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);

@@ -31,6 +31,11 @@ import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 @NonNullByDefault
 public final class FfmpegHelpers {
 
+    /**
+     * The 8 kHz mono A-law format that go2rtc publishes and receives on its pipes and loopback ports.
+     */
+    private static final List<String> ALAW_8K_MONO = List.of("-f", "alaw", "-ar", "8000", "-ac", "1");
+
     private FfmpegHelpers() {
     }
 
@@ -150,6 +155,52 @@ public final class FfmpegHelpers {
         command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-ssrc", String.valueOf(ssrc),
                 "-srtp_out_suite", toFfmpegSuite(srtp.cryptoSuite()), "-srtp_out_params", toFfmpegParams(srtp), "-f",
                 "rtp", "rtp://" + remoteHost + ":" + remotePort + "?localport=" + localPort));
+        return List.copyOf(command);
+    }
+
+    /**
+     * Builds the go2rtc listen command for audio only: 8 kHz mono A-law read from a loopback TCP port and published to
+     * go2rtc over RTSP. The {@code {output}} placeholder is substituted by go2rtc with its RTSP publish URL.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param audioPort the loopback TCP port the binding serves the listen audio on
+     */
+    public static List<String> go2rtcListenCommand(String ffmpeg, int audioPort) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
+        command.addAll(ALAW_8K_MONO);
+        command.addAll(List.of("-i", "tcp://127.0.0.1:" + audioPort, "-vn", "-c:a", "copy", "-f", "rtsp", "{output}"));
+        return List.copyOf(command);
+    }
+
+    /**
+     * Builds the go2rtc listen command for audio and H.264 video: both are read from loopback TCP ports and muxed into
+     * one RTSP stream for go2rtc. Neither stream is transcoded.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param audioPort the loopback TCP port the binding serves the listen audio on
+     * @param videoPort the loopback TCP port the binding serves the H.264 Annex B video on
+     */
+    public static List<String> go2rtcListenCommand(String ffmpeg, int audioPort, int videoPort) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
+        command.addAll(ALAW_8K_MONO);
+        command.addAll(List.of("-i", "tcp://127.0.0.1:" + audioPort, "-f", "h264", "-i",
+                "tcp://127.0.0.1:" + videoPort, "-map", "0:a", "-map", "1:v", "-c", "copy", "-f", "rtsp", "{output}"));
+        return List.copyOf(command);
+    }
+
+    /**
+     * Builds the go2rtc talk command: the browser microphone audio that go2rtc writes to stdin as 8 kHz mono A-law is
+     * sent unchanged to the binding's loopback TCP port, which transcodes it to the camera's codec.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param outputPort the loopback TCP port the binding listens on for talk audio
+     */
+    public static List<String> go2rtcTalkCommand(String ffmpeg, int outputPort) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "error"));
+        command.addAll(ALAW_8K_MONO);
+        command.addAll(List.of("-i", "pipe:0", "-c:a", "pcm_alaw"));
+        command.addAll(ALAW_8K_MONO);
+        command.add("tcp://127.0.0.1:" + outputPort + "#backchannel=1#audio=alaw/8000");
         return List.copyOf(command);
     }
 }

@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
@@ -26,35 +27,10 @@ import org.junit.jupiter.api.Test;
 class Go2RtcConfigTest {
 
     @Test
-    void listenCommandPublishesToRtspOutput() {
-        String cmd = Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000);
-        assertEquals(
-                "ffmpeg -hide_banner -loglevel error -f ogg -i tcp://127.0.0.1:5000 -vn -c:a copy -f rtsp {output}",
-                cmd);
-    }
-
-    @Test
-    void listenCommandWithVideoMuxesAudioAndH264WithoutTranscoding() {
-        String cmd = Go2RtcConfig.listenCommand("ffmpeg", "-f alaw -ar 8000 -ac 1", 5000, 5001);
-        assertEquals(
-                "ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -f h264 -i tcp://127.0.0.1:5001 -map 0:a -map 1:v -c copy -f rtsp {output}",
-                cmd);
-    }
-
-    @Test
-    void talkCommandUsesFixedAlawBackchannel() {
-        String cmd = Go2RtcConfig.talkCommand("ffmpeg", 6000);
-        assertTrue(cmd.startsWith("ffmpeg "));
-        assertTrue(cmd.contains(
-                "-f alaw -ar 8000 -ac 1 -i pipe:0 -c:a pcm_alaw -f alaw -ar 8000 -ac 1 tcp://127.0.0.1:6000"));
-        assertTrue(cmd.endsWith("#backchannel=1#audio=alaw/8000"));
-    }
-
-    @Test
     void yamlContainsPortsStreamsAndExecPrefix() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000), "cam_talk",
-                Go2RtcConfig.talkCommand("ffmpeg", 6000));
+                FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000), "cam_talk",
+                FfmpegHelpers.go2rtcTalkCommand("ffmpeg", 6000));
         assertTrue(yaml.contains("api:\n  listen: \":1984\"\n"));
         assertTrue(yaml.contains("webrtc:\n  listen: \":8555\"\n"));
         assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
@@ -65,7 +41,7 @@ class Go2RtcConfigTest {
     @Test
     void yamlOmitsTalkStreamWhenNotAvailable() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Ports(1984, 8555, 18554), "cam",
-                Go2RtcConfig.listenCommand("ffmpeg", "-f ogg", 5000), null, null);
+                FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000), null, null);
         assertFalse(yaml.contains("cam_talk"));
         assertTrue(yaml.endsWith("\"\n"));
     }

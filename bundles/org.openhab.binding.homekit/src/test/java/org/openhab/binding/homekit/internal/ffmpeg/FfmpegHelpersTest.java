@@ -147,6 +147,28 @@ class FfmpegHelpersTest {
         assertTrue(String.join(" ", amrWb).contains("-ar 16000 -ac 1 -c:a libvo_amrwb"));
     }
 
+    @Test
+    void go2rtcListenCommandPublishesAudioToRtspOutput() {
+        assertEquals("ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -vn -c:a copy "
+                + "-f rtsp {output}", String.join(" ", FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000)));
+    }
+
+    @Test
+    void go2rtcListenCommandWithVideoMuxesAudioAndH264WithoutTranscoding() {
+        assertEquals("ffmpeg -hide_banner -loglevel error -f alaw -ar 8000 -ac 1 -i tcp://127.0.0.1:5000 -f h264 "
+                + "-i tcp://127.0.0.1:5001 -map 0:a -map 1:v -c copy -f rtsp {output}",
+                String.join(" ", FfmpegHelpers.go2rtcListenCommand("ffmpeg", 5000, 5001)));
+    }
+
+    @Test
+    void go2rtcTalkCommandUsesFixedAlawBackchannel() {
+        String cmd = String.join(" ", FfmpegHelpers.go2rtcTalkCommand("ffmpeg", 6000));
+        assertTrue(cmd.startsWith("ffmpeg "));
+        assertTrue(cmd.contains(
+                "-f alaw -ar 8000 -ac 1 -i pipe:0 -c:a pcm_alaw -f alaw -ar 8000 -ac 1 tcp://127.0.0.1:6000"));
+        assertTrue(cmd.endsWith("#backchannel=1#audio=alaw/8000"));
+    }
+
     private static List<String> listen(AudioCodec codec) {
         return FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
     }
