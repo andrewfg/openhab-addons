@@ -1426,10 +1426,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
         byte[] session = new byte[16];
         RANDOM.nextBytes(session);
-        SrtpParameters talkSrtp = randomSrtpParameters();
+        SrtpParameters talkParams = randomSrtpParameters();
 
         SetupEndpointsRequest request = new SetupEndpointsRequest(session, false, localAddress(remoteAddress),
-                pump.videoRtpPort(), pump.audioRtpPort(), randomSrtpParameters(), talkSrtp);
+                pump.videoRtpPort(), pump.audioRtpPort(), randomSrtpParameters(), talkParams);
         SetupEndpointsResponse response = SetupEndpointsResponse
                 .decode(writeTlvCharacteristic(aid, setupIid, request.encode(), true));
 
@@ -1444,7 +1444,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             throw new IllegalStateException("Camera did not return SRTP parameters or a talk port");
         }
 
-        pump.startSession(audioParams, videoParams, talkSrtp, remoteAddress, remoteTalkPort);
+        pump.startSession(audioParams, videoParams, talkParams, remoteAddress, remoteTalkPort);
         RtpStreamConfiguration streamConfig = new RtpStreamConfiguration(session, SessionCommand.START,
                 selectedVideo(pump.videoCodec()), selectedAudio(pump.audioCodec()));
         writeTlvCharacteristic(aid, selectedIid, streamConfig.encode(), false);
@@ -1518,12 +1518,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            String yaml = Go2RtcConfig.toYaml(ports, stream,
-                    FfmpegHelpers.go2rtcListenCommand(ffmpegBinary, pump.audioSdpFile(), pump.videoSdpFile(),
-                            pump.audioCodec()),
-                    stream + "_talk",
-                    FfmpegHelpers.go2rtcTalkCommand(ffmpegBinary, pump.audioCodec(),
-                            Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, AUDIO_SSRC, pump.talkRtpPort()));
+            List<String> listenCmd = FfmpegHelpers.go2rtcListenCommand(ffmpegBinary, pump.audioSdpFile(),
+                    pump.videoSdpFile(), pump.audioCodec());
+
+            List<String> talkCmd = FfmpegHelpers.go2rtcTalkCommand(ffmpegBinary, pump.audioCodec(),
+                    Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, AUDIO_SSRC, pump.talkRtpPort());
+
+            String yaml = Go2RtcConfig.toYaml(ports, stream, listenCmd, stream + "_talk", talkCmd);
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
@@ -1659,10 +1660,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 switch (Characteristic.getCharacteristicType(characteristic.type)) {
                     case SETUP_ENDPOINTS -> mediaSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> mediaSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION ->
-                        audioCodecs = decodeAudioSupportedCodecs(characteristic.value);
-                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
-                        videoCodecs = decodeVideoSupportedCodecs(characteristic.value);
+                    case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeAudioSupportedCodecs(
+                            characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION -> videoCodecs = decodeVideoSupportedCodecs(
+                            characteristic.value);
                     default -> {
                     }
                 }
