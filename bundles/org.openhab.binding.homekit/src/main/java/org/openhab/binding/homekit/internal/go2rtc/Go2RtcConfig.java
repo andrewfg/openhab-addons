@@ -16,7 +16,6 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 
 /**
  * Builds the go2rtc YAML configuration and the ffmpeg exec commands that connect go2rtc to the binding.
@@ -51,12 +50,9 @@ public final class Go2RtcConfig {
      *
      * @param ports the ports to listen on
      * @param listenStream the name of the stream the browser listens to
-     * @param listenCommand the exec command that produces the listen stream, see
-     *            {@link FfmpegHelpers#go2rtcListenCommand(String, String, String, org.openhab.binding.homekit.internal.media.AudioCodec)}
+     * @param listenCommand the exec command that produces the listen stream
      * @param talkStream the name of the stream the browser talks to, or null when talk is not available
-     * @param talkCommand the exec command that consumes talk audio, see
-     *            {@link FfmpegHelpers#go2rtcTalkCommand(String, org.openhab.binding.homekit.internal.media.AudioCodec, int, long, int)},
-     *            or null. The go2rtc backchannel fragment is appended to this command.
+     * @param talkCommand the exec command that consumes talk audio or null
      */
     public static String toYaml(Ports ports, String listenStream, List<String> listenCommand,
             @Nullable String talkStream, @Nullable List<String> talkCommand) {
