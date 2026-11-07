@@ -36,27 +36,27 @@ import java.util.function.IntFunction;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-import org.openhab.binding.homekit.internal.ffmpeg.FfmpegConverter;
+import org.openhab.binding.homekit.internal.ffmpeg.FfmpegHelpers;
 import org.openhab.binding.homekit.internal.media.AudioCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Loopback endpoints that connect the binding's media to go2rtc.
+ * Data pump between the binding's media and go2rtc.
  *
  * Each of the audio and video channels receives the camera's SRTP RTP on an ephemeral UDP port. While a go2rtc client
  * is connected and media is started, the channel relays the RTP to an ffmpeg decoder, and streams the decoder's output
  * to that client over TCP. Data is queued and written by a separate thread, so a stalled client drops data instead of
- * blocking the HomeKit thread. The talk server hands each accepted connection, carrying browser audio from go2rtc, to a
- * consumer.
+ * blocking the HomeKit thread. The talk server hands each accepted connection, carrying browser audio from go2rtc, to
+ * a consumer.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public class Go2RtcTransporter implements AutoCloseable {
+public class Go2RtcDataPump implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcTransporter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcDataPump.class);
     private static final int AUDIO_QUEUE_CAPACITY = 128;
     private static final int VIDEO_QUEUE_CAPACITY = 256;
     private static final int MAX_DATAGRAM_SIZE = 2048;
@@ -84,11 +84,11 @@ public class Go2RtcTransporter implements AutoCloseable {
             long ssrc) {
     }
 
-    private final AudioCodec codec;
+    private final AudioCodec audioCodec;
     private final Channel audio;
     private final Channel video;
     private final ServerSocket talkServer;
-    private final ClientObserver observer;
+    private final ClientObserver clienObserver;
     private volatile @Nullable TalkRoute talkRoute = null;
     private volatile boolean closed;
 
@@ -105,15 +105,14 @@ public class Go2RtcTransporter implements AutoCloseable {
     /**
      * Opens loopback servers on ephemeral ports and starts accepting connections.
      *
-     * @param cameraCodecs the audio codecs the camera supports
+     * @param codecs the audio codecs the camera supports
      * @param observer is notified when the audio listen or talk client connects or disconnects
      * @throws IllegalArgumentException if the camera does not support A-law
      * @throws IOException if the servers cannot be opened
      */
-    public Go2RtcTransporter(List<AudioCodec> cameraCodecs, ClientObserver observer) throws IOException {
-        this.codec = alawCodec(cameraCodecs)
-                .orElseThrow(() -> new IllegalArgumentException("go2rtc requires A-law audio"));
-        this.observer = observer;
+    public Go2RtcDataPump(List<AudioCodec> codecs, ClientObserver observer) throws IOException {
+        audioCodec = alawCodec(codecs).orElseThrow(() -> new IllegalArgumentException("go2rtc requires A-law audio"));
+        clienObserver = observer;
         audio = new Channel("audio", AUDIO_QUEUE_CAPACITY, observer);
         try {
             video = new Channel("video", VIDEO_QUEUE_CAPACITY, null);
@@ -125,32 +124,44 @@ public class Go2RtcTransporter implements AutoCloseable {
         startAcceptThread("talk", talkServer, this::onTalkClient);
     }
 
-    /** @return the camera's audio codec, used for both listen and talk */
+    /**
+     * @return the camera's audio codec, used for both listen and talk
+     */
     public AudioCodec codec() {
-        return codec;
+        return audioCodec;
     }
 
-    /** @return the loopback port that serves the audio listen stream */
+    /**
+     * @return the loopback port that serves the audio listen stream
+     */
     public int audioListenPort() {
         return audio.port();
     }
 
-    /** @return the loopback port that serves the video listen stream */
+    /**
+     * @return the loopback port that serves the video listen stream
+     */
     public int videoListenPort() {
         return video.port();
     }
 
-    /** @return the loopback port that receives the talk audio */
+    /**
+     * @return the loopback port that receives the talk audio
+     */
     public int talkPort() {
         return talkServer.getLocalPort();
     }
 
-    /** @return the loopback UDP port that receives the camera's audio RTP */
+    /**
+     * @return the loopback UDP port that receives the camera's audio RTP
+     */
     public int audioRtpPort() {
         return audio.rtpPort();
     }
 
-    /** @return the loopback UDP port that receives the camera's video RTP */
+    /**
+     * @return the loopback UDP port that receives the camera's video RTP
+     */
     public int videoRtpPort() {
         return video.rtpPort();
     }
@@ -160,18 +171,20 @@ public class Go2RtcTransporter implements AutoCloseable {
      * client is connected to the matching listen channel.
      *
      * @param ffmpeg the ffmpeg executable
-     * @param audioSrtp the camera's audio SRTP parameters from the SetupEndpoints response
-     * @param videoSrtp the camera's video SRTP parameters, or null if video is not negotiated
+     * @param audioParameters the camera's audio SRTP parameters from the SetupEndpoints response
+     * @param videoParameters the camera's video SRTP parameters, or null if video is not negotiated
      */
-    public void startMedia(String ffmpeg, SrtpParameters audioSrtp, @Nullable SrtpParameters videoSrtp) {
-        Decoder audioSpec = new Decoder(port -> audioSdp(port, AUDIO_PAYLOAD_TYPE, codec),
-                sdpFile -> FfmpegConverter.listenCommand(ffmpeg, sdpFile, audioSrtp, codec));
-        if (videoSrtp == null) {
+    public void startMedia(String ffmpeg, SrtpParameters audioParameters, @Nullable SrtpParameters videoParameters) {
+        DecoderSpecification audioSpec = new DecoderSpecification(
+                port -> audioSdp(port, AUDIO_PAYLOAD_TYPE, audioCodec),
+                sdpFile -> FfmpegHelpers.listenCommand(ffmpeg, sdpFile, audioParameters, audioCodec));
+        SrtpParameters videoParams = videoParameters;
+        if (videoParams == null) {
             startDecoders(audioSpec, null);
         } else {
-            SrtpParameters videoParams = videoSrtp;
-            startDecoders(audioSpec, new Decoder(port -> videoSdp(port, VIDEO_PAYLOAD_TYPE),
-                    sdpFile -> FfmpegConverter.watchCommand(ffmpeg, sdpFile, videoParams)));
+            DecoderSpecification videoSpec = new DecoderSpecification(port -> videoSdp(port, VIDEO_PAYLOAD_TYPE),
+                    sdpFile -> FfmpegHelpers.watchCommand(ffmpeg, sdpFile, videoParams));
+            startDecoders(audioSpec, videoSpec);
         }
     }
 
@@ -203,7 +216,7 @@ public class Go2RtcTransporter implements AutoCloseable {
         startDecoders(null, null);
     }
 
-    void startDecoders(@Nullable Decoder audioSpec, @Nullable Decoder videoSpec) {
+    void startDecoders(@Nullable DecoderSpecification audioSpec, @Nullable DecoderSpecification videoSpec) {
         audio.setDecoder(audioSpec);
         video.setDecoder(videoSpec);
     }
@@ -276,11 +289,11 @@ public class Go2RtcTransporter implements AutoCloseable {
     private void onTalkClient(Socket socket) {
         Thread reader = new Thread(() -> {
             try (InputStream in = socket.getInputStream()) {
-                observer.talkConnected();
+                clienObserver.talkConnected();
                 try {
                     encodeTalk(in);
                 } finally {
-                    observer.talkDisconnected();
+                    clienObserver.talkDisconnected();
                 }
             } catch (IOException e) {
                 LOGGER.debug("go2rtc talk client disconnected", e);
@@ -298,8 +311,8 @@ public class Go2RtcTransporter implements AutoCloseable {
             LOGGER.debug("go2rtc talk route not available");
             return;
         }
-        Process process = new ProcessBuilder(FfmpegConverter.talkCommand(route.ffmpeg(), route.remoteHost(),
-                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), codec))
+        Process process = new ProcessBuilder(FfmpegHelpers.talkCommand(route.ffmpeg(), route.remoteHost(),
+                route.remotePort(), route.localPort(), route.srtp(), AUDIO_PAYLOAD_TYPE, route.ssrc(), audioCodec))
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         try (OutputStream output = process.getOutputStream()) {
             talk.transferTo(output);
@@ -337,7 +350,7 @@ public class Go2RtcTransporter implements AutoCloseable {
      * An ffmpeg decoder specification. {@code sdp} builds the SDP that describes the RTP on the given ffmpeg port, and
      * {@code command} builds the ffmpeg command line that reads that SDP file.
      */
-    record Decoder(IntFunction<String> sdp, Function<String, List<String>> command) {
+    record DecoderSpecification(IntFunction<String> sdp, Function<String, List<String>> command) {
     }
 
     /**
@@ -361,7 +374,7 @@ public class Go2RtcTransporter implements AutoCloseable {
 
         private @Nullable Socket client;
         private BlockingQueue<byte[]> queue;
-        private @Nullable Decoder decoder;
+        private @Nullable DecoderSpecification decoderSpecification;
         private @Nullable Running running;
         private volatile @Nullable Integer forwardPort;
 
@@ -391,9 +404,9 @@ public class Go2RtcTransporter implements AutoCloseable {
             return rtpSocket.getLocalPort();
         }
 
-        void setDecoder(@Nullable Decoder spec) {
+        void setDecoder(@Nullable DecoderSpecification spec) {
             synchronized (lock) {
-                decoder = spec;
+                decoderSpecification = spec;
                 restartDecoderLocked();
             }
         }
@@ -425,7 +438,7 @@ public class Go2RtcTransporter implements AutoCloseable {
          */
         private void publish(Running owner, byte[] buffer, int offset, int length) {
             synchronized (lock) {
-                if (running != owner || client == null) {
+                if (!Objects.equals(running, owner) || client == null) {
                     return;
                 }
                 queue.offer(Arrays.copyOfRange(buffer, offset, offset + length));
@@ -435,7 +448,7 @@ public class Go2RtcTransporter implements AutoCloseable {
         /** Must be called while holding {@code lock}. */
         private void restartDecoderLocked() {
             stopDecoderLocked();
-            Decoder spec = decoder;
+            DecoderSpecification spec = decoderSpecification;
             if (spec != null && client != null) {
                 try {
                     startDecoderLocked(spec);
@@ -446,7 +459,7 @@ public class Go2RtcTransporter implements AutoCloseable {
         }
 
         /** Must be called while holding {@code lock}. */
-        private void startDecoderLocked(Decoder spec) throws IOException {
+        private void startDecoderLocked(DecoderSpecification spec) throws IOException {
             int ffmpegPort;
             try (DatagramSocket probe = new DatagramSocket(0)) {
                 ffmpegPort = probe.getLocalPort();
@@ -500,7 +513,7 @@ public class Go2RtcTransporter implements AutoCloseable {
                 client = null;
                 queue.clear();
                 closeQuietly(current);
-                decoder = null;
+                decoderSpecification = null;
                 stopDecoderLocked();
             }
         }

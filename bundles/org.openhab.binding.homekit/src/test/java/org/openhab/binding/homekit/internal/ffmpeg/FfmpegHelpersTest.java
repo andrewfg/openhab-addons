@@ -24,11 +24,11 @@ import org.openhab.binding.homekit.internal.media.AudioCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
- * Tests for {@link FfmpegConverter} command construction.
+ * Tests for {@link FfmpegHelpers} command construction.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class FfmpegConverterTest {
+class FfmpegHelpersTest {
 
     private static final SrtpParameters SRTP = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, new byte[16],
             new byte[14]);
@@ -47,7 +47,7 @@ class FfmpegConverterTest {
         for (int i = 0; i < salt.length; i++) {
             salt[i] = (byte) (0x80 + i);
         }
-        String params = FfmpegConverter
+        String params = FfmpegHelpers
                 .toFfmpegParams(new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt));
         byte[] decoded = Base64.getDecoder().decode(params);
         assertEquals(30, decoded.length);
@@ -59,19 +59,19 @@ class FfmpegConverterTest {
     @Test
     void testNoneSuiteRejected() {
         SrtpParameters none = new SrtpParameters(SrtpCryptoSuite.NONE, new byte[0], new byte[0]);
-        assertThrows(IllegalArgumentException.class, () -> FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.NONE));
-        assertThrows(IllegalArgumentException.class, () -> FfmpegConverter.toFfmpegParams(none));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.NONE));
+        assertThrows(IllegalArgumentException.class, () -> FfmpegHelpers.toFfmpegParams(none));
     }
 
     @Test
     void testSuiteNames() {
-        assertEquals("AES_CM_128_HMAC_SHA1_80", FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80));
-        assertEquals("AES_CM_256_HMAC_SHA1_80", FfmpegConverter.toFfmpegSuite(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80));
+        assertEquals("AES_CM_128_HMAC_SHA1_80", FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80));
+        assertEquals("AES_CM_256_HMAC_SHA1_80", FfmpegHelpers.toFfmpegSuite(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80));
     }
 
     @Test
     void testListenCommandReadsSrtpAndCopiesContainerToStdout() {
-        List<String> cmd = FfmpegConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
+        List<String> cmd = FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, OPUS);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("ogg", valueAfter(cmd, "-f"));
@@ -79,14 +79,14 @@ class FfmpegConverterTest {
         assertFalse(cmd.contains("-ar"));
         assertFalse(cmd.contains("libopus"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
-        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
+        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
         assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
         assertFalse(cmd.contains("-srtp_out_suite"));
     }
 
     @Test
     void testVideoListenCommandReadsSrtpAndWritesAnnexBToStdout() {
-        List<String> cmd = FfmpegConverter.watchCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
+        List<String> cmd = FfmpegHelpers.watchCommand("ffmpeg", "/tmp/camera.sdp", SRTP);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("pipe:1", cmd.get(cmd.size() - 1));
         assertEquals("h264", valueAfter(cmd, "-f"));
@@ -94,7 +94,7 @@ class FfmpegConverterTest {
         assertTrue(cmd.contains("-an"));
         assertFalse(cmd.contains("-c:a"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_in_suite"));
-        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
+        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_in_params"));
         assertEquals("/tmp/camera.sdp", valueAfter(cmd, "-i"));
         assertFalse(cmd.contains("-srtp_out_suite"));
     }
@@ -108,7 +108,7 @@ class FfmpegConverterTest {
 
     @Test
     void testTalkCommandReadsContainerAndWritesSrtpToCamera() {
-        List<String> cmd = FfmpegConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L,
+        List<String> cmd = FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L,
                 OPUS);
         assertEquals("pipe:0", valueAfter(cmd, "-i"));
         assertEquals("ogg", valueAfter(cmd, "-f"));
@@ -116,7 +116,7 @@ class FfmpegConverterTest {
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
         assertEquals("AES_CM_128_HMAC_SHA1_80", valueAfter(cmd, "-srtp_out_suite"));
-        assertEquals(FfmpegConverter.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
+        assertEquals(FfmpegHelpers.toFfmpegParams(SRTP), valueAfter(cmd, "-srtp_out_params"));
         assertEquals("rtp://192.168.1.50:5004?localport=6000", cmd.get(cmd.size() - 1));
         assertFalse(cmd.contains("-srtp_in_suite"));
         assertFalse(cmd.contains("-ar"));
@@ -138,11 +138,11 @@ class FfmpegConverterTest {
     }
 
     private static List<String> listen(AudioCodec codec) {
-        return FfmpegConverter.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
+        return FfmpegHelpers.listenCommand("ffmpeg", "/tmp/camera.sdp", SRTP, codec);
     }
 
     private static List<String> talk(AudioCodec codec) {
-        return FfmpegConverter.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
+        return FfmpegHelpers.talkCommand("ffmpeg", "192.168.1.50", 5004, 6000, SRTP, 110, 0x12345678L, codec);
     }
 
     private static String valueAfter(List<String> cmd, String option) {

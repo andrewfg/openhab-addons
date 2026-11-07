@@ -24,29 +24,29 @@ import org.openhab.binding.homekit.internal.media.AudioCodec;
 import org.openhab.binding.homekit.internal.media.tlv.SrtpParameters;
 
 /**
- * Helper for building ffmpeg commands to bridge HomeKit camera audio and video streams.
+ * Helpers for building ffmpeg commands to bridge HomeKit camera audio and video streams.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public final class FfmpegConverter {
+public final class FfmpegHelpers {
 
-    private FfmpegConverter() {
+    private FfmpegHelpers() {
     }
 
     /**
      * Returns the SRTP master key and salt concatenated and base64 encoded, as expected by ffmpeg's
      * {@code srtp_in_params} and {@code srtp_out_params} options.
      *
-     * @param srtp the negotiated SRTP parameters; must not use {@link SrtpCryptoSuite#NONE}
+     * @param params the negotiated SRTP parameters; must not use {@link SrtpCryptoSuite#NONE}
      * @throws IllegalArgumentException if the crypto suite is {@link SrtpCryptoSuite#NONE}
      */
-    public static String toFfmpegParams(SrtpParameters srtp) {
-        if (srtp.cryptoSuite() == SrtpCryptoSuite.NONE) {
+    public static String toFfmpegParams(SrtpParameters params) {
+        if (params.cryptoSuite() == SrtpCryptoSuite.NONE) {
             throw new IllegalArgumentException("SRTP crypto suite NONE cannot be bridged");
         }
-        byte[] combined = ByteBuffer.allocate(srtp.masterKey().length + srtp.masterSalt().length).put(srtp.masterKey())
-                .put(srtp.masterSalt()).array();
+        byte[] combined = ByteBuffer.allocate(params.masterKey().length + params.masterSalt().length)
+                .put(params.masterKey()).put(params.masterSalt()).array();
         return Base64.getEncoder().encodeToString(combined);
     }
 
