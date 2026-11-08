@@ -31,7 +31,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
@@ -48,6 +50,7 @@ import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegHelpers;
 import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
+import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDemand;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcProcess;
 import org.openhab.binding.homekit.internal.camera.srtp.SrtpCryptoSuite;
@@ -193,6 +196,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static final long VIDEO_SSRC = 0x23456789L;
     private static final int VIDEO_MAX_BITRATE_KBPS = 2000;
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
+    private static final long GO2RTC_DEMAND_POLL_SECONDS = 2;
 
     // fields for audio talk-back sessions with a camera (if any)
     private @Nullable Long mediaSetupIid = null;
@@ -205,6 +209,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private @Nullable Go2RtcProcess go2rtcProcess = null;
     private volatile @Nullable Go2RtcDataPump go2rtcPump = null;
     private boolean go2rtcStarting = false;
+    private @Nullable Go2RtcEndpoint go2rtcEndpoint = null;
+    private @Nullable ScheduledFuture<?> go2rtcDemandPoller = null;
+    private final Go2RtcDemand go2rtcDemand = new Go2RtcDemand();
+    private final AtomicBoolean go2rtcDemandChecking = new AtomicBoolean(false);
 
     /**
      * Runs go2rtc start and stop work, which can block for a download or for process shutdown, away from the shared
@@ -1420,7 +1428,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     /**
      * Negotiates the camera's audio and video SRTP with the go2rtc data pump and starts the camera streams. The session
-     * stays open for as long as go2rtc runs.
+     * is opened on demand by {@link #checkGo2rtcDemand} and closed again when go2rtc has no consumers.
      *
      * @throws Exception if the camera does not support talk-back or the exchange fails
      */
@@ -1554,14 +1562,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 throw new IOException("go2rtc did not become ready");
             }
 
-            openMediaSession(pump, remoteIpAddress);
-
             String url = "http://" + host + ":" + ports.api() + "/stream.html?src=" + stream + "&mode=webrtc";
             synchronized (this) {
                 if (disposing.get()) {
                     return;
                 }
                 go2rtcProcess = process;
+                go2rtcEndpoint = new Go2RtcEndpoint(host, ports.api(), stream, remoteIpAddress);
+                go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
+                        GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
             }
             updateState(new ChannelUID(thing.getUID(), CHANNEL_AUDIO_URL), new StringType(url));
             published = true;
@@ -1595,12 +1604,20 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private void stopGo2rtc() {
         Go2RtcProcess process;
         Go2RtcDataPump pump;
+        ScheduledFuture<?> poller;
         synchronized (this) {
             process = go2rtcProcess;
             pump = go2rtcPump;
+            poller = go2rtcDemandPoller;
             go2rtcProcess = null;
             go2rtcPump = null;
+            go2rtcEndpoint = null;
+            go2rtcDemandPoller = null;
             go2rtcStarting = false;
+            go2rtcDemand.reset();
+        }
+        if (poller != null) {
+            poller.cancel(false);
         }
         if (process != null) {
             go2rtcExecutor.execute(process::stop);
@@ -1609,6 +1626,82 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             closeMediaSession(pump, false);
             pump.close();
         }
+    }
+
+    /**
+     * Called periodically by the scheduler. The go2rtc query and any camera session change run on the go2rtc executor,
+     * and at most one check runs at a time.
+     */
+    private void requestGo2rtcDemandCheck() {
+        if (disposing.get() || go2rtcDemandChecking.getAndSet(true)) {
+            return;
+        }
+        try {
+            go2rtcExecutor.execute(this::checkGo2rtcDemand);
+        } catch (RejectedExecutionException e) {
+            go2rtcDemandChecking.set(false);
+        }
+    }
+
+    private void checkGo2rtcDemand() {
+        try {
+            Go2RtcProcess process;
+            Go2RtcDataPump pump;
+            Go2RtcEndpoint endpoint;
+            synchronized (this) {
+                process = go2rtcProcess;
+                pump = go2rtcPump;
+                endpoint = go2rtcEndpoint;
+            }
+            if (process == null || pump == null || endpoint == null) {
+                return;
+            }
+
+            boolean wanted;
+            try {
+                wanted = process.hasConsumers(endpoint.host(), endpoint.apiPort(), endpoint.stream(),
+                        endpoint.stream() + "_talk");
+            } catch (IOException e) {
+                // An unreadable go2rtc state is unknown demand, so the current camera session is left unchanged.
+                logger.debug("{} cannot read go2rtc consumers: {}", thing.getUID(), e.getMessage());
+                return;
+            }
+
+            Go2RtcDemand.Action action;
+            synchronized (this) {
+                action = go2rtcDemand.update(wanted, mediaSessionOpen, Instant.now());
+            }
+
+            if (action == Go2RtcDemand.Action.OPEN) {
+                try {
+                    openMediaSession(pump, endpoint.remoteAddress());
+                } catch (Exception e) {
+                    synchronized (this) {
+                        go2rtcDemand.openFailed(Instant.now());
+                    }
+                    logger.info("{} camera media session unavailable, retrying later: {}", thing.getUID(),
+                            e.getMessage());
+                    return;
+                }
+                boolean stale;
+                synchronized (this) {
+                    stale = disposing.get() || go2rtcPump != pump;
+                }
+                if (stale) {
+                    closeMediaSession(pump, true);
+                }
+            } else if (action == Go2RtcDemand.Action.CLOSE) {
+                closeMediaSession(pump, true);
+            }
+        } finally {
+            go2rtcDemandChecking.set(false);
+        }
+    }
+
+    /**
+     * The go2rtc instance for the camera: its API address, the stream names, and the camera's address.
+     */
+    private record Go2RtcEndpoint(String host, int apiPort, String stream, String remoteAddress) {
     }
 
     private static boolean awaitGo2rtcReady(Go2RtcProcess process, String host, int apiPort)

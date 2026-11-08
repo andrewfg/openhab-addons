@@ -31,6 +31,11 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+
 /**
  * Runs one go2rtc process for a camera, using a generated YAML configuration file.
  *
@@ -98,6 +103,65 @@ public class Go2RtcProcess {
             Thread.currentThread().interrupt();
             return false;
         }
+    }
+
+    /**
+     * Returns true if any of the named go2rtc streams has at least one consumer.
+     *
+     * @param host the API address from the configuration
+     * @param apiPort the API port from the configuration
+     * @param streams the stream names to check
+     * @throws IOException if go2rtc cannot be queried or its response does not describe the streams
+     */
+    public boolean hasConsumers(String host, int apiPort, String... streams) throws IOException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + apiPort + "/api/streams"))
+                .timeout(Duration.ofSeconds(2)).GET().build();
+        HttpResponse<String> response;
+        try {
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while querying go2rtc", e);
+        }
+        if (response.statusCode() != 200) {
+            throw new IOException("go2rtc streams request failed with HTTP " + response.statusCode());
+        }
+        return hasConsumers(response.body(), streams);
+    }
+
+    /**
+     * Parses a go2rtc {@code /api/streams} response and returns true if any of the named streams has a consumer. A
+     * {@code null} or empty consumer list means no consumers.
+     *
+     * @throws IOException if the response is not a JSON object, or none of the named streams is present
+     */
+    static boolean hasConsumers(String json, String... streams) throws IOException {
+        JsonElement root;
+        try {
+            root = JsonParser.parseString(json);
+        } catch (JsonParseException e) {
+            throw new IOException("Invalid go2rtc streams response", e);
+        }
+        if (!root.isJsonObject()) {
+            throw new IOException("Unexpected go2rtc streams response");
+        }
+        JsonObject all = root.getAsJsonObject();
+        boolean found = false;
+        for (String name : streams) {
+            JsonElement stream = all.get(name);
+            if (stream == null || !stream.isJsonObject()) {
+                continue;
+            }
+            found = true;
+            JsonElement consumers = stream.getAsJsonObject().get("consumers");
+            if (consumers != null && consumers.isJsonArray() && !consumers.getAsJsonArray().isEmpty()) {
+                return true;
+            }
+        }
+        if (!found) {
+            throw new IOException("go2rtc streams response does not contain the configured streams");
+        }
+        return false;
     }
 
     /**
