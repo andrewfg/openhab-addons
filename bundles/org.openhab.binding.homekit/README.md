@@ -184,7 +184,8 @@ Cameras that declare PCMA (G.711 A-law) talk-back also expose an `Audio URL` Cha
 The binding downloads and runs a [go2rtc](https://github.com/AlexxIT/go2rtc) process (the same way the UniFi binding installs it) that serves a WebRTC page.
 Opening this URL in a browser lets you listen to the camera microphone, talk through its speaker, and, if the camera advertises H.264 video, watch its video.
 
-- The URL is served only on the openHAB host address that routes to the camera's network, on a port chosen at runtime (shown in the URL). The go2rtc RTSP port is bound to loopback only. The URL has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
+- The URL is served on all network interfaces of the openHAB host, on a port chosen at runtime (shown in the URL). It has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
+- The camera only streams audio and video while go2rtc has a connected browser client. The binding checks go2rtc every few seconds, starts the camera stream when a client connects, and stops it after about 15 seconds without a client.
 - Cameras that do not declare PCMA do not get an `Audio URL` Channel.
 - The SRTP encryption and decryption of the HomeKit audio streams is still performed by ffmpeg inside the binding, not by go2rtc.
 - ffmpeg is used from the system `PATH` if present. Otherwise the binding downloads a static ffmpeg build (homebridge `ffmpeg-for-homebridge` 2.2.0) into the openHAB cache folder on first use. Extracting the `.tar.gz` requires the `tar` command on the host.
