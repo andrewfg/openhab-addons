@@ -67,7 +67,8 @@ class FfmpegHelpersTest {
         assertFalse(cmd.contains("-b:a"));
         assertEquals("110", valueAfter(cmd, "-payload_type"));
         assertEquals("305419896", valueAfter(cmd, "-ssrc"));
-        assertTrue(String.join(" ", cmd).endsWith("-payload_type 110 -ssrc 305419896 -f rtp rtp://127.0.0.1:6000"));
+        assertTrue(String.join(" ", cmd).endsWith(
+                "-payload_type 110 -ssrc 305419896 -f rtp rtp://127.0.0.1:6000 #backchannel=1#audio=alaw/8000"));
     }
 
     @Test
@@ -100,11 +101,11 @@ class FfmpegHelpersTest {
     }
 
     private static List<String> listen(AudioCodec codec) {
-        return FfmpegHelpers.go2rtcListenCommand("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", codec);
+        return FfmpegHelpers.go2rtcListenCommandLine("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", codec);
     }
 
     private static List<String> talk(AudioCodec codec) {
-        return FfmpegHelpers.go2rtcTalkCommand("ffmpeg", codec, 110, 0x12345678L, 6000);
+        return FfmpegHelpers.go2rtcTalkCommandLine("ffmpeg", codec, 110, 0x12345678L, 6000);
     }
 
     private static String valueAfter(List<String> cmd, String option) {

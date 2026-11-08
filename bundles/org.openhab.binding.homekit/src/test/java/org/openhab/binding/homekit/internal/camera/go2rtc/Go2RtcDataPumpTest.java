@@ -20,6 +20,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -128,8 +129,10 @@ class Go2RtcDataPumpTest {
             p.startSession(LISTEN_AUDIO, LISTEN_VIDEO, TALK, "127.0.0.1", camera().getLocalPort());
 
             byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 1, 160, 0x11223344, new byte[] { 1, 2, 3, 4 });
-            byte[] srtp = SrtpSession.create(LISTEN_AUDIO).protect(plain);
-            sender.send(new DatagramPacket(srtp, srtp.length, InetAddress.getLoopbackAddress(), p.audioRtpPort()));
+            byte[] srtp = new byte[plain.length + 10];
+            SrtpSession session = SrtpSession.create(LISTEN_AUDIO);
+            int srtpLength = session.encrypt(plain, plain.length, srtp);
+            sender.send(new DatagramPacket(srtp, srtpLength, InetAddress.getLoopbackAddress(), p.audioPort()));
 
             DatagramPacket received = new DatagramPacket(new byte[2048], 2048);
             ffmpeg.receive(received);
@@ -146,15 +149,20 @@ class Go2RtcDataPumpTest {
         byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 7, 320, 0x55667788, new byte[] { 9, 8, 7, 6 });
 
         try (DatagramSocket ffmpeg = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            ffmpeg.send(new DatagramPacket(plain, plain.length, InetAddress.getLoopbackAddress(), p.talkRtpPort()));
+            ffmpeg.send(new DatagramPacket(plain, plain.length, InetAddress.getLoopbackAddress(), p.talkPort()));
         }
 
         DatagramPacket received = new DatagramPacket(new byte[2048], 2048);
         cam.receive(received);
-        byte[] srtp = java.util.Arrays.copyOf(received.getData(), received.getLength());
+        byte[] srtp = Arrays.copyOf(received.getData(), received.getLength());
         assertNotEquals(plain.length, srtp.length, "SRTP must add an authentication tag");
-        byte[] decrypted = SrtpSession.create(TALK).unprotect(srtp);
-        assertArrayEquals(plain, decrypted);
+
+        SrtpSession session = SrtpSession.create(TALK);
+        byte[] decrypted = new byte[srtp.length];
+        int length = session.decrypt(srtp, srtp.length, decrypted);
+
+        assertTrue(length >= 0);
+        assertArrayEquals(plain, Arrays.copyOf(decrypted, length));
     }
 
     @Test
@@ -167,7 +175,7 @@ class Go2RtcDataPumpTest {
         // sent after stopSession() returned, so the pump must see no active session when it reads this packet
         byte[] plain = rtp(Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, 1, 0, 1, new byte[] { 1 });
         try (DatagramSocket ffmpeg = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            ffmpeg.send(new DatagramPacket(plain, plain.length, InetAddress.getLoopbackAddress(), p.talkRtpPort()));
+            ffmpeg.send(new DatagramPacket(plain, plain.length, InetAddress.getLoopbackAddress(), p.talkPort()));
         }
 
         assertThrows(java.net.SocketTimeoutException.class,

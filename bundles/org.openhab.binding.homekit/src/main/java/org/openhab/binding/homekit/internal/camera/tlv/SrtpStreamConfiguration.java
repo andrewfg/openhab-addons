@@ -22,13 +22,13 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 
 /**
- * The TLV8 payload of the HAP Selected RTP Stream Configuration characteristic, which starts or ends a session. The
- * video parameters are optional; when absent, only the audio stream is selected.
+ * The TLV8 payload of the HAP Selected RTP Stream Configuration characteristic, which starts or ends a session.
+ * The video parameters are optional; when absent, only the audio stream is selected.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record SRTPstreamConfiguration(byte[] sessionId, SessionCommand command,
+public record SrtpStreamConfiguration(byte[] sessionId, SessionCommand command,
         @Nullable VideoSelectedParameters videoParameters, AudioSelectedParameters audioParameters) {
 
     public enum SessionCommand {
@@ -54,14 +54,17 @@ public record SRTPstreamConfiguration(byte[] sessionId, SessionCommand command,
     private static final int TYPE_SESSION_IDENTIFIER = 0x01;
     private static final int TYPE_SESSION_COMMAND = 0x02;
 
-    public SRTPstreamConfiguration(byte[] sessionId, SessionCommand command, AudioSelectedParameters audioParameters) {
+    public SrtpStreamConfiguration(byte[] sessionId, SessionCommand command, AudioSelectedParameters audioParameters) {
         this(sessionId, command, null, audioParameters);
     }
 
-    public SRTPstreamConfiguration {
+    public SrtpStreamConfiguration {
         requireLength(sessionId, 16);
     }
 
+    /**
+     * Encodes the configuration into a TLV8 byte array to send in a camera setup request.
+     */
     public byte[] encode() {
         Map<Integer, byte[]> control = new LinkedHashMap<>();
         control.put(TYPE_SESSION_IDENTIFIER, sessionId);

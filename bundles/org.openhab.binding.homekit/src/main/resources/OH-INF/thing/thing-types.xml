@@ -35,13 +35,6 @@
 		</config-description>
 	</thing-type>
 
-	<channel-type id="audio-url">
-		<item-type>String</item-type>
-		<label>Camera Audio URL</label>
-		<description>Browser URL of a go2rtc page to listen to the camera microphone and talk through its speaker.</description>
-		<state readOnly="true"/>
-	</channel-type>
-
 	<channel-type id="snapshot">
 		<item-type>Image</item-type>
 		<label>Camera Snapshot</label>
@@ -57,6 +50,13 @@
 				<description>Height of the snapshot image.</description>
 			</parameter>
 		</config-description>
+	</channel-type>
+
+	<channel-type id="camera-url">
+		<item-type>String</item-type>
+		<label>Camera URL</label>
+		<description>Browser URL of a go2rtc page for camera video, audio, and talk-back.</description>
+		<state readOnly="true"/>
 	</channel-type>
 
 </thing:thing-descriptions>

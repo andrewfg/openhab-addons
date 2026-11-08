@@ -14,6 +14,7 @@ package org.openhab.binding.homekit.internal.camera.srtp;
 
 import static org.openhab.binding.homekit.internal.camera.tlv.MediaTlvHelpers.*;
 
+import java.security.SecureRandom;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -27,6 +28,8 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  */
 @NonNullByDefault
 public record SrtpParameters(SrtpCryptoSuite cryptoSuite, byte[] masterKey, byte[] masterSalt) {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final int TYPE_CRYPTO_SUITE = 0x01;
     private static final int TYPE_MASTER_KEY = 0x02;
@@ -43,6 +46,9 @@ public record SrtpParameters(SrtpCryptoSuite cryptoSuite, byte[] masterKey, byte
         }
     }
 
+    /**
+     * Encodes the parameters into a TLV8 byte array to send in a camera setup request.
+     */
     public byte[] encode() {
         Map<Integer, byte[]> tlv = new LinkedHashMap<>();
         tlv.put(TYPE_CRYPTO_SUITE, u8(cryptoSuite.value));
@@ -51,10 +57,28 @@ public record SrtpParameters(SrtpCryptoSuite cryptoSuite, byte[] masterKey, byte
         return Tlv8Codec.encode(tlv);
     }
 
+    /**
+     * Decodes the camera setup response TLV8 data into the respective parameters.
+     *
+     * @throws IllegalArgumentException if the TLV is invalid or contains an unknown crypto suite
+     */
     public static SrtpParameters decode(byte[] data) {
         Map<Integer, byte[]> tlv = Tlv8Codec.decode(data);
         SrtpCryptoSuite suite = SrtpCryptoSuite.fromValue(readU8(required(tlv, TYPE_CRYPTO_SUITE)));
         return new SrtpParameters(suite, tlv.getOrDefault(TYPE_MASTER_KEY, new byte[0]),
                 tlv.getOrDefault(TYPE_MASTER_SALT, new byte[0]));
+    }
+
+    /**
+     * Generates random SRTP parameters.
+     *
+     * @return a new SrtpParameters object with random key and salt
+     */
+    public static SrtpParameters random() {
+        byte[] key = new byte[16];
+        byte[] salt = new byte[14];
+        RANDOM.nextBytes(key);
+        RANDOM.nextBytes(salt);
+        return new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, key, salt);
     }
 }

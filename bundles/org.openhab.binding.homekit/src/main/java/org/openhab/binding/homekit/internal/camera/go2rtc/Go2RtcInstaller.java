@@ -35,8 +35,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Locates or downloads the go2rtc binary, following the same approach as the unifi binding: a binary on the PATH
- * is used directly, otherwise the release asset is downloaded into the binding's cache directory.
+ * Locates or downloads the go2rtc binary, following the same approach as the unifi binding:
+ * <p>
+ * If a go2rtc binary is already on the PATH, it is used directly. Otherwise the release asset
+ * is downloaded into the binding's cache directory.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -85,8 +87,8 @@ public class Go2RtcInstaller {
     }
 
     /**
-     * Returns the release asset name for the given platform. Linux amd64 and arm64 are published as raw binaries, all
-     * other platforms as zip archives.
+     * Returns the release asset name for the given platform.
+     * Linux amd64 and arm64 are published as raw binaries, all other platforms as zip archives.
      *
      * @throws IOException if the platform is not supported
      */
@@ -134,6 +136,10 @@ public class Go2RtcInstaller {
         return os.toLowerCase(Locale.ROOT).contains("win");
     }
 
+    /**
+     * Downloads the given URL to a temporary file, then moves it to the destination path.
+     * If the asset is a zip archive, extracts the expected binary from it.
+     */
     private void download(String url, String asset, Path destDir, Path destBinary, String os)
             throws IOException, InterruptedException {
         Files.createDirectories(destDir);
@@ -158,6 +164,11 @@ public class Go2RtcInstaller {
         }
     }
 
+    /**
+     * Extracts the expected binary from the given zip file to the destination path.
+     *
+     * @throws IOException if the zip file cannot be read or does not contain the expected binary
+     */
     private static void extractFromZip(Path zipFile, Path destBinary, String url) throws IOException {
         String expected = destBinary.getFileName().toString();
         try (ZipFile zip = new ZipFile(zipFile.toFile())) {

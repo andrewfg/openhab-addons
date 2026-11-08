@@ -23,7 +23,7 @@ import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 
 /**
- * SetupEndpoints write request sent by the controller to set up the RTP/SRTP endpoints of a camera session.
+ * SetupEndpoints write request sent by the controller to set up the SRTP endpoints of a camera session.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -48,6 +48,9 @@ public record SetupEndpointsRequest(byte[] sessionId, boolean ipv6, String contr
         }
     }
 
+    /**
+     * Encodes the configuration into a TLV8 byte array to send in a camera setup request.
+     */
     public byte[] encode() {
         Map<Integer, byte[]> address = new LinkedHashMap<>();
         address.put(TYPE_ADDRESS_VERSION, u8(ipv6 ? 1 : 0));

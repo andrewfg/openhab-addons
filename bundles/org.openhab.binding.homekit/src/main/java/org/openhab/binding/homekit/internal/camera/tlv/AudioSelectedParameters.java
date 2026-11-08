@@ -29,8 +29,8 @@ import org.openhab.binding.homekit.internal.enums.AudioCodecType;
  */
 @NonNullByDefault
 public record AudioSelectedParameters(AudioCodecType codecType, int channels, boolean constantBitrate,
-        int sampleRateKhz, int packetTimeMs, int payloadType, long ssrc, int maxBitrateKbps, float minRtcpIntervalSec,
-        boolean comfortNoise, int comfortNoisePayloadType) {
+        int sampleRateKhz, int packetTimeMs, int payloadType, long syncSource, int maxBitrateKbps,
+        float minRtcpIntervalSec, boolean comfortNoise, int comfortNoisePayloadType) {
 
     private static final int TYPE_CODEC = 0x01;
     private static final int TYPE_CODEC_PARAMETERS = 0x02;
@@ -43,7 +43,7 @@ public record AudioSelectedParameters(AudioCodecType codecType, int channels, bo
     private static final int TYPE_PACKET_TIME = 0x04;
 
     private static final int TYPE_PAYLOAD_TYPE = 0x01;
-    private static final int TYPE_SSRC = 0x02;
+    private static final int TYPE_SYNC_SOURCE = 0x02;
     private static final int TYPE_MAX_BIT_RATE = 0x03;
     private static final int TYPE_MIN_RTCP_INTERVAL = 0x04;
     private static final int TYPE_COMFORT_NOISE_PAYLOAD_TYPE = 0x06;
@@ -61,14 +61,17 @@ public record AudioSelectedParameters(AudioCodecType codecType, int channels, bo
         if (payloadType < 0 || payloadType > 0x7F || comfortNoisePayloadType < 0 || comfortNoisePayloadType > 0x7F) {
             throw new IllegalArgumentException("RTP payload type out of range");
         }
-        if (ssrc < 0 || ssrc > 0xFFFFFFFFL) {
-            throw new IllegalArgumentException("SSRC out of range: " + ssrc);
+        if (syncSource < 0 || syncSource > 0xFFFFFFFFL) {
+            throw new IllegalArgumentException("SSRC out of range: " + syncSource);
         }
         if (maxBitrateKbps < 0 || maxBitrateKbps > 0xFFFF) {
             throw new IllegalArgumentException("Max bit rate out of range: " + maxBitrateKbps);
         }
     }
 
+    /**
+     * Encodes the parameters into a TLV8 byte array to send in a camera setup request.
+     */
     public byte[] encode() {
         Map<Integer, byte[]> codecParameters = new LinkedHashMap<>();
         codecParameters.put(TYPE_CHANNEL, u8(channels));
@@ -78,7 +81,7 @@ public record AudioSelectedParameters(AudioCodecType codecType, int channels, bo
 
         Map<Integer, byte[]> rtpParameters = new LinkedHashMap<>();
         rtpParameters.put(TYPE_PAYLOAD_TYPE, u8(payloadType));
-        rtpParameters.put(TYPE_SSRC, u32Le(ssrc));
+        rtpParameters.put(TYPE_SYNC_SOURCE, u32Le(syncSource));
         rtpParameters.put(TYPE_MAX_BIT_RATE, u16Le(maxBitrateKbps));
         rtpParameters.put(TYPE_MIN_RTCP_INTERVAL, f32Le(minRtcpIntervalSec));
         rtpParameters.put(TYPE_COMFORT_NOISE_PAYLOAD_TYPE, u8(comfortNoisePayloadType));

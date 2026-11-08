@@ -61,7 +61,7 @@ class SrtpSessionTest {
     void protectMatchesLibsrtpVectors() {
         SrtpSession sender = SrtpSession.create(PARAMETERS);
         for (LibsrtpVector vector : LIBSRTP_VECTORS) {
-            byte[] srtp = sender.protect(rtpPacket(vector.seq(), 0x12345678, vector.index()));
+            byte[] srtp = encrypt(sender, rtpPacket(vector.seq(), 0x12345678, vector.index()));
             assertArrayEquals(hex(vector.srtp()), srtp, "seq " + vector.seq());
         }
     }
@@ -70,7 +70,7 @@ class SrtpSessionTest {
     void unprotectLibsrtpVectors() {
         SrtpSession receiver = SrtpSession.create(PARAMETERS);
         for (LibsrtpVector vector : LIBSRTP_VECTORS) {
-            byte[] rtp = receiver.unprotect(hex(vector.srtp()));
+            byte[] rtp = decrypt(receiver, hex(vector.srtp()));
             assertNotNull(rtp, "seq " + vector.seq() + " failed authentication");
             assertArrayEquals(rtpPacket(vector.seq(), 0x12345678, vector.index()), rtp, "seq " + vector.seq());
         }
@@ -83,9 +83,9 @@ class SrtpSessionTest {
         for (int i = 0; i < 70_000; i++) {
             int seq = (65_000 + i) & 0xFFFF;
             byte[] rtp = rtpPacket(seq, 0x12345678, i);
-            byte[] srtp = sender.protect(rtp);
+            byte[] srtp = encrypt(sender, rtp);
             assertEquals(rtp.length + 10, srtp.length);
-            byte[] decrypted = receiver.unprotect(srtp);
+            byte[] decrypted = decrypt(receiver, srtp);
             assertNotNull(decrypted, "packet " + i + " failed authentication");
             assertArrayEquals(rtp, decrypted);
         }
@@ -94,28 +94,28 @@ class SrtpSessionTest {
     @Test
     void protectedPacketDiffersFromPlainText() {
         byte[] rtp = rtpPacket(1, 0xCAFEBABE, 0);
-        byte[] srtp = SrtpSession.create(PARAMETERS).protect(rtp);
+        byte[] srtp = encrypt(SrtpSession.create(PARAMETERS), rtp);
         assertFalse(Arrays.equals(Arrays.copyOfRange(rtp, 12, rtp.length), Arrays.copyOfRange(srtp, 12, rtp.length)));
     }
 
     @Test
     void tamperedPacketIsRejected() {
-        byte[] srtp = SrtpSession.create(PARAMETERS).protect(rtpPacket(7, 0x01020304, 0));
+        byte[] srtp = encrypt(SrtpSession.create(PARAMETERS), rtpPacket(7, 0x01020304, 0));
         srtp[srtp.length - 15] ^= 0x01;
-        assertNull(SrtpSession.create(PARAMETERS).unprotect(srtp));
+        assertNull(decrypt(SrtpSession.create(PARAMETERS), srtp));
     }
 
     @Test
     void packetWithWrongKeyIsRejected() {
-        byte[] srtp = SrtpSession.create(PARAMETERS).protect(rtpPacket(7, 0x01020304, 0));
+        byte[] srtp = encrypt(SrtpSession.create(PARAMETERS), rtpPacket(7, 0x01020304, 0));
         SrtpParameters other = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
                 hex("00112233445566778899AABBCCDDEEFF"), MASTER_SALT);
-        assertNull(SrtpSession.create(other).unprotect(srtp));
+        assertNull(decrypt(SrtpSession.create(other), srtp));
     }
 
     @Test
     void truncatedPacketIsRejected() {
-        assertNull(SrtpSession.create(PARAMETERS).unprotect(new byte[20]));
+        assertNull(decrypt(SrtpSession.create(PARAMETERS), new byte[20]));
     }
 
     @Test
@@ -156,5 +156,17 @@ class SrtpSessionTest {
     }
 
     private record LibsrtpVector(int seq, int index, String srtp) {
+    }
+
+    private static byte[] encrypt(SrtpSession session, byte[] rtp) {
+        byte[] srtp = new byte[rtp.length + 10];
+        int length = session.encrypt(rtp, rtp.length, srtp);
+        return Arrays.copyOf(srtp, length);
+    }
+
+    private static byte[] decrypt(SrtpSession session, byte[] srtp) {
+        byte[] rtp = new byte[srtp.length];
+        int length = session.decrypt(srtp, srtp.length, rtp);
+        return length < 0 ? null : Arrays.copyOf(rtp, length);
     }
 }

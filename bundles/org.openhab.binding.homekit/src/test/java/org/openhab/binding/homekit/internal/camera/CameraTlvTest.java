@@ -34,7 +34,7 @@ import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
-class MediaTlvTest {
+class CameraTlvTest {
 
     private static final byte[] SESSION_ID = new byte[16];
     private static final byte[] KEY_16 = new byte[16];
@@ -120,8 +120,8 @@ class MediaTlvTest {
         tlv.put(0x07, new byte[] { 0x78, 0x56, 0x34, 0x12 });
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(SetupEndpointsStatus.SUCCESS, response.status());
-        assertEquals(0x12345678L, response.audioSsrc());
-        SrtpParameters audioSrtp = response.audioParameters();
+        assertEquals(0x12345678L, response.audioSyncSource());
+        SrtpParameters audioSrtp = response.audioSrtpParameters();
         assertNotNull(audioSrtp);
         assertEquals(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80, audioSrtp.cryptoSuite());
         assertArrayEquals(srtp.masterKey(), audioSrtp.masterKey());
@@ -161,9 +161,9 @@ class MediaTlvTest {
         tlv.put(0x06, new byte[] { 0x21, 0x43, 0x65, (byte) 0x87 });
         tlv.put(0x07, new byte[] { 0x78, 0x56, 0x34, 0x12 });
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
-        assertEquals(0x87654321L, response.videoSsrc());
+        assertEquals(0x87654321L, response.videoSynchSource());
         assertEquals(0x3039, response.videoPort());
-        SrtpParameters videoSrtp = response.videoParameters();
+        SrtpParameters videoSrtp = response.videoSrtpParameters();
         assertNotNull(videoSrtp);
         assertEquals(SrtpCryptoSuite.AES_CM_256_HMAC_SHA1_80, videoSrtp.cryptoSuite());
     }
@@ -175,7 +175,7 @@ class MediaTlvTest {
         tlv.put(0x02, new byte[] { 1 });
         SetupEndpointsResponse response = SetupEndpointsResponse.decode(Tlv8Codec.encode(tlv));
         assertEquals(SetupEndpointsStatus.BUSY, response.status());
-        assertNull(response.audioSsrc());
+        assertNull(response.audioSyncSource());
     }
 
     @Test

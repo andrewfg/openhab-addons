@@ -74,6 +74,9 @@ public record VideoSelectedParameters(int profile, int level, int width, int hei
         }
     }
 
+    /**
+     * Encodes the parameters into a TLV8 byte array to send in a camera setup request.
+     */
     public byte[] encode() {
         Map<Integer, byte[]> codecParameters = new LinkedHashMap<>();
         codecParameters.put(TYPE_PROFILE_ID, u8(profile));

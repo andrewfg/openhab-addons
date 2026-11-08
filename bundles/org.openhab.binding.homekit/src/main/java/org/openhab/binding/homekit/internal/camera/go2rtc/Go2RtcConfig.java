@@ -18,11 +18,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * Builds the go2rtc YAML configuration and the ffmpeg exec commands that connect go2rtc to the binding.
- *
- * The binding owns all HomeKit SRTP work. go2rtc only serves the browser: the listen stream is an RTSP source fed by
- * the forward ffmpeg command, and the talk stream is a WebRTC backchannel whose audio is written to the back ffmpeg
- * command's stdin. Both ffmpeg commands exchange plain RTP with the binding over loopback UDP.
+ * Builds the go2rtc YAML configuration.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -30,18 +26,10 @@ import org.eclipse.jdt.annotation.Nullable;
 public final class Go2RtcConfig {
 
     /**
-     * The address and ports that go2rtc listens on. The API and WebRTC ports are bound to the host address that routes
-     * to the camera, so the browser can reach them without exposing them on other interfaces. RTSP is bound to
-     * loopback so that only the local ffmpeg exec can publish to it.
+     * The address and ports that go2rtc listens on.
      */
-    public record Ports(String host, int api, int webrtc, int rtsp) {
+    public record Address(String host, int apiPort, int webRtcPort, int rtspPort) {
     }
-
-    /**
-     * go2rtc reads this fragment only at the end of the exec string. It makes go2rtc write browser audio as A-law into
-     * the command's stdin.
-     */
-    private static final String TALK_BACKCHANNEL = " #backchannel=1#audio=alaw/8000";
 
     private Go2RtcConfig() {
     }
@@ -49,28 +37,27 @@ public final class Go2RtcConfig {
     /**
      * Returns the go2rtc YAML configuration.
      *
-     * @param ports the ports to listen on
+     * @param address the host address and ports to listen on
      * @param listenStream the name of the stream the browser listens to
-     * @param listenCommand the exec command that produces the listen stream
+     * @param listenCommandLine the exec command that produces the listen stream
      * @param talkStream the name of the stream the browser talks to, or null when talk is not available
-     * @param talkCommand the exec command that consumes talk audio or null
+     * @param talkCommandLine the exec command that consumes talk audio or null
      */
-    public static String toYaml(Ports ports, String listenStream, List<String> listenCommand,
-            @Nullable String talkStream, @Nullable List<String> talkCommand) {
+    public static String toYaml(Address address, String listenStream, List<String> listenCommandLine,
+            @Nullable String talkStream, @Nullable List<String> talkCommandLine) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
-        yaml.append("  listen: \"").append(ports.host()).append(":").append(ports.api()).append("\"\n");
+        yaml.append("  listen: \"").append(address.host()).append(":").append(address.apiPort()).append("\"\n");
         yaml.append("webrtc:\n");
-        yaml.append("  listen: \"").append(ports.host()).append(":").append(ports.webrtc()).append("\"\n");
+        yaml.append("  listen: \"").append(address.host()).append(":").append(address.webRtcPort()).append("\"\n");
         yaml.append("rtsp:\n");
-        yaml.append("  listen: \"127.0.0.1:").append(ports.rtsp()).append("\"\n");
+        yaml.append("  listen: \"127.0.0.1:").append(address.rtspPort()).append("\"\n");
         yaml.append("streams:\n");
         yaml.append("  ").append(listenStream).append(":\n");
-        yaml.append("    - ").append(quote("exec:" + String.join(" ", listenCommand))).append("\n");
-        if (talkStream != null && talkCommand != null) {
+        yaml.append("    - ").append(quote("exec:" + String.join(" ", listenCommandLine))).append("\n");
+        if (talkStream != null && talkCommandLine != null) {
             yaml.append("  ").append(talkStream).append(":\n");
-            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommand) + TALK_BACKCHANNEL))
-                    .append("\n");
+            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommandLine))).append("\n");
         }
         return yaml.toString();
     }

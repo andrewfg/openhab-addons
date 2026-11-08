@@ -57,10 +57,11 @@ public class Go2RtcProcess {
     }
 
     /**
-     * Returns a free TCP port on the loopback interface. There is a small window between closing the probe socket
-     * and go2rtc binding the port, which is acceptable for a per-camera local service.
+     * Returns a free TCP port.
+     * There is a small window between closing the probe socket and go2rtc binding the port, which is
+     * acceptable for a per-camera local service.
      */
-    public static int freePort() throws IOException {
+    public static int getFreeTCPPort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         }
@@ -90,11 +91,11 @@ public class Go2RtcProcess {
      * Returns true if go2rtc answers on its API port.
      *
      * @param host the API address from the configuration
-     * @param apiPort the API port from the configuration
+     * @param port the API port from the configuration
      */
-    public boolean isReady(String host, int apiPort) {
+    public boolean isReady(String host, int port) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + apiPort + "/api/config"))
+            HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + port + "/api/config"))
                     .timeout(Duration.ofSeconds(2)).GET().build();
             return httpClient.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() == 200;
         } catch (IOException e) {
@@ -109,12 +110,12 @@ public class Go2RtcProcess {
      * Returns true if any of the named go2rtc streams has at least one consumer.
      *
      * @param host the API address from the configuration
-     * @param apiPort the API port from the configuration
+     * @param port the API port from the configuration
      * @param streams the stream names to check
      * @throws IOException if go2rtc cannot be queried or its response does not describe the streams
      */
-    public boolean hasConsumers(String host, int apiPort, String... streams) throws IOException {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + apiPort + "/api/streams"))
+    public boolean hasConsumers(String host, int port, String... streams) throws IOException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + port + "/api/streams"))
                 .timeout(Duration.ofSeconds(2)).GET().build();
         HttpResponse<String> response;
         try {
@@ -130,8 +131,8 @@ public class Go2RtcProcess {
     }
 
     /**
-     * Parses a go2rtc {@code /api/streams} response and returns true if any of the named streams has a consumer. A
-     * {@code null} or empty consumer list means no consumers.
+     * Parses a go2rtc {@code /api/streams} response and returns true if any of the named streams has a
+     * consumer. A {@code null} or empty consumer list means no consumers.
      *
      * @throws IOException if the response is not a JSON object, or none of the named streams is present
      */
@@ -200,6 +201,9 @@ public class Go2RtcProcess {
         }
     }
 
+    /**
+     * Logs the process output until the process exits or its output is closed.
+     */
     private static void logOutput(Process p) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
