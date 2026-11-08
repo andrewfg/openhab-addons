@@ -92,6 +92,7 @@ public final class FfmpegHelpers {
                 ));
         }
         command.addAll(List.of(
+                "-rtsp_transport", "tcp",
                 "-f", "rtsp", 
                 "{output}"
             ));

@@ -37,6 +37,7 @@ class FfmpegHelpersTest {
         List<String> cmd = listen(PCMA);
         assertEquals("ffmpeg", cmd.get(0));
         assertEquals("{output}", cmd.get(cmd.size() - 1));
+        assertEquals("tcp", valueAfter(cmd, "-rtsp_transport"));
         assertEquals("rtsp", valueAfter(cmd, "-f"));
         assertEquals("copy", valueAfter(cmd, "-c:v"));
         assertEquals("copy", valueAfter(cmd, "-c:a"));
