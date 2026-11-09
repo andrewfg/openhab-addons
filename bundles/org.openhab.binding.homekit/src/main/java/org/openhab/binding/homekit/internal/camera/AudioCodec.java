@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -139,5 +140,19 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
             case 0x02 -> 24;
             default -> -1;
         };
+    }
+
+    /**
+     * Returns the preferred codec for listen and talk. A-law is preferred because it requires no transcoding.
+     * 
+     * @param audioCodecs the audio codecs the camera supports
+     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can transcode
+     */
+    public static Optional<AudioCodec> preferred(List<AudioCodec> audioCodecs) {
+        Optional<AudioCodec> alaw = audioCodecs.stream().filter(codec -> codec.codecType() == AudioCodecType.PCMA)
+                .findFirst();
+        return alaw.or(() -> audioCodecs.stream().filter(
+                codec -> codec.codecType() != AudioCodecType.AAC_ELD && codec.codecType() != AudioCodecType.MSBC)
+                .findFirst());
     }
 }

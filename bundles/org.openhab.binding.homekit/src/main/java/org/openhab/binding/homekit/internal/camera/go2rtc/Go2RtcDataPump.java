@@ -20,9 +20,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -31,7 +29,6 @@ import org.openhab.binding.homekit.internal.camera.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.VideoCodec;
 import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.srtp.SrtpSession;
-import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,35 +74,6 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile boolean closed;
 
     /**
-     * Returns the codec the data pump uses for listen and talk. A-law is preferred because it requires no transcoding.
-     * 
-     * @param audioCodecs the audio codecs the camera supports
-     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can transcode
-     */
-    private static Optional<AudioCodec> preferredAudioCodec(List<AudioCodec> audioCodecs) {
-        Optional<AudioCodec> alaw = audioCodecs.stream().filter(codec -> codec.codecType() == AudioCodecType.PCMA)
-                .findFirst();
-        return alaw.or(() -> audioCodecs.stream().filter(
-                codec -> codec.codecType() != AudioCodecType.AAC_ELD && codec.codecType() != AudioCodecType.MSBC)
-                .findFirst());
-    }
-
-    /**
-     * Returns the video codec configuration the data pump uses. H.264 Baseline is preferred because it requires no
-     * transcoding. Among Baseline configurations, the highest level is chosen. Other H.264 profiles are used when the
-     * camera offers no Baseline configuration.
-     *
-     * @param videoCodecs the video configurations the camera supports
-     * @return the preferred configuration, or empty if the camera supports none
-     */
-    private static Optional<VideoCodec> preferredVideoCodec(List<VideoCodec> videoCodecs) {
-        Optional<VideoCodec> baseline = videoCodecs.stream()
-                .filter(codec -> codec.profile() == VideoCodec.PROFILE_BASELINE)
-                .max(Comparator.comparingInt(VideoCodec::level));
-        return baseline.or(() -> videoCodecs.stream().findFirst());
-    }
-
-    /**
      * Creates a data pump that forwards between the go2rtc facing forward and backward ffmpeg instances
      * and the camera facing audio and video stream ports.
      * 
@@ -123,9 +91,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs, int audioFfmpegPort, int videoFfmpegPort)
             throws IOException {
-        audioCodec = preferredAudioCodec(audioCodecs)
+        audioCodec = AudioCodec.preferred(audioCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
-        videoCodec = preferredVideoCodec(videoCodecs)
+        videoCodec = VideoCodec.preferred(videoCodecs)
                 .orElseThrow(() -> new IllegalArgumentException("go2rtc requires video"));
 
         DatagramSocket audio = new DatagramSocket(0);
@@ -254,7 +222,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         return """
                 v=0
                 o=- 0 0 IN IP4 127.0.0.1
-                s=HomeKit listen
+                s=HomeKit Audio
                 c=IN IP4 127.0.0.1
                 t=0 0
                 m=audio %d RTP/AVP %d
@@ -270,7 +238,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         return """
                 v=0
                 o=- 0 0 IN IP4 127.0.0.1
-                s=HomeKit watch
+                s=HomeKit Video
                 c=IN IP4 127.0.0.1
                 t=0 0
                 m=video %d RTP/AVP %d
