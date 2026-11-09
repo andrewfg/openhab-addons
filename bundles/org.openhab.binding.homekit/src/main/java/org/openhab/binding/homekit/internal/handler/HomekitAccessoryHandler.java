@@ -1596,8 +1596,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         try {
             String ffmpegBinary = FfmpegInstaller.ensureBinary(cacheDir());
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
-            Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(), Go2RtcProcess.freePort(),
-                    Go2RtcProcess.freePort());
+            Go2RtcConfig.Ports ports = new Go2RtcConfig.Ports(Go2RtcProcess.freePort(),
+                    Go2RtcProcess.freeTcpAndUdpPort(), Go2RtcProcess.freePort());
             String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
 
             pump = new Go2RtcDataPump(audioCodecs, videoCodecs, new Go2RtcDataPump.ClientObserver() {

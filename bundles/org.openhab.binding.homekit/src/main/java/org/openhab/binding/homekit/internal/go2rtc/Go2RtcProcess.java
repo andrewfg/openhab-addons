@@ -15,7 +15,9 @@ package org.openhab.binding.homekit.internal.go2rtc;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.DatagramSocket;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -41,6 +43,7 @@ public class Go2RtcProcess {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcProcess.class);
     private static final long STOP_TIMEOUT_SECONDS = 5;
+    private static final int MAX_PORT_ATTEMPTS = 10;
 
     private final Path binary;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
@@ -52,13 +55,31 @@ public class Go2RtcProcess {
     }
 
     /**
-     * Returns a free TCP port on the loopback interface. There is a small window between closing the probe socket
-     * and go2rtc binding the port, which is acceptable for a per-camera local service.
+     * Returns a free TCP port selected by the OS. There is a small window between closing the probe socket and go2rtc
+     * binding the port; a failed go2rtc start is reported as a not-ready process.
      */
     public static int freePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         }
+    }
+
+    /**
+     * Returns a port that is free for both TCP and UDP, as go2rtc listens on both for WebRTC. Retries when the UDP
+     * side of a TCP-free port is already in use.
+     */
+    public static int freeTcpAndUdpPort() throws IOException {
+        for (int attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt++) {
+            try (ServerSocket tcp = new ServerSocket(0)) {
+                int port = tcp.getLocalPort();
+                try (DatagramSocket udp = new DatagramSocket(port)) {
+                    return port;
+                } catch (SocketException e) {
+                    // UDP port in use; try another
+                }
+            }
+        }
+        throw new IOException("No port free for both TCP and UDP after " + MAX_PORT_ATTEMPTS + " attempts");
     }
 
     /**
