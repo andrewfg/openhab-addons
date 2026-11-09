@@ -22,7 +22,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
+import org.openhab.binding.homekit.internal.enums.VideoCodecType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An H.264 configuration that a HomeKit camera declares it can send, as found in its SupportedVideoStreamConfiguration
@@ -31,7 +35,9 @@ import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record VideoCodec(int profile, int level, int width, int height, int frameRate) {
+public record VideoCodec(VideoCodecType codecType, int profile, int level, int width, int height, int frameRate) {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(VideoCodec.class);
 
     private static final int TYPE_VIDEO_CODEC_CONFIGURATION = 0x01;
     private static final int TYPE_CODEC_TYPE = 0x01;
@@ -45,9 +51,6 @@ public record VideoCodec(int profile, int level, int width, int height, int fram
 
     // the H.264 Baseline profile, which every browser's WebRTC decoder accepts
     private static final int PROFILE_BASELINE = 0x00;
-
-    private static final int CODEC_TYPE_H264 = 0x00;
-    // private static final int CODEC_TYPE_H265 = 0x01;
 
     /**
      * Returns the H.264 configurations declared by a SupportedVideoStreamConfiguration value. Every combination of
@@ -70,11 +73,14 @@ public record VideoCodec(int profile, int level, int width, int height, int fram
 
     private static void decodeEntry(byte[] entry, List<VideoCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
-        byte[] codecType = fields.get(TYPE_CODEC_TYPE);
+        byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
         byte[] parameters = fields.get(TYPE_CODEC_PARAMETERS);
-        if (codecType == null || codecType.length != 1 || (codecType[0] & 0xFF) != CODEC_TYPE_H264
-                || parameters == null) {
-            // note H.265 not yet supported, so don't add it..
+        if (typeValue == null || typeValue.length != 1 || parameters == null) {
+            return;
+        }
+        VideoCodecType codecType = codecTypeOf(typeValue[0] & 0xFF);
+        if (codecType == null) {
+            LOGGER.debug("Ignoring camera audio codec with unknown type {}", typeValue[0] & 0xFF);
             return;
         }
         Map<Integer, byte[]> codecParameters = Tlv8Codec.decode(parameters);
@@ -97,13 +103,23 @@ public record VideoCodec(int profile, int level, int width, int height, int fram
             int frameRate = frameRateBytes[0] & 0xFF;
             for (byte profile : profiles) {
                 for (byte level : levels) {
-                    VideoCodec candidate = new VideoCodec(profile & 0xFF, level & 0xFF, width, height, frameRate);
+                    VideoCodec candidate = new VideoCodec(codecType, profile & 0xFF, level & 0xFF, width, height,
+                            frameRate);
                     if (!result.contains(candidate)) {
                         result.add(candidate);
                     }
                 }
             }
         }
+    }
+
+    private static @Nullable VideoCodecType codecTypeOf(int value) {
+        for (VideoCodecType codecType : VideoCodecType.values()) {
+            if (codecType.value == value) {
+                return codecType;
+            }
+        }
+        return null;
     }
 
     /**
@@ -127,18 +143,18 @@ public record VideoCodec(int profile, int level, int width, int height, int fram
 
     /**
      * Returns the preferred video codec configuration. H.264 Baseline is preferred because it requires no
-     * transcoding. Among Baseline configurations, the highest level is chosen. Other H.264 profiles are
-     * used when the camera offers no Baseline configuration.
-     * <p>
-     * Note: H.265 is not yet supported so it will not be in the provided list.
+     * trans-coding. Among Baseline configurations, the highest level is chosen. Other H.264 profiles are
+     * used when the camera offers no Baseline configuration. Cameras must support H.264 and H.265 is not
+     * yet supported.
      *
-     * @param videoCodecs the video configurations the camera supports
+     * @param codecs the video codecs the camera supports
      * @return the preferred configuration, or empty if the camera supports none
      */
-    public static Optional<VideoCodec> preferred(List<VideoCodec> videoCodecs) {
-        Optional<VideoCodec> baseline = videoCodecs.stream()
-                .filter(codec -> codec.profile() == VideoCodec.PROFILE_BASELINE)
+    public static Optional<VideoCodec> preferred(List<VideoCodec> codecs) {
+        Optional<VideoCodec> baseline = codecs.stream().filter(codec -> VideoCodec.PROFILE_BASELINE == codec.profile())
+                .filter(codec -> VideoCodecType.H_264 == codec.codecType())
                 .max(Comparator.comparingInt(VideoCodec::level));
-        return baseline.or(() -> videoCodecs.stream().findFirst());
+        return baseline.or(() -> codecs.stream()
+                .filter(codec -> VideoCodecType.FFMPEG_NATIVE.contains(codec.codecType())).findFirst());
     }
 }

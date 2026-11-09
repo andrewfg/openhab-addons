@@ -143,16 +143,16 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the preferred codec for listen and talk. A-law is preferred because it requires no transcoding.
+     * Returns the preferred codec for listen and talk. A-law is preferred because it requires no trans-coding.
+     * Cameras must support Opus or AAC-ELD, but ffmpeg may not support the latter.
      * 
-     * @param audioCodecs the audio codecs the camera supports
-     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can transcode
+     * @param codecs the audio codecs the camera supports
+     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can trans-code
      */
-    public static Optional<AudioCodec> preferred(List<AudioCodec> audioCodecs) {
-        Optional<AudioCodec> alaw = audioCodecs.stream().filter(codec -> codec.codecType() == AudioCodecType.PCMA)
+    public static Optional<AudioCodec> preferred(List<AudioCodec> codecs) {
+        Optional<AudioCodec> alaw = codecs.stream().filter(codec -> AudioCodecType.PCMA == codec.codecType())
                 .findFirst();
-        return alaw.or(() -> audioCodecs.stream().filter(
-                codec -> codec.codecType() != AudioCodecType.AAC_ELD && codec.codecType() != AudioCodecType.MSBC)
+        return alaw.or(() -> codecs.stream().filter(codec -> AudioCodecType.FFMPEG_NATIVE.contains(codec.codecType()))
                 .findFirst());
     }
 }

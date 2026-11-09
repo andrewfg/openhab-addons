@@ -31,7 +31,7 @@ public final class FfmpegHelpers {
     }
 
     /**
-     * Returns true if the codec is the 8 kHz mono A-law stream that go2rtc uses (avoid transcoding).
+     * Returns true if the codec is the 8 kHz mono A-law stream that go2rtc uses (avoid trans-coding).
      */
     static boolean isGo2rtcAlaw(AudioCodec codec) {
         return codec.codecType() == AudioCodecType.PCMA && codec.rtpClockRate() == 8000 && codec.channels() == 1;
@@ -55,7 +55,7 @@ public final class FfmpegHelpers {
 
     /**
      * Builds the command line for the listener ffmpeg instance that reads the camera's RTP streams and outputs
-     * an RTSP stream for go2rtc. The audio is transcoded to A-law unless it is already A-law, and the video is
+     * an RTSP stream for go2rtc. The audio is trans-coded to A-law unless it is already A-law, and the video is
      * copied. The RTSP {@code {output}} is a placeholder that go2rtc replaces with its own RTSP URL.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}

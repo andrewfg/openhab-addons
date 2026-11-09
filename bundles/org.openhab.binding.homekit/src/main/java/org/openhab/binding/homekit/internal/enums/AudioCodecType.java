@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.homekit.internal.enums;
 
+import java.util.Set;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
@@ -30,6 +32,9 @@ public enum AudioCodecType {
     AMR_WB(0x06);
 
     public final int value;
+
+    // codecs that can be natively decoded by ffmpeg without plugins
+    public static final Set<AudioCodecType> FFMPEG_NATIVE = Set.of(PCMU, PCMA, OPUS);
 
     AudioCodecType(int value) {
         this.value = value;

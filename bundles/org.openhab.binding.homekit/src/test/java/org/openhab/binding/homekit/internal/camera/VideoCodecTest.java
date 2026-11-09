@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.enums.VideoCodecType;
 
 /**
  * Tests for {@link VideoCodec#decode(byte[])}.
@@ -34,20 +35,10 @@ class VideoCodecTest {
 
         List<VideoCodec> configs = VideoCodec.decode(tlv(0x01, entry));
 
-        assertEquals(List.of(new VideoCodec(0, 0, 1920, 1080, 30), new VideoCodec(0, 2, 1920, 1080, 30),
-                new VideoCodec(2, 0, 1920, 1080, 30), new VideoCodec(2, 2, 1920, 1080, 30)), configs);
-    }
-
-    @Test
-    void skipsNonH264EntriesAndKeepsH264Entries() {
-        byte[] params = concat(tlv(0x01, 0x01), tlv(0x02, 0x00));
-        byte[] attribute = concat(tlv(0x01, 0x40, 0x01), tlv(0x02, 0xF0, 0x00), tlv(0x03, 15));
-        byte[] nonH264 = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
-        byte[] h264 = concat(tlv(0x01, 0x00), tlv(0x02, params), tlv(0x03, attribute));
-
-        List<VideoCodec> configs = VideoCodec.decode(concat(tlv(0x01, nonH264), tlv(0x01, h264)));
-
-        assertEquals(List.of(new VideoCodec(1, 0, 320, 240, 15)), configs);
+        assertEquals(List.of(new VideoCodec(VideoCodecType.H_264, 0, 0, 1920, 1080, 30),
+                new VideoCodec(VideoCodecType.H_264, 0, 2, 1920, 1080, 30),
+                new VideoCodec(VideoCodecType.H_264, 2, 0, 1920, 1080, 30),
+                new VideoCodec(VideoCodecType.H_264, 2, 2, 1920, 1080, 30)), configs);
     }
 
     @Test
@@ -56,7 +47,8 @@ class VideoCodecTest {
         byte[] attribute = concat(tlv(0x01, 0x80, 0x07), tlv(0x02, 0x38, 0x04), tlv(0x03, 30));
         byte[] entry = concat(tlv(0x01, 0x01), tlv(0x02, params), tlv(0x03, attribute));
 
-        assertTrue(VideoCodec.decode(tlv(0x01, entry)).isEmpty());
+        assertTrue(VideoCodec.decode(tlv(0x01, entry)).stream()
+                .filter(codec -> codec.codecType() == VideoCodecType.H_264).toList().isEmpty());
     }
 
     @Test

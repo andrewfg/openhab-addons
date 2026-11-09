@@ -79,7 +79,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * 
      * @param audioCodecs the audio codecs the camera supports
      * @param videoCodecs the video configurations the camera supports
-     * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can transcode
+     * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can trans-code
      * @throws IOException if the sockets or SDP files cannot be created
      */
     public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs) throws IOException {
@@ -108,7 +108,7 @@ public class Go2RtcDataPump implements AutoCloseable {
             talk = new DatagramSocket(0, InetAddress.getLoopbackAddress());
             sender = new DatagramSocket(0);
             audioSdp = writeSdp("homekit-audio-", audioSdp(audioFfmpegPort, AUDIO_PAYLOAD_TYPE, audioCodec));
-            videoSdp = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE));
+            videoSdp = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE, videoCodec));
         } catch (IOException | RuntimeException e) {
             audio.close();
             closeQuietly(video, talk, sender);
@@ -234,7 +234,11 @@ public class Go2RtcDataPump implements AutoCloseable {
     /**
      * Returns an SDP that describes the camera's video for the forward ffmpeg instance.
      */
-    static String videoSdp(int ffmpegPort, int payloadType) {
+    static String videoSdp(int ffmpegPort, int payloadType, VideoCodec codec) {
+        String encoding = switch (codec.codecType()) {
+            case H_264 -> "H264";
+            case H_265 -> throw new IllegalArgumentException("Unsupported codec: " + codec.codecType());
+        };
         return """
                 v=0
                 o=- 0 0 IN IP4 127.0.0.1
@@ -242,9 +246,9 @@ public class Go2RtcDataPump implements AutoCloseable {
                 c=IN IP4 127.0.0.1
                 t=0 0
                 m=video %d RTP/AVP %d
-                a=rtpmap:%d H264/90000
+                a=rtpmap:%d %s/90000
                 a=fmtp:%d packetization-mode=1
-                """.formatted(ffmpegPort, payloadType, payloadType, payloadType);
+                """.formatted(ffmpegPort, payloadType, payloadType, encoding, payloadType);
     }
 
     @Override

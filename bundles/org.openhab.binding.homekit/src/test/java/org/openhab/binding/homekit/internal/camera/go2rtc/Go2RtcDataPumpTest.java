@@ -35,6 +35,7 @@ import org.openhab.binding.homekit.internal.camera.srtp.SrtpCryptoSuite;
 import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.srtp.SrtpSession;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
+import org.openhab.binding.homekit.internal.enums.VideoCodecType;
 
 /**
  * Tests for {@link Go2RtcDataPump} codec selection, SDP generation and the SRTP relay.
@@ -52,7 +53,7 @@ class Go2RtcDataPumpTest {
             new byte[] { 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }, new byte[14]);
     private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 16);
     private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8);
-    private static final VideoCodec VIDEO = new VideoCodec(0, 0, 640, 480, 30);
+    private static final VideoCodec VIDEO = new VideoCodec(VideoCodecType.H_264, 0, 0, 640, 480, 30);
 
     private @Nullable Go2RtcDataPump pump;
     private @Nullable DatagramSocket camera;
