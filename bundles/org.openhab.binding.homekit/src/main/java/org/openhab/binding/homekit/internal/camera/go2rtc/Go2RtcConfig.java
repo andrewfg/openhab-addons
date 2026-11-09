@@ -12,6 +12,10 @@
  */
 package org.openhab.binding.homekit.internal.camera.go2rtc;
 
+import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.ServerSocket;
+import java.net.SocketException;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -30,6 +34,8 @@ public final class Go2RtcConfig {
      */
     public record Address(String host, int apiPort, int webRtcPort, int rtspPort) {
     }
+
+    private static final int MAX_PORT_ATTEMPTS = 10;
 
     private Go2RtcConfig() {
     }
@@ -64,5 +70,33 @@ public final class Go2RtcConfig {
 
     private static String quote(String value) {
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    /**
+     * Returns a free TCP port selected by the OS.
+     * There is a small window between closing the probe socket and go2rtc binding the port.
+     */
+    public static int freeTcpPort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
+    /**
+     * Returns a port that is free for both TCP and UDP, as go2rtc listens on both for WebRTC.
+     * Retries when the UDP side of a TCP-free port is already in use.
+     */
+    public static int freeTcpUdpPort() throws IOException {
+        for (int attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt++) {
+            try (ServerSocket tcp = new ServerSocket(0)) {
+                int port = tcp.getLocalPort();
+                try (DatagramSocket udp = new DatagramSocket(port)) {
+                    return port;
+                } catch (SocketException e) {
+                    // UDP port in use; try another
+                }
+            }
+        }
+        throw new IOException("No port free for both TCP and UDP after " + MAX_PORT_ATTEMPTS + " attempts");
     }
 }

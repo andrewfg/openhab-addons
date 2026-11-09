@@ -83,7 +83,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @throws IOException if the sockets or SDP files cannot be created
      */
     public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs) throws IOException {
-        this(audioCodecs, videoCodecs, getFreeUDPPort(), getFreeUDPPort());
+        this(audioCodecs, videoCodecs, Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpUdpPort());
     }
 
     /**
@@ -324,15 +324,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         Thread thread = new Thread(task, "OH-binding-homekit-go2rtc-" + name);
         thread.setDaemon(true);
         thread.start();
-    }
-
-    /**
-     * Returns a free UDP port.
-     */
-    private static int getFreeUDPPort() throws IOException {
-        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            return probe.getLocalPort();
-        }
     }
 
     /**

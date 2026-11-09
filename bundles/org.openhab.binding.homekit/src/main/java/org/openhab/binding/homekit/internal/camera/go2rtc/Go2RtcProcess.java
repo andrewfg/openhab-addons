@@ -15,7 +15,6 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -54,17 +53,6 @@ public class Go2RtcProcess {
 
     public Go2RtcProcess(Path binary) {
         this.binary = binary;
-    }
-
-    /**
-     * Returns a free TCP port.
-     * There is a small window between closing the probe socket and go2rtc binding the port, which is
-     * acceptable for a per-camera local service.
-     */
-    public static int getFreeTCPPort() throws IOException {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
     }
 
     /**

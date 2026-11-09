@@ -15,6 +15,8 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.ServerSocket;
 
 import org.junit.jupiter.api.Test;
 
@@ -71,5 +73,23 @@ class Go2RtcProcessTest {
         assertThrows(IOException.class, () -> Go2RtcProcess.hasConsumers("{not json", CAM, TALK));
         assertThrows(IOException.class, () -> Go2RtcProcess.hasConsumers("[]", CAM, TALK));
         assertThrows(IOException.class, () -> Go2RtcProcess.hasConsumers("null", CAM, TALK));
+    }
+
+    @Test
+    void freeTcpPortIsBindableAfterSelection() throws IOException {
+        int port = Go2RtcConfig.freeTcpPort();
+        assertTrue(port > 0 && port <= 65535);
+        try (ServerSocket socket = new ServerSocket(port)) {
+            assertEquals(port, socket.getLocalPort());
+        }
+    }
+
+    @Test
+    void freeTcpAndUdpPortIsBindableForBoth() throws IOException {
+        int port = Go2RtcConfig.freeTcpUdpPort();
+        try (ServerSocket tcp = new ServerSocket(port); DatagramSocket udp = new DatagramSocket(port)) {
+            assertEquals(port, tcp.getLocalPort());
+            assertEquals(port, udp.getLocalPort());
+        }
     }
 }
