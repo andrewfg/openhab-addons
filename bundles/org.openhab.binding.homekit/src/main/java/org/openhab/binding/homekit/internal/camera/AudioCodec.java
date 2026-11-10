@@ -62,10 +62,10 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the RTP clock rate in Hz, which equals the sample rate.
+     * Returns the RTP clock rate in Hz. Opus always uses 48 kHz RTP timestamps regardless of its sample rate (RFC 7587).
      */
     public int rtpClockRate() {
-        return sampleRateKhz * 1000;
+        return codecType == AudioCodecType.OPUS ? 48000 : sampleRateKhz * 1000;
     }
 
     /**
@@ -142,14 +142,17 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the Opus codec used for both listen and talk.
+     * Returns the Opus codec used for both listen and talk. HomeKit mandates Opus at 16 or 24 kHz.
      *
      * @param codecs the audio codecs the camera supports
      * @return the Opus codec
-     * @throws IllegalArgumentException if the camera does not support Opus
+     * @throws IllegalArgumentException if the camera does not support Opus at 16 or 24 kHz
      */
     public static AudioCodec preferred(List<AudioCodec> codecs) {
-        return codecs.stream().filter(codec -> AudioCodecType.OPUS == codec.codecType()).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus audio"));
+        return codecs.stream()
+                .filter(codec -> AudioCodecType.OPUS == codec.codecType()
+                        && (codec.sampleRateKhz() == 16 || codec.sampleRateKhz() == 24))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus at 16 or 24 kHz"));
     }
 }
