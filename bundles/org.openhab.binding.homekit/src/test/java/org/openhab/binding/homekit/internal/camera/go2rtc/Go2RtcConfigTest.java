@@ -17,10 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.AudioCodec;
-import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegHelpers;
-import org.openhab.binding.homekit.internal.enums.AudioCodecType;
-
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
  *
@@ -28,35 +24,22 @@ import org.openhab.binding.homekit.internal.enums.AudioCodecType;
  */
 class Go2RtcConfigTest {
 
-    private static final AudioCodec ALAW = new AudioCodec(AudioCodecType.PCMA, 1, 8);
-
     @Test
-    void yamlContainsPortsStreamsAndExecPrefix() {
+    void yamlContainsPortsAndDeclaredStreams() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554), "camera",
-                FfmpegHelpers.go2rtcListenCommandLine("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), "talk",
-                FfmpegHelpers.go2rtcTalkCommandLine("ffmpeg", ALAW, 110, 1L, 6000));
+                "camera_talk");
         assertTrue(yaml.contains("api:\n  listen: \"192.168.1.10:1984\"\n"));
         assertTrue(yaml.contains("webrtc:\n  listen: \"192.168.1.10:8555\"\n"));
         assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
-        assertTrue(yaml.contains("  camera:\n    - \"exec:ffmpeg "));
-        assertTrue(yaml.contains("  talk:\n    - \"exec:ffmpeg "));
+        assertTrue(yaml.contains("streams:\n  camera:\n  camera_talk:\n"));
     }
 
     @Test
-    void talkExecEndsWithBackchannelFragment() {
+    void yamlContainsNoExecSources() {
         String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554), "camera",
-                FfmpegHelpers.go2rtcListenCommandLine("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), "talk",
-                FfmpegHelpers.go2rtcTalkCommandLine("ffmpeg", ALAW, 110, 1L, 6000));
-        assertTrue(yaml.contains("#backchannel=1#audio=alaw/8000\""));
-    }
-
-    @Test
-    void yamlOmitsTalkStreamWhenNotAvailable() {
-        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554), "camera",
-                FfmpegHelpers.go2rtcListenCommandLine("ffmpeg", "/tmp/a.sdp", "/tmp/v.sdp", ALAW), null, null);
-        assertFalse(yaml.contains("talk"));
+                "camera_talk");
+        assertFalse(yaml.contains("exec:"));
         assertFalse(yaml.contains("backchannel"));
-        assertTrue(yaml.endsWith("\"\n"));
     }
 
     @Test

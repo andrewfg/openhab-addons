@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -143,16 +142,14 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the preferred codec for listen and talk. A-law is preferred because it requires no trans-coding.
-     * Cameras must support Opus or AAC-ELD, but ffmpeg may not support the latter.
-     * 
+     * Returns the Opus codec used for both listen and talk.
+     *
      * @param codecs the audio codecs the camera supports
-     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can trans-code
+     * @return the Opus codec
+     * @throws IllegalArgumentException if the camera does not support Opus
      */
-    public static Optional<AudioCodec> preferred(List<AudioCodec> codecs) {
-        Optional<AudioCodec> alaw = codecs.stream().filter(codec -> AudioCodecType.PCMA == codec.codecType())
-                .findFirst();
-        return alaw.or(() -> codecs.stream().filter(codec -> AudioCodecType.FFMPEG_NATIVE.contains(codec.codecType()))
-                .findFirst());
+    public static AudioCodec preferred(List<AudioCodec> codecs) {
+        return codecs.stream().filter(codec -> AudioCodecType.OPUS == codec.codecType()).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus audio"));
     }
 }

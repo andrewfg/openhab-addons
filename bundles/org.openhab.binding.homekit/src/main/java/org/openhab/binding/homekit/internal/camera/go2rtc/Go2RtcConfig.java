@@ -19,7 +19,6 @@ import java.net.SocketException;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * Builds the go2rtc YAML configuration.
@@ -41,16 +40,14 @@ public final class Go2RtcConfig {
     }
 
     /**
-     * Returns the go2rtc YAML configuration.
+     * Returns the go2rtc YAML configuration. The listen and talk streams are declared without sources; the
+     * data pump publishes media to them over RTSP.
      *
      * @param address the host address and ports to listen on
      * @param listenStream the name of the stream the browser listens to
-     * @param listenCommandLine the exec command that produces the listen stream
-     * @param talkStream the name of the stream the browser talks to, or null when talk is not available
-     * @param talkCommandLine the exec command that consumes talk audio or null
+     * @param talkStream the name of the stream the browser talks to
      */
-    public static String toYaml(Address address, String listenStream, List<String> listenCommandLine,
-            @Nullable String talkStream, @Nullable List<String> talkCommandLine) {
+    public static String toYaml(Address address, String listenStream, String talkStream) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.apiPort()).append("\"\n");
@@ -60,16 +57,8 @@ public final class Go2RtcConfig {
         yaml.append("  listen: \"127.0.0.1:").append(address.rtspPort()).append("\"\n");
         yaml.append("streams:\n");
         yaml.append("  ").append(listenStream).append(":\n");
-        yaml.append("    - ").append(quote("exec:" + String.join(" ", listenCommandLine))).append("\n");
-        if (talkStream != null && talkCommandLine != null) {
-            yaml.append("  ").append(talkStream).append(":\n");
-            yaml.append("    - ").append(quote("exec:" + String.join(" ", talkCommandLine))).append("\n");
-        }
+        yaml.append("  ").append(talkStream).append(":\n");
         return yaml.toString();
-    }
-
-    private static String quote(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     /**
