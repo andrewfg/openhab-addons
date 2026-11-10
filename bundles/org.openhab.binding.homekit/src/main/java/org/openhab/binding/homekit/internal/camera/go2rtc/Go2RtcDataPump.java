@@ -54,10 +54,11 @@ public class Go2RtcDataPump implements AutoCloseable {
     public static final int AUDIO_PAYLOAD_TYPE = 110;
     public static final int VIDEO_PAYLOAD_TYPE = 99;
 
+    // sync sources are uint which Java doesn't have so we use 4 byte long (8 hex digits)
     public static final long AUDIO_SYNC_SOURCE = 0x12345678L;
     public static final long VIDEO_SYNC_SOURCE = 0x23456789L;
 
-    /** Interleaved RTP channels; the RTCP channel is always the RTP channel plus one. */
+    // interleaved RTP channels; the RTCP channel is always the RTP channel plus one.
     private static final int AUDIO_CHANNEL = 0;
     private static final int VIDEO_CHANNEL = 2;
     private static final int TALK_CHANNEL = 0;

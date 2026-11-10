@@ -1454,11 +1454,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
         SetupEndpointsRequest endpointRequest = new SetupEndpointsRequest(sessionId, false, localHost(remoteAddress),
                 pump.videoPort(), pump.audioPort(), dummyParams, talkParams);
-        logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
 
         SetupEndpointsResponse endpointResponse = SetupEndpointsResponse
                 .decode(writeTlvCharacteristic(aid, setupIid, endpointRequest.encode(), true));
-        logger.debug("{} openCameraSession() {}", thing.getUID(), endpointResponse);
 
         if (endpointResponse.status() != SetupEndpointsStatus.SUCCESS) {
             throw new IllegalStateException("Camera rejected talk-back setup: " + endpointResponse.status());
@@ -1478,14 +1476,18 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
         Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams, remoteAddress,
                 talkPort);
-        logger.debug("{} openCameraSession() {}", thing.getUID(), session);
-
         SrtpStreamConfiguration config = new SrtpStreamConfiguration(sessionId, SessionCommand.START,
-                selectedVideo(pump.videoCodec()), selectedAudio(pump.audioCodec()));
-        logger.debug("{} openCameraSession() {}", thing.getUID(), config);
+                selectedVideoParams(pump.videoCodec()), selectedAudioParams(pump.audioCodec()));
 
         writeTlvCharacteristic(aid, selectedIid, config.encode(), false);
-        logger.debug("{} openCameraSession() completed", thing.getUID());
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
+            logger.debug("{} openCameraSession() {}", thing.getUID(), endpointResponse);
+            logger.debug("{} openCameraSession() {}", thing.getUID(), session);
+            logger.debug("{} openCameraSession() {}", thing.getUID(), config);
+            logger.debug("{} openCameraSession() completed", thing.getUID());
+        }
     }
 
     /**
@@ -1512,7 +1514,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         if (notifyCamera && aid != null && selectedIid != null) {
             try {
                 writeTlvCharacteristic(aid, selectedIid,
-                        new SrtpStreamConfiguration(id, SessionCommand.END, selectedAudio(pump.audioCodec())).encode(),
+                        new SrtpStreamConfiguration(id, SessionCommand.END, selectedAudioParams(pump.audioCodec()))
+                                .encode(),
                         false);
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
@@ -1603,8 +1606,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             if (logger.isDebugEnabled()) {
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), address);
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), pump);
-                logger.debug("{} startGo2rtc() yaml:\n{}", thing.getUID(), yaml);
-                logger.debug("{} startGo2rtc() url:{}", thing.getUID(), url);
+                logger.debug("{} startGo2rtc() yaml=\n{}", thing.getUID(), yaml);
+                logger.debug("{} startGo2rtc() url={}", thing.getUID(), url);
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), go2rtcEndpoint);
             }
 
@@ -1708,7 +1711,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 wanted = process.hasConsumers(endpoint.host(), endpoint.apiPort(), endpoint.stream(),
                         endpoint.stream() + "_talk");
             } catch (IOException e) {
-                // An unreadable go2rtc state is unknown demand, so the current camera session is left unchanged.
+                // an unreadable go2rtc state is unknown demand, so the current camera session is left unchanged.
                 logger.debug("{} cannot read go2rtc consumers: {}", thing.getUID(), e.getMessage());
                 return;
             }
@@ -1858,7 +1861,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * Returns the selected audio parameters for the given codec, using the fixed SSRC and payload type.
      */
-    private static AudioSelectedParameters selectedAudio(AudioCodec codec) {
+    private static AudioSelectedParameters selectedAudioParams(AudioCodec codec) {
         return new AudioSelectedParameters(codec.codecType(), codec.channels(), false, codec.sampleRateKhz(), 20,
                 Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, Go2RtcDataPump.AUDIO_SYNC_SOURCE, codec.maxBitrateKbps(), 0.5f,
                 false, 13);
@@ -1867,7 +1870,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     /**
      * Returns the selected video parameters for the given codec, using the fixed SSRC and payload type.
      */
-    private static VideoSelectedParameters selectedVideo(VideoCodec codec) {
+    private static VideoSelectedParameters selectedVideoParams(VideoCodec codec) {
         return new VideoSelectedParameters(codec.profile(), codec.level(), codec.width(), codec.height(),
                 codec.frameRate(), Go2RtcDataPump.VIDEO_PAYLOAD_TYPE, Go2RtcDataPump.VIDEO_SYNC_SOURCE,
                 codec.maxBitrateKbps(), 0.5f);
