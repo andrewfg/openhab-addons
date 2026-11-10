@@ -1454,18 +1454,25 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
         SetupEndpointsRequest endpointRequest = new SetupEndpointsRequest(sessionId, false, localHost(remoteAddress),
                 pump.videoPort(), pump.audioPort(), dummyParams, talkParams);
+        logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
 
         SetupEndpointsResponse endpointResponse = SetupEndpointsResponse
                 .decode(writeTlvCharacteristic(aid, setupIid, endpointRequest.encode(), true));
+        logger.debug("{} openCameraSession() {}", thing.getUID(), endpointResponse);
 
         if (endpointResponse.status() != SetupEndpointsStatus.SUCCESS) {
+            logger.debug("{} openCameraSession() camera rejected talk-back setup: {}", thing.getUID(),
+                    endpointResponse.status());
             throw new IllegalStateException("Camera rejected talk-back setup: " + endpointResponse.status());
         }
 
         SrtpParameters audioParams = endpointResponse.audioSrtpParameters();
         SrtpParameters videoParams = endpointResponse.videoSrtpParameters();
         Integer talkPort = endpointResponse.talkPort();
+        logger.debug("{} openCameraSession() audioParams ={}, videoParams={}, talk port={}", thing.getUID(),
+                audioParams, videoParams, talkPort);
         if (audioParams == null || videoParams == null || talkPort == null) {
+            logger.debug("{} openCameraSession() camera did not return SRTP parameters or a talk port", thing.getUID());
             throw new IllegalStateException("Camera did not return SRTP parameters or a talk port");
         }
 
@@ -1476,18 +1483,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
         Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams, remoteAddress,
                 talkPort);
+        logger.debug("{} openCameraSession() {}", thing.getUID(), session);
+
         SrtpStreamConfiguration config = new SrtpStreamConfiguration(sessionId, SessionCommand.START,
                 selectedVideoParams(pump.videoCodec()), selectedAudioParams(pump.audioCodec()));
+        logger.debug("{} openCameraSession() {}", thing.getUID(), config);
 
         writeTlvCharacteristic(aid, selectedIid, config.encode(), false);
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
-            logger.debug("{} openCameraSession() {}", thing.getUID(), endpointResponse);
-            logger.debug("{} openCameraSession() {}", thing.getUID(), session);
-            logger.debug("{} openCameraSession() {}", thing.getUID(), config);
-            logger.debug("{} openCameraSession() completed", thing.getUID());
-        }
+        logger.debug("{} openCameraSession() completed", thing.getUID());
     }
 
     /**
@@ -1536,8 +1539,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         List<AudioCodec> audioCodecs = this.audioCodecs;
         List<VideoCodec> videoCodecs = this.videoCodecs;
         go2rtcStarting = true;
-        logger.debug("{} startGo2rtcIfAvailable() audioCodecs[{}], videoCodecs[{}], remoteIpAddress[{}]",
-                thing.getUID(), audioCodecs, videoCodecs, remoteIpAddress);
+        logger.debug("{} startGo2rtcIfAvailable() audioCodecs={}, videoCodecs={}, remoteIpAddress={}", thing.getUID(),
+                audioCodecs, videoCodecs, remoteIpAddress);
         go2rtcExecutor.execute(() -> startGo2rtc(audioCodecs, videoCodecs, remoteIpAddress));
     }
 
@@ -1569,8 +1572,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             String host = localHost(remoteIpAddress);
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort());
+            logger.debug("{} startGo2rtc() address={}", thing.getUID(), address);
 
             pump = new Go2RtcDataPump(audioCodecs, videoCodecs);
+            logger.debug("{} startGo2rtc() pump={}", thing.getUID(), pump);
             synchronized (this) {
                 if (disposing.get()) {
                     return;
@@ -1581,16 +1586,20 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             String listenStreamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
             String talkStreamId = listenStreamId + "_talk";
             String yaml = Go2RtcConfig.toYaml(address, listenStreamId, talkStreamId);
+            logger.debug("{} startGo2rtc() yaml=\n{}", thing.getUID(), yaml);
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
             if (!awaitGo2rtcReady(process, address.host(), address.apiPort())) {
+                logger.debug("{} startGo2rtc() go2rtc did not become ready", thing.getUID());
                 throw new IOException("go2rtc did not become ready");
             }
             pump.connect(address.rtspPort(), listenStreamId, talkStreamId);
 
             String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + listenStreamId
                     + "&mode=webrtc";
+            logger.debug("{} startGo2rtc() url={}", thing.getUID(), url);
+
             synchronized (this) {
                 if (disposing.get()) {
                     return;
@@ -1599,18 +1608,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), listenStreamId, remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
+                logger.debug("{} startGo2rtc() endPoint={}", thing.getUID(), go2rtcEndpoint);
             }
 
             updateState(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), new StringType(url));
-
-            if (logger.isDebugEnabled()) {
-                logger.debug("{} startGo2rtc() {}", thing.getUID(), address);
-                logger.debug("{} startGo2rtc() {}", thing.getUID(), pump);
-                logger.debug("{} startGo2rtc() yaml=\n{}", thing.getUID(), yaml);
-                logger.debug("{} startGo2rtc() url={}", thing.getUID(), url);
-                logger.debug("{} startGo2rtc() {}", thing.getUID(), go2rtcEndpoint);
-            }
-
+            logger.debug("{} startGo2rtc() succeeded", thing.getUID());
             succeeded = true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -54,6 +54,7 @@ public class Go2RtcInstaller {
     private final HttpClient httpClient;
 
     public Go2RtcInstaller(Path baseDir) {
+        logger.debug("Go2RtcInstaller() called");
         this.baseDir = baseDir;
         this.httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(30)).build();
@@ -68,6 +69,7 @@ public class Go2RtcInstaller {
     public Path ensureBinary() throws IOException, InterruptedException {
         String os = Objects.requireNonNull(System.getProperty("os.name", ""));
         String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
+        logger.debug("Go2RtcInstaller() os={}, arch={}", os, arch);
         if (isOnPath(NAME, os)) {
             return Paths.get(NAME);
         }
@@ -76,11 +78,13 @@ public class Go2RtcInstaller {
         Path destDir = baseDir.resolve(os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT))
                 .resolve(VERSION);
         Path destBinary = destDir.resolve(NAME + (isWindows(os) ? ".exe" : ""));
+        logger.debug("ensureBinary() destDir={}, detcBinary={}", destDir, destBinary);
         if (!Files.exists(destBinary)) {
             logger.debug("Downloading {} to {}", asset, destBinary);
             download(RELEASE_URL + asset, asset, destDir, destBinary, os);
         }
         if (!destBinary.toFile().setExecutable(true)) {
+            logger.debug("ensureBinary() cannot make {} executable", destBinary);
             throw new IOException("Cannot make " + destBinary + " executable");
         }
         return destBinary;
