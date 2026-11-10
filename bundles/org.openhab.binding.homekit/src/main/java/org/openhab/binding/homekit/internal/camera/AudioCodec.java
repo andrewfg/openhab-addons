@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -63,10 +62,10 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the RTP clock rate in Hz, which equals the sample rate.
+     * Returns the RTP clock rate in Hz. Opus always uses 48 kHz RTP timestamps regardless of its sample rate (RFC 7587).
      */
     public int rtpClockRate() {
-        return sampleRateKhz * 1000;
+        return codecType == AudioCodecType.OPUS ? 48000 : sampleRateKhz * 1000;
     }
 
     /**
@@ -143,16 +142,17 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the preferred codec for listen and talk. A-law is preferred because it requires no trans-coding.
-     * Cameras must support Opus or AAC-ELD, but ffmpeg may not support the latter.
-     * 
+     * Returns the Opus codec used for both listen and talk. HomeKit mandates Opus at 16 or 24 kHz.
+     *
      * @param codecs the audio codecs the camera supports
-     * @return the preferred codec, or empty if the camera supports no codec that ffmpeg can trans-code
+     * @return the Opus codec
+     * @throws IllegalArgumentException if the camera does not support Opus at 16 or 24 kHz
      */
-    public static Optional<AudioCodec> preferred(List<AudioCodec> codecs) {
-        Optional<AudioCodec> alaw = codecs.stream().filter(codec -> AudioCodecType.PCMA == codec.codecType())
-                .findFirst();
-        return alaw.or(() -> codecs.stream().filter(codec -> AudioCodecType.FFMPEG_NATIVE.contains(codec.codecType()))
-                .findFirst());
+    public static AudioCodec preferred(List<AudioCodec> codecs) {
+        return codecs.stream()
+                .filter(codec -> AudioCodecType.OPUS == codec.codecType()
+                        && (codec.sampleRateKhz() == 16 || codec.sampleRateKhz() == 24))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus at 16 or 24 kHz"));
     }
 }

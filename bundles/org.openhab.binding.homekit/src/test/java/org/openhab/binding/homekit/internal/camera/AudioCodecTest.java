@@ -69,7 +69,16 @@ class AudioCodecTest {
     @Test
     void testRtpClockRateAndBitrate() {
         assertEquals(16000, new AudioCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
+        assertEquals(48000, new AudioCodec(AudioCodecType.OPUS, 1, 16).rtpClockRate());
         assertEquals(24, new AudioCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
+    }
+
+    @Test
+    void testPreferredOpusRequires16Or24kHz() {
+        AudioCodec opus8 = new AudioCodec(AudioCodecType.OPUS, 1, 8);
+        AudioCodec opus24 = new AudioCodec(AudioCodecType.OPUS, 1, 24);
+        assertEquals(opus24, AudioCodec.preferred(List.of(opus8, opus24)));
+        assertThrows(IllegalArgumentException.class, () -> AudioCodec.preferred(List.of(opus8)));
     }
 
     /** Builds one AUDIO_CODEC_CONFIGURATION entry with the given codec, channel count and sample-rate codes. */

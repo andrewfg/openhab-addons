@@ -46,8 +46,6 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.VideoCodec;
-import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegHelpers;
-import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDemand;
@@ -65,11 +63,13 @@ import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
 import org.openhab.binding.homekit.internal.dto.Service;
 import org.openhab.binding.homekit.internal.enums.AccessoryCategory;
+import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.CharacteristicType;
 import org.openhab.binding.homekit.internal.enums.DataFormatType;
 import org.openhab.binding.homekit.internal.enums.ServiceType;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 import org.openhab.binding.homekit.internal.enums.StatusCode;
+import org.openhab.binding.homekit.internal.enums.VideoCodecType;
 import org.openhab.binding.homekit.internal.persistence.HomekitKeyStore;
 import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
@@ -197,7 +197,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     // constants for camera talk-back sessions
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final long AUDIO_SYNC_SOURCE = 0x12345678L;
     private static final long VIDEO_SYNC_SOURCE = 0x23456789L;
     private static final int VIDEO_MAX_BITRATE_KBPS = 2000;
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
@@ -1565,7 +1564,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         boolean succeeded = false;
 
         try {
-            String ffmpegBinary = FfmpegInstaller.ensureBinary(cacheDir());
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
             String host = localHost(remoteIpAddress);
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
@@ -1579,20 +1577,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            List<String> listenCmdLine = FfmpegHelpers.go2rtcListenCommandLine(ffmpegBinary, pump.audioSdpFile(),
-                    pump.videoSdpFile(), pump.audioCodec());
-
-            List<String> talkCmdLine = FfmpegHelpers.go2rtcTalkCommandLine(ffmpegBinary, pump.audioCodec(),
-                    Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, AUDIO_SYNC_SOURCE, pump.talkPort());
-
             String streamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
-            String yaml = Go2RtcConfig.toYaml(address, streamId, listenCmdLine, streamId + "_talk", talkCmdLine);
+            String yaml = Go2RtcConfig.toYaml(address, streamId, streamId + "_talk");
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
             if (!awaitGo2rtcReady(process, address.host(), address.apiPort())) {
                 throw new IOException("go2rtc did not become ready");
             }
+            pump.connect(address.rtspPort(), streamId, streamId + "_talk");
 
             String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + streamId + "&mode=webrtc";
             synchronized (this) {
@@ -1620,8 +1613,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             succeeded = true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        } catch (IOException | IllegalStateException e) {
-            logger.info("{} startGo2rtc() go2rtc unavailable due to: {}", thing.getUID(), e.getMessage());
+        } catch (IOException | IllegalStateException | IllegalArgumentException e) {
         } catch (Exception e) {
             logger.warn("{} startGo2rtc() setup failed unexpectedly", thing.getUID(), e);
         } finally {
@@ -1860,7 +1852,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      * video codec.
      */
     private boolean isTalkbackAvailable() {
-        return cameraSetupIid != null && cameraSelectedIid != null && !audioCodecs.isEmpty() && !videoCodecs.isEmpty();
+        return cameraSetupIid != null && cameraSelectedIid != null
+                && audioCodecs.stream().anyMatch(codec -> codec.codecType() == AudioCodecType.OPUS)
+                && videoCodecs.stream().anyMatch(codec -> codec.codecType() == VideoCodecType.H_264);
     }
 
     /**
@@ -1868,8 +1862,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      */
     private static AudioSelectedParameters selectedAudio(AudioCodec codec) {
         return new AudioSelectedParameters(codec.codecType(), codec.channels(), false, codec.sampleRateKhz(), 20,
-                Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, AUDIO_SYNC_SOURCE, codec.maxBitrateKbps(), 0.5f, false, 13);
+                Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, Go2RtcDataPump.AUDIO_SYNC_SOURCE, codec.maxBitrateKbps(), 0.5f,
+                false, 13);
     }
+
 
     /**
      * Returns the selected video parameters for the given codec, using the fixed SSRC and payload type.

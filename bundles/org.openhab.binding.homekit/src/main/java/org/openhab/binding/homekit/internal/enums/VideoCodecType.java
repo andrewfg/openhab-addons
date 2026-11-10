@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.homekit.internal.enums;
 
-import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
@@ -27,9 +26,6 @@ public enum VideoCodecType {
     H_265(0x01);
 
     public final int value;
-
-    // codecs that can be natively decoded by ffmpeg
-    public static final Set<VideoCodecType> FFMPEG_NATIVE = Set.of(H_264);
 
     VideoCodecType(int value) {
         this.value = value;

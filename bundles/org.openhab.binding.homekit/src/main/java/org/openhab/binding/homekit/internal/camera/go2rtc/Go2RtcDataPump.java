@@ -15,11 +15,8 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.Function;
 
@@ -33,15 +30,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Relays RTP between the camera and go2rtc's ffmpeg instances.
+ * Relays media between the camera and go2rtc over RTSP.
  * <p>
  * Camera forward path audio and video arrive as SRTP on UDP ports advertised in the SetupEndpoints request.
- * The forward SRTP streams are decrypted and passed as plain RTP to the forward ffmpeg instance.
+ * They are decrypted and published as interleaved RTP to go2rtc's listen stream.
  * <p>
- * The back ffmpeg instance sends plain RTP to the data pump.
- * The back path audio is encrypted and sent as SRTP to the camera's talk port advertised in the SetupEndpoints
- * response.
- * 
+ * The talk path is read as interleaved RTP from go2rtc's talk stream, re-labelled with the talk payload type and
+ * sync source, encrypted and sent to the camera's talk port advertised in the SetupEndpoints response.
+ *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
@@ -49,10 +45,39 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Go2RtcDataPump.class);
 
+    private static final String RTSP_HOST = "127.0.0.1";
     private static final int MAX_DATAGRAM_SIZE = 2048;
+    private static final int RTP_HEADER_LENGTH = 12;
+    private static final int SRTP_AUTH_TAG_LENGTH = 10;
+    private static final int TALK_RETRY_DELAY_MS = 2000;
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
     public static final int VIDEO_PAYLOAD_TYPE = 99;
+    public static final long AUDIO_SYNC_SOURCE = 0x12345678L;
+
+    /** Interleaved RTP channels; the RTCP channel is always the RTP channel plus one. */
+    private static final int AUDIO_CHANNEL = 0;
+    private static final int VIDEO_CHANNEL = 2;
+    private static final int TALK_CHANNEL = 0;
+
+    /**
+     * Opus RTP timestamps always use a 48 kHz clock regardless of the output sample rate (RFC 7587).
+     */
+    private static final String ANNOUNCE_SDP = """
+            v=0
+            o=- 0 0 IN IP4 127.0.0.1
+            s=HomeKit
+            c=IN IP4 127.0.0.1
+            t=0 0
+            m=audio 0 RTP/AVP %d
+            a=rtpmap:%d opus/48000/2
+            a=control:trackID=0
+            m=video 0 RTP/AVP %d
+            a=rtpmap:%d H264/90000
+            a=fmtp:%d packetization-mode=1
+            a=control:trackID=1
+            """.formatted(AUDIO_PAYLOAD_TYPE, AUDIO_PAYLOAD_TYPE, VIDEO_PAYLOAD_TYPE, VIDEO_PAYLOAD_TYPE,
+            VIDEO_PAYLOAD_TYPE);
 
     /**
      * The SRTP contexts of one camera session. Each context is used only by its own relay thread.
@@ -66,72 +91,46 @@ public class Go2RtcDataPump implements AutoCloseable {
     private final DatagramSocket audioSocket;
     private final DatagramSocket videoSocket;
     private final DatagramSocket talkSocket;
-    private final DatagramSocket talkSender;
-    private final Path audioSdpFile;
-    private final Path videoSdpFile;
 
     private volatile @Nullable Session session = null;
+    private volatile @Nullable RtspConnection publisher = null;
+    private volatile @Nullable RtspConnection talkReader = null;
     private volatile boolean closed;
 
     /**
-     * Creates a data pump that forwards between the go2rtc facing forward and backward ffmpeg instances
-     * and the camera facing audio and video stream ports.
-     * 
+     * Creates a data pump for the camera's audio and video. The camera must support Opus audio and H.264 video.
+     *
      * @param audioCodecs the audio codecs the camera supports
      * @param videoCodecs the video configurations the camera supports
-     * @throws IllegalArgumentException if the camera supports no codec that ffmpeg can trans-code
-     * @throws IOException if the sockets or SDP files cannot be created
+     * @throws IllegalArgumentException if the camera does not support Opus audio or H.264 video
+     * @throws IOException if the sockets cannot be created
      */
     public Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs) throws IOException {
-        this(audioCodecs, videoCodecs, Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpUdpPort());
-    }
-
-    /**
-     * For testing..
-     */
-    Go2RtcDataPump(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs, int audioFfmpegPort, int videoFfmpegPort)
-            throws IOException {
-        audioCodec = AudioCodec.preferred(audioCodecs)
-                .orElseThrow(() -> new IllegalArgumentException("go2rtc requires audio"));
-        videoCodec = VideoCodec.preferred(videoCodecs)
-                .orElseThrow(() -> new IllegalArgumentException("go2rtc requires video"));
+        audioCodec = AudioCodec.preferred(audioCodecs);
+        videoCodec = VideoCodec.preferred(videoCodecs);
 
         DatagramSocket audio = new DatagramSocket(0);
         DatagramSocket video = null;
         DatagramSocket talk = null;
-        DatagramSocket sender = null;
-        Path audioSdp = null;
-        Path videoSdp = null;
-
         try {
             video = new DatagramSocket(0);
-            talk = new DatagramSocket(0, InetAddress.getLoopbackAddress());
-            sender = new DatagramSocket(0);
-            audioSdp = writeSdp("homekit-audio-", audioSdp(audioFfmpegPort, AUDIO_PAYLOAD_TYPE, audioCodec));
-            videoSdp = writeSdp("homekit-video-", videoSdp(videoFfmpegPort, VIDEO_PAYLOAD_TYPE, videoCodec));
+            talk = new DatagramSocket(0);
         } catch (IOException | RuntimeException e) {
             audio.close();
-            closeQuietly(video, talk, sender);
-            deleteQuietly(audioSdp);
-            deleteQuietly(videoSdp);
+            closeQuietly(video, talk);
             throw e;
         }
-        LOGGER.debug("Go2RtcDataPump() audioSdp:\n{}videoSdp:\n{}", audioSdp, videoSdp);
 
         audioSocket = audio;
         videoSocket = video;
         talkSocket = talk;
-        talkSender = sender;
-        audioSdpFile = audioSdp;
-        videoSdpFile = videoSdp;
 
-        startThread("audio-rtp", () -> relayListen(audioSocket, audioFfmpegPort, Session::audioSession));
-        startThread("video-rtp", () -> relayListen(videoSocket, videoFfmpegPort, Session::videoSession));
-        startThread("talk-rtp", this::relayTalk);
+        startThread("audio-rtp", () -> relayListen(audioSocket, AUDIO_CHANNEL, Session::audioSession));
+        startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, Session::videoSession));
     }
 
     /**
-     * @return the camera's audio codec (used for both listen and talk).
+     * @return the camera's audio codec
      */
     public AudioCodec audioCodec() {
         return audioCodec;
@@ -159,24 +158,28 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * @return the UDP port that the back ffmpeg instance sends its talk RTP to
+     * Publishes the camera media to go2rtc and starts relaying the talk stream to the camera. The talk stream is
+     * retried until go2rtc has it available.
+     *
+     * @param rtspPort the go2rtc RTSP port on the loopback interface
+     * @param listenStream the name of the go2rtc stream that receives the camera media
+     * @param talkStream the name of the go2rtc stream that carries the browser talk audio
+     * @throws IOException if go2rtc refuses the publish
+     * @throws IllegalStateException if already connected or closed
      */
-    public int talkPort() {
-        return talkSocket.getLocalPort();
-    }
-
-    /**
-     * @return the SDP file that describes the camera audio for the forward ffmpeg instance
-     */
-    public String audioSdpFile() {
-        return audioSdpFile.toString();
-    }
-
-    /**
-     * @return the SDP file that describes the camera video for the forward ffmpeg instance
-     */
-    public String videoSdpFile() {
-        return videoSdpFile.toString();
+    public synchronized void connect(int rtspPort, String listenStream, String talkStream) throws IOException {
+        if (closed || publisher != null) {
+            throw new IllegalStateException("data pump is already connected or closed");
+        }
+        RtspConnection connection = new RtspConnection(RTSP_HOST, rtspPort);
+        try {
+            publish(connection, url(rtspPort, listenStream));
+        } catch (IOException | RuntimeException e) {
+            connection.close();
+            throw e;
+        }
+        publisher = connection;
+        startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
     }
 
     /**
@@ -187,14 +190,15 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @param talkParameters the SRTP parameters the binding uses to encrypt talk audio towards the camera
      * @param remoteHost the camera's IP address
      * @param remoteTalkPort the camera's audio port from the SetupEndpoints response
-     * @return
+     * @return the new session
      * @throws IllegalArgumentException if a crypto suite is NONE
      */
-    public @Nullable Session startSession(SrtpParameters audioParameters, SrtpParameters videoParameters,
+    public Session startSession(SrtpParameters audioParameters, SrtpParameters videoParameters,
             SrtpParameters talkParameters, String remoteHost, int remoteTalkPort) {
-        session = new Session(SrtpSession.create(audioParameters), SrtpSession.create(videoParameters),
+        Session newSession = new Session(SrtpSession.create(audioParameters), SrtpSession.create(videoParameters),
                 SrtpSession.create(talkParameters), new InetSocketAddress(remoteHost, remoteTalkPort));
-        return session;
+        session = newSession;
+        return newSession;
     }
 
     /**
@@ -204,85 +208,40 @@ public class Go2RtcDataPump implements AutoCloseable {
         session = null;
     }
 
-    /**
-     * Returns an SDP that describes the camera's audio for the forward ffmpeg instance.
-     */
-    static String audioSdp(int ffmpegPort, int payloadType, AudioCodec codec) {
-        String encoding = switch (codec.codecType()) {
-            case OPUS -> "opus";
-            case PCMU -> "PCMU";
-            case PCMA -> "PCMA";
-            case AMR -> "AMR";
-            case AMR_WB -> "AMR-WB";
-            case AAC_ELD, MSBC -> throw new IllegalArgumentException("Unsupported codec: " + codec.codecType());
-        };
-        String fmtp = switch (codec.codecType()) {
-            case AMR, AMR_WB -> "a=fmtp:%d octet-align=1\n".formatted(payloadType);
-            default -> "";
-        };
-        return """
-                v=0
-                o=- 0 0 IN IP4 127.0.0.1
-                s=HomeKit Audio
-                c=IN IP4 127.0.0.1
-                t=0 0
-                m=audio %d RTP/AVP %d
-                a=rtpmap:%d %s/%d/%d
-                %s""".formatted(ffmpegPort, payloadType, payloadType, encoding, codec.rtpClockRate(), codec.channels(),
-                fmtp);
-    }
-
-    /**
-     * Returns an SDP that describes the camera's video for the forward ffmpeg instance.
-     */
-    static String videoSdp(int ffmpegPort, int payloadType, VideoCodec codec) {
-        String encoding = switch (codec.codecType()) {
-            case H_264 -> "H264";
-            case H_265 -> throw new IllegalArgumentException("Unsupported codec: " + codec.codecType());
-        };
-        return """
-                v=0
-                o=- 0 0 IN IP4 127.0.0.1
-                s=HomeKit Video
-                c=IN IP4 127.0.0.1
-                t=0 0
-                m=video %d RTP/AVP %d
-                a=rtpmap:%d %s/90000
-                a=fmtp:%d packetization-mode=1
-                """.formatted(ffmpegPort, payloadType, payloadType, encoding, payloadType);
-    }
-
     @Override
-    public void close() {
+    public synchronized void close() {
         closed = true;
         session = null;
         audioSocket.close();
         videoSocket.close();
         talkSocket.close();
-        talkSender.close();
-        deleteQuietly(audioSdpFile);
-        deleteQuietly(videoSdpFile);
+        RtspConnection connection = publisher;
+        if (connection != null) {
+            connection.close();
+        }
+        RtspConnection reader = talkReader;
+        if (reader != null) {
+            reader.close();
+        }
     }
 
     /**
-     * Decrypts camera SRTP and forwards it as plain RTP to the forward ffmpeg instance.
+     * Decrypts camera SRTP and publishes it as interleaved RTP to go2rtc.
      */
-    private void relayListen(DatagramSocket socket, int ffmpegPort, Function<Session, SrtpSession> stream) {
-        InetAddress loopback = InetAddress.getLoopbackAddress();
+    private void relayListen(DatagramSocket socket, int channel, Function<Session, SrtpSession> stream) {
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket receivePacket = new DatagramPacket(srtpBuffer, srtpBuffer.length);
-        DatagramPacket sendPacket = new DatagramPacket(rtpBuffer, 0, loopback, ffmpegPort);
         while (!closed) {
             try {
                 receivePacket.setLength(srtpBuffer.length);
                 socket.receive(receivePacket);
                 Session current = session;
-                if (current != null) {
+                RtspConnection connection = publisher;
+                if (current != null && connection != null) {
                     int rtpLength = stream.apply(current).decrypt(srtpBuffer, receivePacket.getLength(), rtpBuffer);
                     if (rtpLength >= 0) {
-                        sendPacket.setData(rtpBuffer, 0, rtpLength);
-                        socket.send(sendPacket);
+                        connection.sendFrame(channel, rtpBuffer, rtpLength);
                     }
                 }
             } catch (IOException e) {
@@ -295,31 +254,100 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Encrypts plain RTP from the back ffmpeg instance and sends it as SRTP to the camera.
+     * Reads the browser talk stream from go2rtc and sends it as SRTP to the camera. Reconnects after failures
+     * until the data pump is closed.
      */
-    private void relayTalk() {
+    private void relayTalk(int rtspPort, String talkStream) {
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
-        byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + 10];
-        DatagramPacket receivePacket = new DatagramPacket(rtpBuffer, rtpBuffer.length);
-        DatagramPacket sendPacket = new DatagramPacket(srtpBuffer, 0);
+        byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + SRTP_AUTH_TAG_LENGTH];
         while (!closed) {
-            try {
-                receivePacket.setLength(rtpBuffer.length);
-                talkSocket.receive(receivePacket);
-                Session current = session;
-                if (current != null) {
-                    int srtpLength = current.talkSession().encrypt(rtpBuffer, receivePacket.getLength(), srtpBuffer);
-                    sendPacket.setData(srtpBuffer, 0, srtpLength);
-                    sendPacket.setSocketAddress(current.talkAddress());
-                    talkSender.send(sendPacket);
+            try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
+                talkReader = reader;
+                if (closed) {
+                    return;
+                }
+                while (!closed) {
+                    RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
+                    Session current = session;
+                    if (current != null && frame.channel() == TALK_CHANNEL && frame.length() >= RTP_HEADER_LENGTH) {
+                        sendTalk(current, rtpBuffer, frame.length(), srtpBuffer);
+                    }
                 }
             } catch (IOException e) {
                 if (closed) {
                     return;
                 }
-                LOGGER.debug("go2rtc talk relay failed: {}", e.getMessage());
+                LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
+            } finally {
+                talkReader = null;
+            }
+            try {
+                Thread.sleep(TALK_RETRY_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
         }
+    }
+
+    /**
+     * Re-labels a talk RTP packet with the talk payload type and sync source, then encrypts and sends it to the camera.
+     */
+    private void sendTalk(Session current, byte[] rtpBuffer, int length, byte[] srtpBuffer) throws IOException {
+        rtpBuffer[1] = (byte) ((rtpBuffer[1] & 0x80) | AUDIO_PAYLOAD_TYPE);
+        ByteBuffer.wrap(rtpBuffer).putInt(8, (int) AUDIO_SYNC_SOURCE);
+        int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
+        talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
+    }
+
+    /**
+     * Connects a reader to the go2rtc talk stream, and starts playback of its audio on interleaved channel 0.
+     */
+    private static RtspConnection openTalkReader(int rtspPort, String talkStream) throws IOException {
+        String url = url(rtspPort, talkStream);
+        RtspConnection reader = new RtspConnection(RTSP_HOST, rtspPort);
+        try {
+            String sdp = reader.request("DESCRIBE", url, "Accept: application/sdp\r\n", null).body();
+            reader.request("SETUP", trackUrl(url, sdp), "Transport: RTP/AVP/TCP;unicast;interleaved=0-1\r\n", null);
+            reader.request("PLAY", url, "", null);
+            reader.disableReadTimeout();
+            return reader;
+        } catch (IOException | RuntimeException e) {
+            reader.close();
+            throw e;
+        }
+    }
+
+    /**
+     * Sends the publish sequence (ANNOUNCE, SETUP per track, RECORD) that makes go2rtc accept the camera media.
+     */
+    private static void publish(RtspConnection connection, String url) throws IOException {
+        connection.request("ANNOUNCE", url, "Content-Type: application/sdp\r\n", ANNOUNCE_SDP);
+        connection.request("SETUP", url + "/trackID=0",
+                "Transport: RTP/AVP/TCP;unicast;mode=record;interleaved=0-1\r\n", null);
+        connection.request("SETUP", url + "/trackID=1",
+                "Transport: RTP/AVP/TCP;unicast;mode=record;interleaved=2-3\r\n", null);
+        connection.request("RECORD", url, "", null);
+    }
+
+    /**
+     * Returns the URL of the first media track in the SDP, falling back to the stream URL.
+     */
+    private static String trackUrl(String url, String sdp) {
+        boolean inMedia = false;
+        for (String line : sdp.split("\r?\n")) {
+            if (line.startsWith("m=")) {
+                inMedia = true;
+            } else if (inMedia && line.startsWith("a=control:")) {
+                String control = line.substring("a=control:".length()).trim();
+                return "*".equals(control) ? url : url + "/" + control;
+            }
+        }
+        return url;
+    }
+
+    private static String url(int rtspPort, String stream) {
+        return "rtsp://%s:%d/%s".formatted(RTSP_HOST, rtspPort, stream);
     }
 
     /**
@@ -329,34 +357,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         Thread thread = new Thread(task, "OH-binding-homekit-go2rtc-" + name);
         thread.setDaemon(true);
         thread.start();
-    }
-
-    /**
-     * Writes the given SDP to a temporary file and returns the path.
-     */
-    private static Path writeSdp(String prefix, String sdp) throws IOException {
-        Path file = Files.createTempFile(prefix, ".sdp");
-        try {
-            Files.writeString(file, sdp, StandardCharsets.US_ASCII);
-        } catch (IOException e) {
-            deleteQuietly(file);
-            throw e;
-        }
-        return file;
-    }
-
-    /**
-     * Deletes the given file, ignoring any exception.
-     */
-    private static void deleteQuietly(@Nullable Path file) {
-        if (file == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(file);
-        } catch (IOException e) {
-            LOGGER.debug("Failed to delete go2rtc temp file {}: {}", file, e.getMessage());
-        }
     }
 
     /**
@@ -372,9 +372,7 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     @Override
     public String toString() {
-        return "Go2RtcDataPump [session=" + session + ", closed=" + closed + ", audioCodec=" + audioCodec()
-                + ", videoCodec=" + videoCodec() + ", audioPort=" + audioPort() + ", videoPort=" + videoPort()
-                + ", talkPort=" + talkPort() + ", audioSdpFile=" + audioSdpFile() + ", videoSdpFile=" + videoSdpFile()
-                + "]";
+        return "Go2RtcDataPump [session=" + session + ", closed=" + closed + ", audioCodec=" + audioCodec
+                + ", videoCodec=" + videoCodec + ", audioPort=" + audioPort() + ", videoPort=" + videoPort() + "]";
     }
 }

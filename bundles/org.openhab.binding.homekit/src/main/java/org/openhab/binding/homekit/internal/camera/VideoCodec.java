@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -142,19 +141,17 @@ public record VideoCodec(VideoCodecType codecType, int profile, int level, int w
     }
 
     /**
-     * Returns the preferred video codec configuration. H.264 Baseline is preferred because it requires no
-     * trans-coding. Among Baseline configurations, the highest level is chosen. Other H.264 profiles are
-     * used when the camera offers no Baseline configuration. Cameras must support H.264 and H.265 is not
-     * yet supported.
+     * Returns the H.264 video configuration. Among Baseline configurations, the highest level is chosen. Other
+     * H.264 profiles are used when the camera offers no Baseline configuration.
      *
      * @param codecs the video codecs the camera supports
-     * @return the preferred configuration, or empty if the camera supports none
+     * @return the H.264 configuration
+     * @throws IllegalArgumentException if the camera does not support H.264
      */
-    public static Optional<VideoCodec> preferred(List<VideoCodec> codecs) {
-        Optional<VideoCodec> baseline = codecs.stream().filter(codec -> VideoCodec.PROFILE_BASELINE == codec.profile())
-                .filter(codec -> VideoCodecType.H_264 == codec.codecType())
-                .max(Comparator.comparingInt(VideoCodec::level));
-        return baseline.or(() -> codecs.stream()
-                .filter(codec -> VideoCodecType.FFMPEG_NATIVE.contains(codec.codecType())).findFirst());
+    public static VideoCodec preferred(List<VideoCodec> codecs) {
+        return codecs.stream().filter(codec -> VideoCodecType.H_264 == codec.codecType())
+                .max(Comparator.comparing((VideoCodec codec) -> VideoCodec.PROFILE_BASELINE == codec.profile())
+                        .thenComparingInt(VideoCodec::level))
+                .orElseThrow(() -> new IllegalArgumentException("camera does not support H.264 video"));
     }
 }
