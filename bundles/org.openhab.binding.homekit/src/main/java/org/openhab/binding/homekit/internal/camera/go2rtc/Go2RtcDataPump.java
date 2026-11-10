@@ -116,6 +116,7 @@ public class Go2RtcDataPump implements AutoCloseable {
             deleteQuietly(videoSdp);
             throw e;
         }
+        LOGGER.debug("Go2RtcDataPump() audioSdp:\n{}videoSdp:\n{}", audioSdp, videoSdp);
 
         audioSocket = audio;
         videoSocket = video;
@@ -367,5 +368,13 @@ public class Go2RtcDataPump implements AutoCloseable {
                 socket.close();
             }
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Go2RtcDataPump [session=" + session + ", closed=" + closed + ", audioCodec=" + audioCodec()
+                + ", videoCodec=" + videoCodec() + ", audioPort=" + audioPort() + ", videoPort=" + videoPort()
+                + ", talkPort=" + talkPort() + ", audioSdpFile=" + audioSdpFile() + ", videoSdpFile=" + videoSdpFile()
+                + "]";
     }
 }

@@ -515,7 +515,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             uniqueChannelsMap.put(CHANNEL_SNAPSHOT, channel);
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
-            findTalkbackCharacteristics(accessory);
+            findCameraCharacteristics(accessory);
             if (isTalkbackAvailable()) {
                 Channel cameraUrlChannel = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
@@ -1536,6 +1536,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         List<AudioCodec> audioCodecs = this.audioCodecs;
         List<VideoCodec> videoCodecs = this.videoCodecs;
         go2rtcStarting = true;
+        logger.debug("{} startGo2rtcIfAvailable() audioCodecs[{}], videoCodecs[{}], remoteIpAddress[{}]",
+                thing.getUID(), audioCodecs, videoCodecs, remoteIpAddress);
         go2rtcExecutor.execute(() -> startGo2rtc(audioCodecs, videoCodecs, remoteIpAddress));
     }
 
@@ -1568,7 +1570,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             String host = localHost(remoteIpAddress);
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort());
-            String stream = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
 
             pump = new Go2RtcDataPump(audioCodecs, videoCodecs);
             synchronized (this) {
@@ -1584,8 +1585,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             List<String> talkCmdLine = FfmpegHelpers.go2rtcTalkCommandLine(ffmpegBinary, pump.audioCodec(),
                     Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, AUDIO_SYNC_SOURCE, pump.talkPort());
 
-            String yaml = Go2RtcConfig.toYaml(address, stream, listenCmdLine, stream + "_talk", talkCmdLine);
-            logger.debug("{} go2rtc settings:\n{}", thing.getUID(), yaml);
+            String streamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
+            String yaml = Go2RtcConfig.toYaml(address, streamId, listenCmdLine, streamId + "_talk", talkCmdLine);
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
@@ -1593,18 +1594,29 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 throw new IOException("go2rtc did not become ready");
             }
 
-            String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + stream + "&mode=webrtc";
+            String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + streamId + "&mode=webrtc";
             synchronized (this) {
                 if (disposing.get()) {
                     return;
                 }
                 go2rtcProcess = process;
-                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), stream, remoteIpAddress);
+                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), streamId, remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
             }
+
             updateState(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), new StringType(url));
-            logger.debug("{} startGo2rtc() succeeded", thing.getUID());
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} startGo2rtc() {}", thing.getUID(), address);
+                logger.debug("{} startGo2rtc() {}", thing.getUID(), pump);
+                logger.debug("{} startGo2rtc() listenCmdLine: {}", thing.getUID(), listenCmdLine);
+                logger.debug("{} startGo2rtc() talkCmdLine: {}", thing.getUID(), talkCmdLine);
+                logger.debug("{} startGo2rtc() yaml:\n{}", thing.getUID(), yaml);
+                logger.debug("{} startGo2rtc() url:{}", thing.getUID(), url);
+                logger.debug("{} startGo2rtc() {}", thing.getUID(), go2rtcEndpoint);
+            }
+
             succeeded = true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -1803,12 +1815,12 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     }
 
     /**
-     * Finds the camera talk-back characteristics of the given accessory, and stores their IIDs and supported codecs.
+     * Finds the camera characteristics of the given accessory, and stores their IIDs and supported codecs.
      * If all required characteristics are found, starts the go2rtc process if it is not already running.
      *
      * @param accessory the accessory to inspect
      */
-    private void findTalkbackCharacteristics(Accessory accessory) {
+    private void findCameraCharacteristics(Accessory accessory) {
         cameraSetupIid = null;
         cameraSelectedIid = null;
         audioCodecs = List.of();
@@ -1829,10 +1841,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 switch (Characteristic.getCharacteristicType(characteristic.type)) {
                     case SETUP_ENDPOINTS -> cameraSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> cameraSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION ->
-                        audioCodecs = decodeAudioSupportedCodecs(characteristic.value);
-                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
-                        videoCodecs = decodeVideoSupportedCodecs(characteristic.value);
+                    case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeAudioSupportedCodecs(
+                            characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION -> videoCodecs = decodeVideoSupportedCodecs(
+                            characteristic.value);
                     default -> {
                     }
                 }

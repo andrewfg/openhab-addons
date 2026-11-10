@@ -25,9 +25,9 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public final class Helpers {
+public final class TlvHelpers {
 
-    private Helpers() {
+    private TlvHelpers() {
     }
 
     public static byte[] u8(int value) {

@@ -12,7 +12,7 @@
  */
 package org.openhab.binding.homekit.internal.camera.srtp;
 
-import static org.openhab.binding.homekit.internal.camera.tlv.Helpers.*;
+import static org.openhab.binding.homekit.internal.camera.tlv.TlvHelpers.*;
 
 import java.security.SecureRandom;
 import java.util.LinkedHashMap;
