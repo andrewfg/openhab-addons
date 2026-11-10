@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.camera.codec;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -50,6 +50,8 @@ public record VideoCodec(VideoCodecType codecType, int profile, int level, int w
 
     // the H.264 Baseline profile, which every browser's WebRTC decoder accepts
     private static final int PROFILE_BASELINE = 0x00;
+
+    private static final int VIDEO_MAX_BITRATE_KBPS = 2000;
 
     /**
      * Returns the H.264 configurations declared by a SupportedVideoStreamConfiguration value. Every combination of
@@ -153,5 +155,9 @@ public record VideoCodec(VideoCodecType codecType, int profile, int level, int w
                 .max(Comparator.comparing((VideoCodec codec) -> VideoCodec.PROFILE_BASELINE == codec.profile())
                         .thenComparingInt(VideoCodec::level))
                 .orElseThrow(() -> new IllegalArgumentException("camera does not support H.264 video"));
+    }
+
+    public int maxBitrateKbps() {
+        return VIDEO_MAX_BITRATE_KBPS;
     }
 }

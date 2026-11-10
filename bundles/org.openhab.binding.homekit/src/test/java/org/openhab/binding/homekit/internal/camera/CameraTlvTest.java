@@ -20,8 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpCryptoSuite;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpCryptoSuite;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.AudioSelectedParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
 import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;

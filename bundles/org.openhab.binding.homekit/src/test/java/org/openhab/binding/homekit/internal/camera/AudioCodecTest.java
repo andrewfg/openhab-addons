@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 
 /**

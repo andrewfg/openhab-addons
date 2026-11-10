@@ -16,16 +16,16 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.Function;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.AudioCodec;
-import org.openhab.binding.homekit.internal.camera.VideoCodec;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpSession;
+import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
+import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
+import org.openhab.binding.homekit.internal.camera.session.RtspConnection;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +53,9 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
     public static final int VIDEO_PAYLOAD_TYPE = 99;
+
     public static final long AUDIO_SYNC_SOURCE = 0x12345678L;
+    public static final long VIDEO_SYNC_SOURCE = 0x23456789L;
 
     /** Interleaved RTP channels; the RTCP channel is always the RTP channel plus one. */
     private static final int AUDIO_CHANNEL = 0;
@@ -226,7 +228,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Decrypts camera SRTP and publishes it as interleaved RTP to go2rtc.
+     * Decrypts camera audio or video SRTP and publishes it as interleaved RTP to go2rtc.
      */
     private void relayListen(DatagramSocket socket, int channel, Function<Session, SrtpSession> stream) {
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE];
@@ -294,8 +296,13 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Re-labels a talk RTP packet with the talk payload type and sync source, then encrypts and sends it to the camera.
      */
     private void sendTalk(Session current, byte[] rtpBuffer, int length, byte[] srtpBuffer) throws IOException {
+        // keep marker bit (bit 7) and replace payload type
         rtpBuffer[1] = (byte) ((rtpBuffer[1] & 0x80) | AUDIO_PAYLOAD_TYPE);
-        ByteBuffer.wrap(rtpBuffer).putInt(8, (int) AUDIO_SYNC_SOURCE);
+        // header bytes 8-11 contain SSRC in network byte order
+        rtpBuffer[8] = (byte) (AUDIO_SYNC_SOURCE >>> 24);
+        rtpBuffer[9] = (byte) (AUDIO_SYNC_SOURCE >>> 16);
+        rtpBuffer[10] = (byte) (AUDIO_SYNC_SOURCE >>> 8);
+        rtpBuffer[11] = (byte) AUDIO_SYNC_SOURCE;
         int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
         talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
     }

@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera;
+package org.openhab.binding.homekit.internal.camera.codec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,7 +62,8 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the RTP clock rate in Hz. Opus always uses 48 kHz RTP timestamps regardless of its sample rate (RFC 7587).
+     * Returns the RTP clock rate in Hz. Opus always uses 48 kHz RTP timestamps regardless of its sample rate (RFC
+     * 7587).
      */
     public int rtpClockRate() {
         return codecType == AudioCodecType.OPUS ? 48000 : sampleRateKhz * 1000;

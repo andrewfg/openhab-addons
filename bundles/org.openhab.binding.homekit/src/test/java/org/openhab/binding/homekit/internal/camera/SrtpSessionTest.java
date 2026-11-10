@@ -19,9 +19,9 @@ import java.util.HexFormat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpCryptoSuite;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpSession;
+import org.openhab.binding.homekit.internal.camera.session.SrtpCryptoSuite;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpSession;
 
 /**
  * Tests for {@link SrtpSession}.

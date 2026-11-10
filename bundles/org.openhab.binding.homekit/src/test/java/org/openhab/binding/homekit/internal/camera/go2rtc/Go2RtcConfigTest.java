@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
+
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
  *

@@ -44,14 +44,14 @@ import javax.measure.quantity.Angle;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.AudioCodec;
-import org.openhab.binding.homekit.internal.camera.VideoCodec;
+import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
+import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDemand;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcProcess;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.AudioSelectedParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
 import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;
@@ -197,8 +197,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
 
     // constants for camera talk-back sessions
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final long VIDEO_SYNC_SOURCE = 0x23456789L;
-    private static final int VIDEO_MAX_BITRATE_KBPS = 2000;
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
     private static final long GO2RTC_DEMAND_POLL_SECONDS = 2;
 
@@ -1577,23 +1575,25 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcPump = pump;
             }
 
-            String streamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
-            String yaml = Go2RtcConfig.toYaml(address, streamId, streamId + "_talk");
+            String listenStreamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
+            String talkStreamId = listenStreamId + "_talk";
+            String yaml = Go2RtcConfig.toYaml(address, listenStreamId, talkStreamId);
 
             process = new Go2RtcProcess(go2rtcBinary);
             process.start(yaml);
             if (!awaitGo2rtcReady(process, address.host(), address.apiPort())) {
                 throw new IOException("go2rtc did not become ready");
             }
-            pump.connect(address.rtspPort(), streamId, streamId + "_talk");
+            pump.connect(address.rtspPort(), listenStreamId, talkStreamId);
 
-            String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + streamId + "&mode=webrtc";
+            String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + listenStreamId
+                    + "&mode=webrtc";
             synchronized (this) {
                 if (disposing.get()) {
                     return;
                 }
                 go2rtcProcess = process;
-                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), streamId, remoteIpAddress);
+                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), listenStreamId, remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
             }
@@ -1603,8 +1603,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             if (logger.isDebugEnabled()) {
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), address);
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), pump);
-                logger.debug("{} startGo2rtc() listenCmdLine: {}", thing.getUID(), listenCmdLine);
-                logger.debug("{} startGo2rtc() talkCmdLine: {}", thing.getUID(), talkCmdLine);
                 logger.debug("{} startGo2rtc() yaml:\n{}", thing.getUID(), yaml);
                 logger.debug("{} startGo2rtc() url:{}", thing.getUID(), url);
                 logger.debug("{} startGo2rtc() {}", thing.getUID(), go2rtcEndpoint);
@@ -1833,10 +1831,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 switch (Characteristic.getCharacteristicType(characteristic.type)) {
                     case SETUP_ENDPOINTS -> cameraSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> cameraSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeAudioSupportedCodecs(
-                            characteristic.value);
-                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION -> videoCodecs = decodeVideoSupportedCodecs(
-                            characteristic.value);
+                    case SUPPORTED_AUDIO_CONFIGURATION ->
+                        audioCodecs = decodeAudioSupportedCodecs(characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
+                        videoCodecs = decodeVideoSupportedCodecs(characteristic.value);
                     default -> {
                     }
                 }
@@ -1866,13 +1864,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 false, 13);
     }
 
-
     /**
      * Returns the selected video parameters for the given codec, using the fixed SSRC and payload type.
      */
     private static VideoSelectedParameters selectedVideo(VideoCodec codec) {
         return new VideoSelectedParameters(codec.profile(), codec.level(), codec.width(), codec.height(),
-                codec.frameRate(), Go2RtcDataPump.VIDEO_PAYLOAD_TYPE, VIDEO_SYNC_SOURCE, VIDEO_MAX_BITRATE_KBPS, 0.5f);
+                codec.frameRate(), Go2RtcDataPump.VIDEO_PAYLOAD_TYPE, Go2RtcDataPump.VIDEO_SYNC_SOURCE,
+                codec.maxBitrateKbps(), 0.5f);
     }
 
     /**

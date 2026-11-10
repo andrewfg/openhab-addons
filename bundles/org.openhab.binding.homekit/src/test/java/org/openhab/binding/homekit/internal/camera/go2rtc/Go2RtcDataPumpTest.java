@@ -18,8 +18,8 @@ import java.io.IOException;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.homekit.internal.camera.AudioCodec;
-import org.openhab.binding.homekit.internal.camera.VideoCodec;
+import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
+import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
 import org.openhab.binding.homekit.internal.enums.AudioCodecType;
 import org.openhab.binding.homekit.internal.enums.VideoCodecType;
 

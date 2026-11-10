@@ -18,7 +18,7 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.enums.SetupEndpointsStatus;
 

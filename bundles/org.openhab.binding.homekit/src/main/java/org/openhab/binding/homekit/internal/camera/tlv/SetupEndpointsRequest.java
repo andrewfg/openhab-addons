@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.homekit.internal.camera.srtp.SrtpParameters;
+import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 
 /**

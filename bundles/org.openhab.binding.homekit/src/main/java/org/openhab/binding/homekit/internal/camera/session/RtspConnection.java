@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.openhab.binding.homekit.internal.camera.go2rtc;
+package org.openhab.binding.homekit.internal.camera.session;
 
 import java.io.BufferedInputStream;
 import java.io.EOFException;
@@ -29,12 +29,12 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * A minimal RTSP client connection to go2rtc, supporting request/response exchanges and TCP interleaved media frames.
+ * An RTSP client connection to go2rtc, supporting request/response exchanges and TCP interleaved media frames.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-final class RtspConnection implements AutoCloseable {
+public class RtspConnection implements AutoCloseable {
 
     private static final int CONNECT_TIMEOUT_MS = 2000;
     private static final int RESPONSE_TIMEOUT_MS = 5000;
@@ -44,13 +44,13 @@ final class RtspConnection implements AutoCloseable {
     /**
      * The body of a successful response.
      */
-    record Response(String body) {
+    public record Response(String body) {
     }
 
     /**
      * The header of an interleaved media frame. Its payload is in the buffer passed to {@link #readFrame}.
      */
-    record Frame(int channel, int length) {
+    public record Frame(int channel, int length) {
     }
 
     private final Socket socket;
@@ -59,7 +59,7 @@ final class RtspConnection implements AutoCloseable {
     private int cseq = 0;
     private @Nullable String session = null;
 
-    RtspConnection(String host, int port) throws IOException {
+    public RtspConnection(String host, int port) throws IOException {
         socket = new Socket();
         try {
             socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
@@ -83,7 +83,7 @@ final class RtspConnection implements AutoCloseable {
      * @return the response
      * @throws IOException if the connection fails or the response status is not 200
      */
-    Response request(String method, String url, String headers, @Nullable String body) throws IOException {
+    public Response request(String method, String url, String headers, @Nullable String body) throws IOException {
         cseq++;
         StringBuilder message = new StringBuilder();
         message.append(method).append(' ').append(url).append(" RTSP/1.0\r\n");
@@ -122,7 +122,7 @@ final class RtspConnection implements AutoCloseable {
      * @return the frame channel and payload length
      * @throws IOException if the connection fails or the frame does not fit in the buffer
      */
-    Frame readFrame(byte[] buffer) throws IOException {
+    public Frame readFrame(byte[] buffer) throws IOException {
         while (true) {
             int first = in.read();
             if (first < 0) {
@@ -150,7 +150,7 @@ final class RtspConnection implements AutoCloseable {
     /**
      * Sends an interleaved media frame.
      */
-    synchronized void sendFrame(int channel, byte[] data, int length) throws IOException {
+    public synchronized void sendFrame(int channel, byte[] data, int length) throws IOException {
         out.write(new byte[] { '$', (byte) channel, (byte) (length >> 8), (byte) length });
         out.write(data, 0, length);
         out.flush();
@@ -160,7 +160,7 @@ final class RtspConnection implements AutoCloseable {
      * Removes the read timeout, so that a media stream may stay silent indefinitely. Closing the connection still
      * unblocks a pending read.
      */
-    void disableReadTimeout() throws SocketException {
+    public void disableReadTimeout() throws SocketException {
         socket.setSoTimeout(0);
     }
 
@@ -208,8 +208,7 @@ final class RtspConnection implements AutoCloseable {
         for (String line = readLine(); !line.isEmpty(); line = readLine()) {
             int colon = line.indexOf(':');
             if (colon > 0) {
-                headers.put(line.substring(0, colon).trim().toLowerCase(Locale.ROOT),
-                        line.substring(colon + 1).trim());
+                headers.put(line.substring(0, colon).trim().toLowerCase(Locale.ROOT), line.substring(colon + 1).trim());
             }
         }
         return headers;

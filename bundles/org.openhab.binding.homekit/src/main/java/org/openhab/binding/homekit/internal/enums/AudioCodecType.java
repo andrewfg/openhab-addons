@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.homekit.internal.enums;
 
-
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
