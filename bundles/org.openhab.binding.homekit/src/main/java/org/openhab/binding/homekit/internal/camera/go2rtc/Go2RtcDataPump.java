@@ -277,6 +277,11 @@ public class Go2RtcDataPump implements AutoCloseable {
                         connection.sendFrame(channel, rtpBuffer, rtpLength);
                         forwarded++; // TEMP DIAGNOSTIC
                     } else {
+                        if (dropped == 0) { // TEMP DIAGNOSTIC
+                            LOGGER.info("TEMP first drop channel={} len={} header={}", channel, // TEMP DIAGNOSTIC
+                                    receivePacket.getLength(), java.util.HexFormat.of().formatHex(srtpBuffer, 0,
+                                            Math.min(16, receivePacket.getLength()))); // TEMP DIAGNOSTIC
+                        }
                         dropped++; // TEMP DIAGNOSTIC
                     }
                     if ((forwarded + dropped) % 300 == 1) { // TEMP DIAGNOSTIC
