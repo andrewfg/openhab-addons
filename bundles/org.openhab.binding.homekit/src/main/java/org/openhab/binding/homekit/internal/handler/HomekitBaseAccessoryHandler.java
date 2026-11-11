@@ -426,7 +426,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         if (ipTransport instanceof IpTransport transport) { // close prior transport (if any)
             transport.close();
             ipTransport = null;
-            rwService = null; // wraps the closed transport; must not be used again
+            rwService = null;
         }
         if (verifyPairing()) {
             connectionAttemptDelay = MIN_CONNECTION_ATTEMPT_DELAY_SECONDS;

@@ -1848,8 +1848,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      */
     private static String localHost(String remoteIp) throws IOException {
         try (DatagramSocket probe = new DatagramSocket()) {
-            String[] ipParts = remoteIp.split(":");
-            probe.connect(InetAddress.getByName(ipParts[0]), 80);
+            probe.connect(InetAddress.getByName(remoteIp.split(":")[0]), 80);
             return probe.getLocalAddress().getHostAddress();
         }
     }
