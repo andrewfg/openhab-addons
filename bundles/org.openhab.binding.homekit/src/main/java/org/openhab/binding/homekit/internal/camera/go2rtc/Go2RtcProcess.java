@@ -103,6 +103,33 @@ public class Go2RtcProcess {
      * @throws IOException if go2rtc cannot be queried or its response does not describe the streams
      */
     public boolean hasConsumers(String host, int port, String... streams) throws IOException {
+        return hasConsumers(fetchStreams(host, port), streams);
+    }
+
+    /**
+     * Returns true if the named stream has at least one producer, such as the browser publishing talk audio.
+     *
+     * @throws IOException if the streams cannot be read or the named stream is not configured
+     */
+    public boolean hasProducers(String host, int port, String stream) throws IOException {
+        return hasProducers(fetchStreams(host, port), stream);
+    }
+
+    /**
+     * Parses a go2rtc {@code /api/streams} response and returns true if the named stream has a producer.
+     *
+     * @throws IOException if the response is not a JSON object, or the named stream is not present
+     */
+    static boolean hasProducers(String json, String stream) throws IOException {
+        JsonElement entry = parseStreams(json).get(stream);
+        if (entry == null || !entry.isJsonObject()) {
+            throw new IOException("go2rtc streams response does not contain the configured streams");
+        }
+        JsonElement producers = entry.getAsJsonObject().get("producers");
+        return producers != null && producers.isJsonArray() && !producers.getAsJsonArray().isEmpty();
+    }
+
+    private String fetchStreams(String host, int port) throws IOException {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + port + "/api/streams"))
                 .timeout(Duration.ofSeconds(2)).GET().build();
         HttpResponse<String> response;
@@ -115,7 +142,7 @@ public class Go2RtcProcess {
         if (response.statusCode() != 200) {
             throw new IOException("go2rtc streams request failed with HTTP " + response.statusCode());
         }
-        return hasConsumers(response.body(), streams);
+        return response.body();
     }
 
     /**
@@ -125,16 +152,7 @@ public class Go2RtcProcess {
      * @throws IOException if the response is not a JSON object, or none of the named streams is present
      */
     static boolean hasConsumers(String json, String... streams) throws IOException {
-        JsonElement root;
-        try {
-            root = JsonParser.parseString(json);
-        } catch (JsonParseException e) {
-            throw new IOException("Invalid go2rtc streams response", e);
-        }
-        if (!root.isJsonObject()) {
-            throw new IOException("Unexpected go2rtc streams response");
-        }
-        JsonObject all = root.getAsJsonObject();
+        JsonObject all = parseStreams(json);
         boolean found = false;
         for (String name : streams) {
             JsonElement stream = all.get(name);
@@ -151,6 +169,19 @@ public class Go2RtcProcess {
             throw new IOException("go2rtc streams response does not contain the configured streams");
         }
         return false;
+    }
+
+    private static JsonObject parseStreams(String json) throws IOException {
+        JsonElement root;
+        try {
+            root = JsonParser.parseString(json);
+        } catch (JsonParseException e) {
+            throw new IOException("Invalid go2rtc streams response", e);
+        }
+        if (!root.isJsonObject()) {
+            throw new IOException("Unexpected go2rtc streams response");
+        }
+        return root.getAsJsonObject();
     }
 
     /**

@@ -1745,8 +1745,32 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             } else if (action == Go2RtcDemand.Action.CLOSE) {
                 closeCameraSession(pump, true);
             }
+
+            boolean open;
+            synchronized (this) {
+                open = cameraSessionOpen;
+            }
+            if (open) {
+                updateTalkDemand(process, pump, endpoint);
+            }
         } finally {
             go2rtcDemandChecking.set(false);
+        }
+    }
+
+    /**
+     * Starts the browser talk relay while go2rtc has a producer on the talk stream, which a browser publishes to
+     * during a talk session, and stops it otherwise.
+     */
+    private void updateTalkDemand(Go2RtcProcess process, Go2RtcDataPump pump, Go2RtcEndpoint endpoint) {
+        try {
+            if (process.hasProducers(endpoint.host(), endpoint.apiPort(), endpoint.stream() + "_talk")) {
+                pump.startTalk();
+            } else {
+                pump.stopTalk();
+            }
+        } catch (IOException e) {
+            logger.debug("{} cannot read go2rtc talk producers: {}", thing.getUID(), e.getMessage());
         }
     }
 

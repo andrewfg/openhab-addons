@@ -99,6 +99,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable RtspConnection publisher = null;
     private volatile @Nullable RtspConnection talkReader = null;
     private volatile boolean closed;
+    private final Object talkMonitor = new Object();
+    private boolean talkActive; // guarded by talkMonitor
 
     /**
      * Creates a data pump for the camera's audio and video. The camera must support Opus audio and H.264 video.
@@ -205,10 +207,36 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Stops relaying media. Packets received afterwards are dropped.
+     * Stops relaying media. Packets received afterwards are dropped, and the browser talk relay is stopped.
      */
     public void stopSession() {
         session = null;
+        stopTalk();
+    }
+
+    /**
+     * Starts reading the browser talk stream from go2rtc and relaying it to the camera. Called when a browser talk
+     * session begins; until then the talk relay stays idle and does not poll go2rtc.
+     */
+    public void startTalk() {
+        synchronized (talkMonitor) {
+            talkActive = true;
+            talkMonitor.notifyAll();
+        }
+    }
+
+    /**
+     * Stops relaying the browser talk stream, closing the go2rtc talk reader.
+     */
+    public void stopTalk() {
+        synchronized (talkMonitor) {
+            talkActive = false;
+            talkMonitor.notifyAll();
+        }
+        RtspConnection reader = talkReader;
+        if (reader != null) {
+            reader.close();
+        }
     }
 
     @Override
@@ -222,10 +250,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         if (connection != null) {
             connection.close();
         }
-        RtspConnection reader = talkReader;
-        if (reader != null) {
-            reader.close();
-        }
+        stopTalk();
     }
 
     /**
@@ -257,19 +282,16 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Reads the browser talk stream from go2rtc and sends it as SRTP to the camera. Reconnects after failures
-     * until the data pump is closed.
+     * Reads the browser talk stream from go2rtc and sends it as SRTP to the camera. Idles until a talk session starts,
+     * and reconnects after failures while the talk session remains active.
      */
     private void relayTalk(int rtspPort, String talkStream) {
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + SRTP_AUTH_TAG_LENGTH];
-        while (!closed) {
+        while (awaitTalkActive()) {
             try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
                 talkReader = reader;
-                if (closed) {
-                    return;
-                }
-                while (!closed) {
+                while (!closed && isTalkActive()) {
                     RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
                     Session current = session;
                     if (current != null && frame.channel() == TALK_CHANNEL && frame.length() >= RTP_HEADER_LENGTH) {
@@ -280,16 +302,54 @@ public class Go2RtcDataPump implements AutoCloseable {
                 if (closed) {
                     return;
                 }
-                LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
+                // a reader closed by stopTalk() is expected and not a failure
+                if (isTalkActive()) {
+                    LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
+                    if (!pauseBeforeTalkRetry()) {
+                        return;
+                    }
+                }
             } finally {
                 talkReader = null;
             }
-            try {
-                Thread.sleep(TALK_RETRY_DELAY_MS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
+        }
+    }
+
+    /**
+     * Blocks until a talk session is active or the data pump is closed.
+     *
+     * @return true if a talk session is active, false if the data pump is closed or the thread was interrupted
+     */
+    private boolean awaitTalkActive() {
+        synchronized (talkMonitor) {
+            while (!talkActive && !closed) {
+                try {
+                    talkMonitor.wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
+            return talkActive && !closed;
+        }
+    }
+
+    private boolean isTalkActive() {
+        synchronized (talkMonitor) {
+            return talkActive;
+        }
+    }
+
+    /**
+     * @return false if the thread was interrupted
+     */
+    private static boolean pauseBeforeTalkRetry() {
+        try {
+            Thread.sleep(TALK_RETRY_DELAY_MS);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 
