@@ -1617,6 +1617,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException | IllegalStateException | IllegalArgumentException e) {
+            logger.debug("{} startGo2rtc() setup failed: {}", thing.getUID(), e.getMessage());
         } catch (Exception e) {
             logger.warn("{} startGo2rtc() setup failed unexpectedly", thing.getUID(), e);
         } finally {
@@ -1775,7 +1776,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
      */
     private static String localHost(String remoteIp) throws IOException {
         try (DatagramSocket probe = new DatagramSocket()) {
-            probe.connect(InetAddress.getByName(remoteIp), 80);
+            String[] ipParts = remoteIp.split(":");
+            probe.connect(InetAddress.getByName(ipParts[0]), 80);
             return probe.getLocalAddress().getHostAddress();
         }
     }

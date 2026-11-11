@@ -75,10 +75,11 @@ public class Go2RtcInstaller {
         }
 
         String asset = assetName(os, arch);
-        Path destDir = baseDir.resolve(os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT))
+        Path destDir = baseDir
+                .resolve((os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT)).replace(' ', '_'))
                 .resolve(VERSION);
         Path destBinary = destDir.resolve(NAME + (isWindows(os) ? ".exe" : ""));
-        logger.debug("ensureBinary() destDir={}, detcBinary={}", destDir, destBinary);
+        logger.debug("ensureBinary() destBinary={}", destBinary);
         if (!Files.exists(destBinary)) {
             logger.debug("Downloading {} to {}", asset, destBinary);
             download(RELEASE_URL + asset, asset, destDir, destBinary, os);
