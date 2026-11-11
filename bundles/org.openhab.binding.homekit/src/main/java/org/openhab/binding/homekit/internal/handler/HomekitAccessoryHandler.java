@@ -1488,8 +1488,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             cameraSessionOpen = true;
         }
 
-        Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams, remoteAddress,
-                talkPort);
+        Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams,
+                remoteAddress.split(":")[0], talkPort);
         logger.debug("{} openCameraSession() {}", thing.getUID(), session);
 
         SrtpStreamConfiguration config = new SrtpStreamConfiguration(sessionId, SessionCommand.START,
