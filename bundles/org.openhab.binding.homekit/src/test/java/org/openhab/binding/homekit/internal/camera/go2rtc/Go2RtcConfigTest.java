@@ -28,8 +28,8 @@ class Go2RtcConfigTest {
 
     @Test
     void yamlContainsPortsAndDeclaredStreams() {
-        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443),
-                "camera", "camera_talk", null);
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443), "camera",
+                "camera_talk", null);
         assertTrue(yaml.contains("api:\n  listen: \"192.168.1.10:1984\"\n"));
         assertTrue(yaml.contains("webrtc:\n  listen: \"192.168.1.10:8555\"\n"));
         assertTrue(yaml.contains("rtsp:\n  listen: \"127.0.0.1:18554\"\n"));
@@ -40,16 +40,16 @@ class Go2RtcConfigTest {
     @Test
     void yamlContainsTlsListenerWhenCertificateSupplied() {
         Go2RtcTls.TlsFiles tls = new Go2RtcTls.TlsFiles(Paths.get("/tmp/cert.pem"), Paths.get("/tmp/key.pem"));
-        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443),
-                "camera", "camera_talk", tls);
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443), "camera",
+                "camera_talk", tls);
         assertTrue(yaml.contains("api:\n  listen: \"192.168.1.10:1984\"\n  tls_listen: \"192.168.1.10:8443\"\n"
-                + "  tls_cert: '/tmp/cert.pem'\n  tls_key: '/tmp/key.pem'\n"));
+                + "  tls_cert: '\\tmp\\cert.pem'\n  tls_key: '\\tmp\\key.pem'\n"));
     }
 
     @Test
     void yamlContainsNoExecSources() {
-        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443),
-                "camera", "camera_talk", null);
+        String yaml = Go2RtcConfig.toYaml(new Go2RtcConfig.Address("192.168.1.10", 1984, 8555, 18554, 8443), "camera",
+                "camera_talk", null);
         assertFalse(yaml.contains("exec:"));
         assertFalse(yaml.contains("backchannel"));
     }

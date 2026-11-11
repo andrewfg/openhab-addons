@@ -49,7 +49,7 @@ public final class Go2RtcConfig {
      * @param tls the PEM certificate and key for an additional HTTPS API listener, or null for HTTP only
      */
     public static String toYaml(Address address, String listenStream, String talkStream,
-            @Nullable Go2RtcTls.TlsFiles tls) {
+            Go2RtcTls.@Nullable TlsFiles tls) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.apiPort()).append("\"\n");

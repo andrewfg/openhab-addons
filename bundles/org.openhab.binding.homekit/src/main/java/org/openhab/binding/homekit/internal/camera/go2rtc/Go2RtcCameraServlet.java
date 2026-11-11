@@ -83,7 +83,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
         if (ipAddress == null) {
             return null;
         }
-        int httpsPort = HttpServiceUtil.getHttpsServicePort(bundleContext);
+        int httpsPort = HttpServiceUtil.getHttpServicePortSecure(bundleContext);
         if (httpsPort != -1) {
             return "https://" + ipAddress + ":" + httpsPort + PATH + "/" + thingId;
         }

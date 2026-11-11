@@ -1578,7 +1578,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         try {
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
             String host = localHost(remoteIpAddress);
-            Go2RtcTls.TlsFiles tls = Go2RtcTls.exportCoreCertificate(cacheDir());
+            Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.exportCoreCertificate(cacheDir());
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort(),
                     tls == null ? 0 : Go2RtcConfig.freeTcpPort());
@@ -1795,8 +1795,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 if (process.hasProducers(endpoint.host(), endpoint.apiPort(), endpoint.stream())) {
                     String scheme = endpoint.tlsPort() > 0 ? "https://" : "http://";
                     int viewerPort = endpoint.tlsPort() > 0 ? endpoint.tlsPort() : endpoint.apiPort();
-                    return scheme + endpoint.host() + ":" + viewerPort + "/stream.html?src="
-                            + endpoint.stream() + "&mode=webrtc";
+                    return scheme + endpoint.host() + ":" + viewerPort + "/stream.html?src=" + endpoint.stream()
+                            + "&mode=webrtc";
                 }
             } catch (IOException e) {
                 logger.debug("{} cannot read go2rtc producers: {}", thing.getUID(), e.getMessage());
