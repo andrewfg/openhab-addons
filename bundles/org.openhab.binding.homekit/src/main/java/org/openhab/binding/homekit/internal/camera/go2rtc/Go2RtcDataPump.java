@@ -50,6 +50,9 @@ public class Go2RtcDataPump implements AutoCloseable {
     private static final int RTP_HEADER_LENGTH = 12;
     private static final int SRTP_AUTH_TAG_LENGTH = 10;
     private static final int TALK_RETRY_DELAY_MS = 2000;
+    // go2rtc drops a passive RTSP publisher after 15 s without data by default, and no media is relayed until a
+    // camera session is active, so the publisher must be kept alive while the stream waits for consumers
+    private static final int PUBLISH_TIMEOUT_SECONDS = 86400;
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
     public static final int VIDEO_PAYLOAD_TYPE = 99;
@@ -390,7 +393,8 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Sends the publish sequence (ANNOUNCE, SETUP per track, RECORD) that makes go2rtc accept the camera media.
      */
     private static void publish(RtspConnection connection, String url) throws IOException {
-        connection.request("ANNOUNCE", url, "Content-Type: application/sdp\r\n", ANNOUNCE_SDP);
+        connection.request("ANNOUNCE", url + "?timeout=" + PUBLISH_TIMEOUT_SECONDS,
+                "Content-Type: application/sdp\r\n", ANNOUNCE_SDP);
         connection.request("SETUP", url + "/trackID=0",
                 "Transport: RTP/AVP/TCP;unicast;mode=record;interleaved=0-1\r\n", null);
         connection.request("SETUP", url + "/trackID=1",
