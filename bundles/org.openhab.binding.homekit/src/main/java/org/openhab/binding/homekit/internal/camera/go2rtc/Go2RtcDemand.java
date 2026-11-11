@@ -43,16 +43,19 @@ public final class Go2RtcDemand {
 
     private @Nullable Instant idleSince;
     private @Nullable Instant nextOpenAttempt;
+    private @Nullable Instant holdUntil;
 
     /**
      * Evaluates the current demand.
      *
-     * @param wanted true if go2rtc has at least one consumer
+     * @param consumersPresent true if go2rtc has at least one consumer
      * @param sessionOpen true if the camera media session is currently open
      * @param now the current time
      * @return the action to take
      */
-    public synchronized Action update(boolean wanted, boolean sessionOpen, Instant now) {
+    public synchronized Action update(boolean consumersPresent, boolean sessionOpen, Instant now) {
+        Instant hold = holdUntil;
+        boolean wanted = consumersPresent || (hold != null && now.isBefore(hold));
         if (!sessionOpen) {
             idleSince = null;
             Instant retryAt = nextOpenAttempt;
@@ -80,10 +83,21 @@ public final class Go2RtcDemand {
     }
 
     /**
+     * Keeps the camera session wanted until the given time, even without go2rtc consumers. This gives a browser
+     * that has just been redirected to go2rtc time to connect.
+     *
+     * @param until the time until which demand is held
+     */
+    public synchronized void hold(Instant until) {
+        holdUntil = until;
+    }
+
+    /**
      * Clears the retry state, for example when the bridge is stopped.
      */
     public synchronized void reset() {
         idleSince = null;
         nextOpenAttempt = null;
+        holdUntil = null;
     }
 }
