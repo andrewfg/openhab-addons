@@ -263,8 +263,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket receivePacket = new DatagramPacket(srtpBuffer, srtpBuffer.length);
-        int forwarded = 0; // TEMP DIAGNOSTIC
-        int dropped = 0; // TEMP DIAGNOSTIC
         while (!closed) {
             try {
                 receivePacket.setLength(srtpBuffer.length);
@@ -275,21 +273,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                     int rtpLength = stream.apply(current).decrypt(srtpBuffer, receivePacket.getLength(), rtpBuffer);
                     if (rtpLength >= 0) {
                         connection.sendFrame(channel, rtpBuffer, rtpLength);
-                        forwarded++; // TEMP DIAGNOSTIC
-                    } else {
-                        if (dropped == 0) { // TEMP DIAGNOSTIC
-                            LOGGER.info("TEMP first drop channel={} len={} header={}", channel, // TEMP DIAGNOSTIC
-                                    receivePacket.getLength(), java.util.HexFormat.of().formatHex(srtpBuffer, 0,
-                                            Math.min(16, receivePacket.getLength()))); // TEMP DIAGNOSTIC
-                        }
-                        dropped++; // TEMP DIAGNOSTIC
                     }
-                    if ((forwarded + dropped) % 300 == 1) { // TEMP DIAGNOSTIC
-                        LOGGER.info("TEMP relay channel={} forwarded={} dropped={}", channel, forwarded, dropped);
-                    }
-                } else {
-                    LOGGER.info("TEMP relay channel={} no session/publisher session={} publisher={}", channel, // TEMP DIAGNOSTIC
-                            current != null, connection != null);
                 }
             } catch (IOException e) {
                 if (closed) {
