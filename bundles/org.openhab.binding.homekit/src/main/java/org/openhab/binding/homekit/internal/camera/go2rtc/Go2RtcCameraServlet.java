@@ -80,8 +80,15 @@ public class Go2RtcCameraServlet extends HttpServlet {
      */
     public @Nullable String viewerUrl(String thingId) {
         String ipAddress = networkAddressService.getPrimaryIpv4HostAddress();
+        if (ipAddress == null) {
+            return null;
+        }
+        int httpsPort = HttpServiceUtil.getHttpsServicePort(bundleContext);
+        if (httpsPort != -1) {
+            return "https://" + ipAddress + ":" + httpsPort + PATH + "/" + thingId;
+        }
         int port = HttpServiceUtil.getHttpServicePort(bundleContext);
-        if (ipAddress == null || port == -1) {
+        if (port == -1) {
             return null;
         }
         return "http://" + ipAddress + ":" + port + PATH + "/" + thingId;

@@ -391,8 +391,8 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Sends the publish sequence (ANNOUNCE, SETUP per track, RECORD) that makes go2rtc accept the camera media.
      */
     private static void publish(RtspConnection connection, String url) throws IOException {
-        connection.request("ANNOUNCE", url + "?timeout=" + PUBLISH_TIMEOUT_SECONDS, "Content-Type: application/sdp\r\n",
-                ANNOUNCE_SDP);
+        connection.request("ANNOUNCE", url + "?timeout=" + PUBLISH_TIMEOUT_SECONDS,
+                "Content-Type: application/sdp\r\n", ANNOUNCE_SDP);
         connection.request("SETUP", url + "/trackID=0",
                 "Transport: RTP/AVP/TCP;unicast;mode=record;interleaved=0-1\r\n", null);
         connection.request("SETUP", url + "/trackID=1",

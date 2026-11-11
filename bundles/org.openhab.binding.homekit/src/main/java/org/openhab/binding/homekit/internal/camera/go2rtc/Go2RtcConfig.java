@@ -18,6 +18,7 @@ import java.net.ServerSocket;
 import java.net.SocketException;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * Builds the go2rtc YAML configuration.
@@ -28,9 +29,9 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 public final class Go2RtcConfig {
 
     /**
-     * The address and ports that go2rtc listens on.
+     * The address and ports that go2rtc listens on. The TLS port is used only when TLS files are supplied.
      */
-    public record Address(String host, int apiPort, int webRtcPort, int rtspPort) {
+    public record Address(String host, int apiPort, int webRtcPort, int rtspPort, int tlsPort) {
     }
 
     private static final int MAX_PORT_ATTEMPTS = 10;
@@ -45,11 +46,18 @@ public final class Go2RtcConfig {
      * @param address the host address and ports to listen on
      * @param listenStream the name of the stream the browser listens to
      * @param talkStream the name of the stream the browser talks to
+     * @param tls the PEM certificate and key for an additional HTTPS API listener, or null for HTTP only
      */
-    public static String toYaml(Address address, String listenStream, String talkStream) {
+    public static String toYaml(Address address, String listenStream, String talkStream,
+            @Nullable Go2RtcTls.TlsFiles tls) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.apiPort()).append("\"\n");
+        if (tls != null) {
+            yaml.append("  tls_listen: \"").append(address.host()).append(":").append(address.tlsPort()).append("\"\n");
+            yaml.append("  tls_cert: '").append(tls.cert()).append("'\n");
+            yaml.append("  tls_key: '").append(tls.key()).append("'\n");
+        }
         yaml.append("webrtc:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.webRtcPort()).append("\"\n");
         yaml.append("rtsp:\n");
