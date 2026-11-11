@@ -211,7 +211,7 @@ public final class SrtpSession {
             tempLogged = true; // TEMP DIAGNOSTIC
             System.out.println("TEMP auth fail index=" + index + " end=" + end + " expected="
                     + java.util.HexFormat.of().formatHex(macBuffer, 0, AUTH_TAG_LENGTH) + " received="
-                    + java.util.HexFormat.of().formatHex(packet, end, AUTH_TAG_LENGTH) + " authKey="
+                    + java.util.HexFormat.of().formatHex(packet, end, end + AUTH_TAG_LENGTH) + " authKey="
                     + java.util.HexFormat.of().formatHex(authKey.getKey()) + " sessionKey="
                     + java.util.HexFormat.of().formatHex(sessionKey)); // TEMP DIAGNOSTIC
         }
