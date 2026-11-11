@@ -46,6 +46,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
+import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcCameraServlet;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDemand;
@@ -140,7 +141,8 @@ import com.google.gson.JsonPrimitive;
  * @author Andrew Fiddian-Green - Camera talk-back channel
  */
 @NonNullByDefault
-public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
+public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
+        implements Go2RtcCameraServlet.BrowserStreamProvider {
 
     // Characteristic types relevant for light model management
     private static final Set<CharacteristicType> LIGHT_MODEL_RELEVANT_TYPES = Set.of(CharacteristicType.HUE,
@@ -199,9 +201,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
     private static final long GO2RTC_DEMAND_POLL_SECONDS = 2;
+    private static final long BROWSER_DEMAND_HOLD_SECONDS = 30;
+    private static final long BROWSER_OPEN_TIMEOUT_SECONDS = 15;
+    private static final long BROWSER_OPEN_POLL_MILLIS = 500;
 
     // fields for camera talk-back sessions
     private final Go2RtcDemand go2rtcDemand = new Go2RtcDemand();
+    private final Go2RtcCameraServlet cameraServlet;
     private final AtomicBoolean go2rtcDemandChecking = new AtomicBoolean(false);
     private final ExecutorService go2rtcExecutor = ThreadPoolManager.getPool(BINDING_ID + "-go2rtc");
 
@@ -223,12 +229,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver) {
+            MacResolver macResolver, Go2RtcCameraServlet cameraServlet) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
         this.bundle = bundle;
+        this.cameraServlet = cameraServlet;
     }
 
     /**
@@ -1596,10 +1603,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
             }
             pump.connect(address.rtspPort(), listenStreamId, talkStreamId);
 
-            String url = "http://" + host + ":" + address.apiPort() + "/stream.html?src=" + listenStreamId
-                    + "&mode=webrtc";
-            logger.debug("{} startGo2rtc() url={}", thing.getUID(), url);
-
             synchronized (this) {
                 if (disposing.get()) {
                     return;
@@ -1608,10 +1611,17 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), listenStreamId, remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
+                cameraServlet.addProvider(thing.getUID().getId(), this);
                 logger.debug("{} startGo2rtc() endPoint={}", thing.getUID(), go2rtcEndpoint);
             }
 
-            updateState(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), new StringType(url));
+            String viewerUrl = cameraServlet.viewerUrl(thing.getUID().getId());
+            if (viewerUrl != null) {
+                updateState(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), new StringType(viewerUrl));
+            } else {
+                logger.warn("{} openHAB network address or HTTP port unavailable, camera URL not published",
+                        thing.getUID());
+            }
             logger.debug("{} startGo2rtc() succeeded", thing.getUID());
             succeeded = true;
         } catch (InterruptedException e) {
@@ -1650,6 +1660,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         Go2RtcDataPump pump;
         ScheduledFuture<?> poller;
         synchronized (this) {
+            cameraServlet.removeProvider(thing.getUID().getId(), this);
             process = go2rtcProcess;
             pump = go2rtcPump;
             poller = go2rtcDemandPoller;
@@ -1737,7 +1748,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
                 }
                 boolean stale;
                 synchronized (this) {
-                    stale = disposing.get() || Objects.equals(go2rtcPump, pump);
+                    stale = disposing.get() || !Objects.equals(go2rtcPump, pump);
                 }
                 if (stale) {
                     closeCameraSession(pump, true);
@@ -1756,6 +1767,37 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler {
         } finally {
             go2rtcDemandChecking.set(false);
         }
+    }
+
+    @Override
+    public @Nullable String openBrowserStream() throws InterruptedException {
+        Go2RtcProcess process;
+        Go2RtcEndpoint endpoint;
+        synchronized (this) {
+            process = go2rtcProcess;
+            endpoint = go2rtcEndpoint;
+        }
+        if (process == null || endpoint == null || disposing.get()) {
+            return null;
+        }
+        synchronized (this) {
+            go2rtcDemand.hold(Instant.now().plusSeconds(BROWSER_DEMAND_HOLD_SECONDS));
+        }
+        requestGo2rtcDemandCheck();
+
+        Instant deadline = Instant.now().plusSeconds(BROWSER_OPEN_TIMEOUT_SECONDS);
+        while (!disposing.get() && Instant.now().isBefore(deadline)) {
+            try {
+                if (process.hasProducers(endpoint.host(), endpoint.apiPort(), endpoint.stream())) {
+                    return "http://" + endpoint.host() + ":" + endpoint.apiPort() + "/stream.html?src="
+                            + endpoint.stream() + "&mode=webrtc";
+                }
+            } catch (IOException e) {
+                logger.debug("{} cannot read go2rtc producers: {}", thing.getUID(), e.getMessage());
+            }
+            Thread.sleep(BROWSER_OPEN_POLL_MILLIS);
+        }
+        return null;
     }
 
     /**

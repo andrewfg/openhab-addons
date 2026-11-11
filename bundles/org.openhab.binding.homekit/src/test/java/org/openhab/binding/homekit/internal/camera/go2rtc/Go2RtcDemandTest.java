@@ -85,4 +85,31 @@ class Go2RtcDemandTest {
         demand.reset();
         assertEquals(Go2RtcDemand.Action.OPEN, demand.update(true, false, T0));
     }
+
+    @Test
+    void holdOpensWithoutConsumersUntilExpired() {
+        Go2RtcDemand demand = new Go2RtcDemand();
+        demand.hold(T0.plusSeconds(30));
+        assertEquals(Go2RtcDemand.Action.OPEN, demand.update(false, false, T0));
+    }
+
+    @Test
+    void holdKeepsSessionOpenThenClosesAfterGrace() {
+        Go2RtcDemand demand = new Go2RtcDemand();
+        Instant holdEnd = T0.plusSeconds(30);
+        demand.hold(holdEnd);
+        assertEquals(Go2RtcDemand.Action.NONE, demand.update(false, true, T0));
+        assertEquals(Go2RtcDemand.Action.NONE, demand.update(false, true, holdEnd));
+        assertEquals(Go2RtcDemand.Action.NONE,
+                demand.update(false, true, holdEnd.plus(Go2RtcDemand.CLOSE_GRACE).minusSeconds(1)));
+        assertEquals(Go2RtcDemand.Action.CLOSE, demand.update(false, true, holdEnd.plus(Go2RtcDemand.CLOSE_GRACE)));
+    }
+
+    @Test
+    void resetClearsHold() {
+        Go2RtcDemand demand = new Go2RtcDemand();
+        demand.hold(T0.plusSeconds(30));
+        demand.reset();
+        assertEquals(Go2RtcDemand.Action.NONE, demand.update(false, false, T0));
+    }
 }
