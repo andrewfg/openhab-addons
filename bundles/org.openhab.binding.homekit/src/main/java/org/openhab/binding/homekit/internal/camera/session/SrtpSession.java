@@ -45,6 +45,7 @@ public final class SrtpSession {
     private static final byte LABEL_SALT = 0x02;
 
     private final HMac hmac = new HMac(new SHA1Digest());
+    private boolean tempLogged; // TEMP DIAGNOSTIC
     private final byte[] macBuffer = new byte[20];
     private final byte[] iv = new byte[BLOCK_LENGTH];
     private final CTRModeCipher keystream = SICBlockCipher.newInstance(AESEngine.newInstance());
@@ -205,6 +206,14 @@ public final class SrtpSession {
         int diff = 0;
         for (int i = 0; i < AUTH_TAG_LENGTH; i++) {
             diff |= macBuffer[i] ^ packet[end + i];
+        }
+        if (diff != 0 && !tempLogged) { // TEMP DIAGNOSTIC
+            tempLogged = true; // TEMP DIAGNOSTIC
+            System.out.println("TEMP auth fail index=" + index + " end=" + end + " expected="
+                    + java.util.HexFormat.of().formatHex(macBuffer, 0, AUTH_TAG_LENGTH) + " received="
+                    + java.util.HexFormat.of().formatHex(packet, end, AUTH_TAG_LENGTH) + " authKey="
+                    + java.util.HexFormat.of().formatHex(authKey.getKey()) + " sessionKey="
+                    + java.util.HexFormat.of().formatHex(sessionKey)); // TEMP DIAGNOSTIC
         }
         return diff == 0;
     }
