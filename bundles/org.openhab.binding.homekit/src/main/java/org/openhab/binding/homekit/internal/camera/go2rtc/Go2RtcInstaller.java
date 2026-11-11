@@ -75,20 +75,20 @@ public class Go2RtcInstaller {
         }
 
         String asset = assetName(os, arch);
-        Path destDir = baseDir
+        Path path = baseDir
                 .resolve((os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT)).replace(' ', '_'))
                 .resolve(VERSION);
-        Path destBinary = destDir.resolve(NAME + (isWindows(os) ? ".exe" : ""));
-        logger.debug("ensureBinary() destBinary={}", destBinary);
-        if (!Files.exists(destBinary)) {
-            logger.debug("Downloading {} to {}", asset, destBinary);
-            download(RELEASE_URL + asset, asset, destDir, destBinary, os);
+        Path binary = path.resolve(NAME + (isWindows(os) ? ".exe" : ""));
+        logger.debug("ensureBinary() destBinary={}", binary);
+        if (!Files.exists(binary)) {
+            logger.debug("Downloading {} to {}", asset, binary);
+            download(RELEASE_URL + asset, asset, path, binary, os);
         }
-        if (!destBinary.toFile().setExecutable(true)) {
-            logger.debug("ensureBinary() cannot make {} executable", destBinary);
-            throw new IOException("Cannot make " + destBinary + " executable");
+        if (!binary.toFile().setExecutable(true)) {
+            logger.debug("ensureBinary() cannot make {} executable", binary);
+            throw new IOException("Cannot make " + binary + " executable");
         }
-        return destBinary;
+        return binary;
     }
 
     /**
