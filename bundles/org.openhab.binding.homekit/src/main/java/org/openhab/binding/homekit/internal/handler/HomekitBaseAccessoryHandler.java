@@ -426,6 +426,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         if (ipTransport instanceof IpTransport transport) { // close prior transport (if any)
             transport.close();
             ipTransport = null;
+            rwService = null; // wraps the closed transport; must not be used again
         }
         if (verifyPairing()) {
             connectionAttemptDelay = MIN_CONNECTION_ATTEMPT_DELAY_SECONDS;
@@ -737,7 +738,7 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
         }
         final CharacteristicReadWriteClient rwService = this.rwService;
         if (rwService == null) {
-            throw new IllegalStateException("Read/write service not initialized");
+            return; // not connected; a reconnection attempt is already scheduled
         }
         try {
             String json = throttler.call(() -> rwService.readCharacteristics(String.join(",", queries)));
