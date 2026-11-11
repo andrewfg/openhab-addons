@@ -76,6 +76,28 @@ class Go2RtcProcessTest {
     }
 
     @Test
+    void talkProducerMeansActiveTalk() throws IOException {
+        assertTrue(Go2RtcProcess.hasProducers(
+                "{\"homekit_cam\":{\"producers\":[],\"consumers\":[]},\"homekit_cam_talk\":{\"producers\":[{}],\"consumers\":[{}]}}",
+                TALK));
+    }
+
+    @Test
+    void noTalkProducerMeansIdle() throws IOException {
+        assertFalse(Go2RtcProcess.hasProducers(
+                "{\"homekit_cam\":{\"producers\":[],\"consumers\":[]},\"homekit_cam_talk\":{\"producers\":[],\"consumers\":[{}]}}",
+                TALK));
+        assertFalse(Go2RtcProcess.hasProducers("{\"homekit_cam_talk\":{\"consumers\":null}}", TALK));
+    }
+
+    @Test
+    void absentOrMalformedTalkStreamIsUnknown() {
+        assertThrows(IOException.class, () -> Go2RtcProcess.hasProducers("{\"other\":{}}", TALK));
+        assertThrows(IOException.class, () -> Go2RtcProcess.hasProducers("[]", TALK));
+        assertThrows(IOException.class, () -> Go2RtcProcess.hasProducers("{not json", TALK));
+    }
+
+    @Test
     void freeTcpPortIsBindableAfterSelection() throws IOException {
         int port = Go2RtcConfig.freeTcpPort();
         assertTrue(port > 0 && port <= 65535);
