@@ -57,6 +57,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private final Path sdpFile;
     private final Process process;
     private volatile boolean closed;
+    private boolean firstPacketSent;
 
     /**
      * Starts ffmpeg and the thread that forwards its output.
@@ -141,6 +142,10 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @throws IOException if the packet cannot be sent
      */
     public void send(byte[] data, int length) throws IOException {
+        if (!firstPacketSent) {
+            firstPacketSent = true;
+            LOGGER.debug("ffmpeg input: first RTP packet forwarded, {} bytes to port {}", length, inputPort);
+        }
         inputSocket.send(new DatagramPacket(data, length, loopback, inputPort));
     }
 
@@ -152,6 +157,11 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
             }
         } catch (IOException e) {
             LOGGER.debug("ffmpeg output closed", e);
+        }
+        try {
+            LOGGER.debug("ffmpeg exited with code {}", p.waitFor());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
