@@ -203,6 +203,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long GO2RTC_READY_TIMEOUT_SECONDS = 10;
     private static final long GO2RTC_DEMAND_POLL_SECONDS = 2;
+    private static final long GO2RTC_KEEPALIVE_SECONDS = 20;
     private static final long BROWSER_DEMAND_HOLD_SECONDS = 30;
     private static final long BROWSER_OPEN_TIMEOUT_SECONDS = 15;
     private static final long BROWSER_OPEN_POLL_MILLIS = 500;
@@ -218,6 +219,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     private @Nullable Go2RtcDataPump go2rtcPump = null;
     private @Nullable Go2RtcEndpoint go2rtcEndpoint = null;
     private @Nullable ScheduledFuture<?> go2rtcDemandPoller = null;
+    private @Nullable ScheduledFuture<?> go2rtcKeepalive = null;
 
     private @Nullable Long cameraSetupIid = null;
     private @Nullable Long cameraSelectedIid = null;
@@ -1619,6 +1621,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                         remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
+                go2rtcKeepalive = scheduler.scheduleWithFixedDelay(this::sendGo2rtcKeepalive,
+                        GO2RTC_KEEPALIVE_SECONDS, GO2RTC_KEEPALIVE_SECONDS, TimeUnit.SECONDS);
                 cameraServlet.addProvider(thing.getUID().getId(), this);
                 logger.debug("{} startGo2rtc() endPoint={}", thing.getUID(), go2rtcEndpoint);
             }
@@ -1667,20 +1671,26 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         Go2RtcProcess process;
         Go2RtcDataPump pump;
         ScheduledFuture<?> poller;
+        ScheduledFuture<?> keepalive;
         synchronized (this) {
             cameraServlet.removeProvider(thing.getUID().getId(), this);
             process = go2rtcProcess;
             pump = go2rtcPump;
             poller = go2rtcDemandPoller;
+            keepalive = go2rtcKeepalive;
             go2rtcProcess = null;
             go2rtcPump = null;
             go2rtcEndpoint = null;
             go2rtcDemandPoller = null;
+            go2rtcKeepalive = null;
             go2rtcStarting = false;
             go2rtcDemand.reset();
         }
         if (poller != null) {
             poller.cancel(false);
+        }
+        if (keepalive != null) {
+            keepalive.cancel(false);
         }
         if (process != null) {
             go2rtcExecutor.execute(process::stop);
@@ -1688,6 +1698,24 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         if (pump != null) {
             closeCameraSession(pump, false);
             pump.close();
+        }
+    }
+
+    /**
+     * Called periodically by the scheduler. Keeps the go2rtc publisher connection alive between camera sessions.
+     */
+    private void sendGo2rtcKeepalive() {
+        Go2RtcDataPump pump;
+        synchronized (this) {
+            pump = go2rtcPump;
+        }
+        if (disposing.get() || pump == null) {
+            return;
+        }
+        try {
+            pump.keepAlive();
+        } catch (IOException e) {
+            logger.debug("{} go2rtc publisher keepalive failed: {}", thing.getUID(), e.getMessage());
         }
     }
 
