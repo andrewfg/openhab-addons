@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsResponse;
 import org.openhab.binding.homekit.internal.camera.tlv.SrtpStreamConfiguration;
 import org.openhab.binding.homekit.internal.camera.tlv.SrtpStreamConfiguration.SessionCommand;
 import org.openhab.binding.homekit.internal.camera.tlv.VideoSelectedParameters;
+import org.openhab.binding.homekit.internal.crypto.Tlv8Codec;
 import org.openhab.binding.homekit.internal.discovery.HomekitMdnsDiscoveryParticipant;
 import org.openhab.binding.homekit.internal.dto.Accessory;
 import org.openhab.binding.homekit.internal.dto.Characteristic;
@@ -205,6 +207,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     private static final long GO2RTC_DEMAND_POLL_SECONDS = 2;
     private static final long BROWSER_DEMAND_HOLD_SECONDS = 30;
     private static final long BROWSER_OPEN_TIMEOUT_SECONDS = 15;
+    private static final int TLV_SESSION_CONTROL = 0x01;
+    private static final int TLV_SESSION_IDENTIFIER = 0x01;
+    private static final int TLV_SESSION_COMMAND = 0x02;
     private static final long BROWSER_OPEN_POLL_MILLIS = 500;
 
     // fields for camera talk-back sessions
@@ -1526,12 +1531,37 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
 
         if (notifyCamera && aid != null && selectedIid != null) {
             try {
-                writeTlvCharacteristic(aid, selectedIid,
-                        new SrtpStreamConfiguration(id, SessionCommand.END, selectedAudioParams(pump.audioCodec()))
-                                .encode());
+                if (isCameraSessionActive(aid, selectedIid, id)) {
+                    writeTlvCharacteristic(aid, selectedIid,
+                            new SrtpStreamConfiguration(id, SessionCommand.END, selectedAudioParams(pump.audioCodec()))
+                                    .encode());
+                } else {
+                    logger.debug("{} camera session already ended, skipping END", thing.getUID());
+                }
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Reads the camera's Selected RTP Stream Configuration to check whether it still holds our session as started.
+     * If the read fails, returns true so that END is still sent.
+     */
+    private boolean isCameraSessionActive(long aid, long selectedIid, byte[] sessionId) {
+        try {
+            Map<Integer, byte[]> selected = Tlv8Codec.decode(readTlvCharacteristic(aid, selectedIid));
+            byte[] control = selected.get(TLV_SESSION_CONTROL);
+            if (control == null) {
+                return false;
+            }
+            Map<Integer, byte[]> controlTlv = Tlv8Codec.decode(control);
+            byte[] command = controlTlv.get(TLV_SESSION_COMMAND);
+            return Arrays.equals(controlTlv.get(TLV_SESSION_IDENTIFIER), sessionId) && command != null
+                    && command.length == 1 && command[0] != SessionCommand.END.getCode();
+        } catch (Exception e) {
+            logger.debug("{} could not read selected stream configuration: {}", thing.getUID(), e.getMessage());
+            return true;
         }
     }
 
