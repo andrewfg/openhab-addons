@@ -18,30 +18,31 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Transcodes a camera's AAC-ELD RTP audio to Opus RTP using an ffmpeg child process.
+ * Transcodes RTP audio between a camera's AAC-ELD and Opus using an ffmpeg child process.
  * <p>
- * RTP is sent to ffmpeg on a loopback port described by a temporary SDP file, and ffmpeg sends the Opus RTP back to a
- * loopback port owned by this class. Each received Opus packet is passed to the {@link PacketSink}.
+ * RTP is sent to ffmpeg on a loopback port described by a temporary SDP file, and ffmpeg sends the transcoded RTP back
+ * to a loopback port owned by this class. Each received packet is passed to the {@link PacketSink}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public final class AacEldOpusTranscoder implements AutoCloseable {
+public final class FfmpegRtpTranscoder implements AutoCloseable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AacEldOpusTranscoder.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FfmpegRtpTranscoder.class);
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
 
     /**
-     * Receives Opus RTP packets produced by ffmpeg.
+     * Receives RTP packets produced by ffmpeg.
      */
     @FunctionalInterface
     public interface PacketSink {
@@ -60,24 +61,25 @@ public final class AacEldOpusTranscoder implements AutoCloseable {
      * Starts ffmpeg and the thread that forwards its output.
      *
      * @param ffmpeg the ffmpeg executable
-     * @param codec the camera's AAC-ELD audio codec
-     * @param payloadType the RTP payload type of the AAC-ELD packets sent to {@link #send}
-     * @param sink receives each Opus RTP packet produced by ffmpeg
+     * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from
+     * @param encoderArgs the ffmpeg arguments that select the output codec
+     * @param payloadType the RTP payload type of the input and output streams
+     * @param sink receives each RTP packet produced by ffmpeg
      * @throws IOException if the sockets, SDP file or process cannot be created
      */
-    public AacEldOpusTranscoder(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
-            throws IOException {
+    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> encoderArgs, int payloadType,
+            PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
         inputPort = freeLoopbackPort();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
 
-        sdpFile = Files.createTempFile("homekit-aac-eld-", ".sdp");
+        sdpFile = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
         try {
-            Files.writeString(sdpFile, FfmpegHelpers.aacEldInputSdp(inputPort, codec, payloadType));
-            process = new ProcessBuilder(FfmpegHelpers.aacEldToOpusCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), payloadType)).redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            Files.writeString(sdpFile, inputSdp.apply(inputPort));
+            process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
+                    outputSocket.getLocalPort(), encoderArgs, payloadType)).redirectOutput(
+                            ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
@@ -85,13 +87,43 @@ public final class AacEldOpusTranscoder implements AutoCloseable {
             throw e;
         }
 
-        Thread reader = new Thread(() -> forwardOutput(sink), "OH-binding-homekit-aac-eld-transcoder");
+        Thread reader = new Thread(() -> forwardOutput(sink), "OH-binding-homekit-ffmpeg-transcoder");
         reader.setDaemon(true);
         reader.start();
     }
 
     /**
-     * Sends one AAC-ELD RTP packet to ffmpeg.
+     * Creates a transcoder that converts the camera's AAC-ELD RTP to Opus RTP.
+     *
+     * @param ffmpeg the ffmpeg executable
+     * @param codec the camera's AAC-ELD audio codec
+     * @param payloadType the RTP payload type used for both input and output
+     * @param sink receives each Opus RTP packet
+     * @throws IOException if the transcoder cannot be started
+     */
+    public static FfmpegRtpTranscoder aacEldToOpus(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
+            throws IOException {
+        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.aacEldInputSdp(port, codec, payloadType),
+                FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
+    }
+
+    /**
+     * Creates a transcoder that converts browser Opus RTP to the camera's AAC-ELD RTP.
+     *
+     * @param ffmpeg the ffmpeg executable
+     * @param codec the camera's AAC-ELD audio codec
+     * @param payloadType the RTP payload type used for both input and output
+     * @param sink receives each AAC-ELD RTP packet
+     * @throws IOException if the transcoder cannot be started
+     */
+    public static FfmpegRtpTranscoder opusToAacEld(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
+            throws IOException {
+        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType),
+                FfmpegHelpers.aacEldEncoderArgs(codec), payloadType, sink);
+    }
+
+    /**
+     * Sends one input RTP packet to ffmpeg.
      *
      * @param data the buffer holding the RTP packet
      * @param length the packet length
@@ -111,7 +143,7 @@ public final class AacEldOpusTranscoder implements AutoCloseable {
                 sink.accept(buffer, packet.getLength());
             } catch (IOException e) {
                 if (!closed) {
-                    LOGGER.debug("AAC-ELD transcoding output failed: {}", e.getMessage());
+                    LOGGER.debug("RTP transcoding output failed: {}", e.getMessage());
                 }
                 return;
             }
@@ -127,7 +159,7 @@ public final class AacEldOpusTranscoder implements AutoCloseable {
         try {
             Files.deleteIfExists(sdpFile);
         } catch (IOException e) {
-            LOGGER.debug("Cannot delete AAC-ELD SDP file {}: {}", sdpFile, e.getMessage());
+            LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
         }
     }
 

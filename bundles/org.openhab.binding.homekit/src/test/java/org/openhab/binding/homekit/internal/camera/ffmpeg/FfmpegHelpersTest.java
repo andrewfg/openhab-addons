@@ -52,11 +52,21 @@ class FfmpegHelpersTest {
 
     @Test
     void testOpusCommandLine() {
-        List<String> cmd = FfmpegHelpers.aacEldToOpusCommandLine("/usr/bin/ffmpeg", "/tmp/in.sdp", 6000, 110);
+        List<String> cmd = FfmpegHelpers.transcodeCommandLine("/usr/bin/ffmpeg", "/tmp/in.sdp", 6000,
+                FfmpegHelpers.opusEncoderArgs(), 110);
         assertEquals("/usr/bin/ffmpeg", cmd.get(0));
         assertEquals("/tmp/in.sdp", cmd.get(cmd.indexOf("-i") + 1));
         assertEquals("libopus", cmd.get(cmd.indexOf("-c:a") + 1));
         assertEquals("110", cmd.get(cmd.indexOf("-payload_type") + 1));
         assertEquals("rtp://127.0.0.1:6000", cmd.get(cmd.size() - 1));
+    }
+
+    @Test
+    void testAacEldEncoderArgs() {
+        List<String> args = FfmpegHelpers.aacEldEncoderArgs(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16));
+        assertEquals("libfdk_aac", args.get(args.indexOf("-c:a") + 1));
+        assertEquals("aac_eld", args.get(args.indexOf("-profile:a") + 1));
+        assertEquals("16000", args.get(args.indexOf("-ar") + 1));
+        assertEquals("1", args.get(args.indexOf("-ac") + 1));
     }
 }

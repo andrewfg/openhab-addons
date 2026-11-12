@@ -23,7 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
-import org.openhab.binding.homekit.internal.camera.ffmpeg.AacEldOpusTranscoder;
+import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegRtpTranscoder;
 import org.openhab.binding.homekit.internal.camera.session.RtspConnection;
 import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.session.SrtpSession;
@@ -39,8 +39,8 @@ import org.slf4j.LoggerFactory;
  * Opus by ffmpeg, because go2rtc only accepts Opus.
  * <p>
  * The talk path is read as interleaved RTP from go2rtc's talk stream, re-labelled with the talk payload type and
- * sync source, encrypted and sent to the camera's talk port advertised in the SetupEndpoints response. Talk is only
- * relayed when the camera's audio codec is Opus.
+ * sync source, encrypted and sent to the camera's talk port advertised in the SetupEndpoints response. When the
+ * camera's audio codec is AAC-ELD, the talk audio is first transcoded from Opus to AAC-ELD by ffmpeg.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -104,7 +104,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable Session session = null;
     private volatile @Nullable RtspConnection publisher = null;
     private volatile @Nullable RtspConnection talkReader = null;
-    private volatile @Nullable AacEldOpusTranscoder audioTranscoder = null;
+    private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
     private volatile boolean closed;
     private final Object talkMonitor = new Object();
     private boolean talkActive; // guarded by talkMonitor
@@ -206,12 +206,12 @@ public class Go2RtcDataPump implements AutoCloseable {
     /**
      * Creates the AAC-ELD to Opus transcoder when the camera's audio needs one, forwarding its output to the publisher.
      */
-    private @Nullable AacEldOpusTranscoder createAudioTranscoder(RtspConnection connection) throws IOException {
+    private @Nullable FfmpegRtpTranscoder createAudioTranscoder(RtspConnection connection) throws IOException {
         String ffmpeg = ffmpegBinary;
         if (audioCodec.codecType() != AudioCodecType.AAC_ELD || ffmpeg == null) {
             return null;
         }
-        return new AacEldOpusTranscoder(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE,
+        return FfmpegRtpTranscoder.aacEldToOpus(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE,
                 (data, length) -> connection.sendFrame(AUDIO_CHANNEL, data, length));
     }
 
@@ -244,14 +244,9 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     /**
      * Starts reading the browser talk stream from go2rtc and relaying it to the camera. Called when a browser talk
-     * session begins; until then the talk relay stays idle and does not poll go2rtc. Talk is ignored unless the camera's
-     * audio codec is Opus, because the camera's audio codec is also used for talk.
+     * session begins; until then the talk relay stays idle and does not poll go2rtc.
      */
     public void startTalk() {
-        if (audioCodec.codecType() != AudioCodecType.OPUS) {
-            LOGGER.debug("Talk-back is not supported for camera audio codec {}", audioCodec.codecType());
-            return;
-        }
         synchronized (talkMonitor) {
             talkActive = true;
             talkMonitor.notifyAll();
@@ -279,7 +274,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         audioSocket.close();
         videoSocket.close();
         talkSocket.close();
-        AacEldOpusTranscoder transcoder = audioTranscoder;
+        FfmpegRtpTranscoder transcoder = audioTranscoder;
         if (transcoder != null) {
             transcoder.close();
         }
@@ -307,7 +302,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                 if (current != null && connection != null) {
                     int rtpLength = stream.apply(current).decrypt(srtpBuffer, receivePacket.getLength(), rtpBuffer);
                     if (rtpLength >= 0) {
-                        AacEldOpusTranscoder transcoder = audioTranscoder;
+                        FfmpegRtpTranscoder transcoder = audioTranscoder;
                         if (channel == AUDIO_CHANNEL && transcoder != null) {
                             transcoder.send(rtpBuffer, rtpLength);
                         } else {
@@ -332,30 +327,86 @@ public class Go2RtcDataPump implements AutoCloseable {
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + SRTP_AUTH_TAG_LENGTH];
         while (awaitTalkActive()) {
-            try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
-                talkReader = reader;
-                while (!closed && isTalkActive()) {
-                    RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
-                    Session current = session;
-                    if (current != null && frame.channel() == TALK_CHANNEL && frame.length() >= RTP_HEADER_LENGTH) {
-                        sendTalk(current, rtpBuffer, frame.length(), srtpBuffer);
-                    }
-                }
+            try {
+                relayTalkSession(rtspPort, talkStream, rtpBuffer, srtpBuffer);
             } catch (IOException e) {
                 if (closed) {
                     return;
                 }
-                // a reader closed by stopTalk() is expected and not a failure
-                if (isTalkActive()) {
-                    LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
-                    if (!pauseBeforeTalkRetry()) {
-                        return;
-                    }
+                LOGGER.debug("Talk-back unavailable: {}", e.getMessage());
+                if (!pauseBeforeTalkRetry()) {
+                    return;
                 }
-            } finally {
-                talkReader = null;
             }
         }
+    }
+
+    /**
+     * Relays one talk session, reconnecting to go2rtc while the session stays active. The talk transcoder, if any, lives
+     * for the whole session.
+     */
+    private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
+            throws IOException {
+        FfmpegRtpTranscoder encoder = openTalkEncoder(srtpBuffer);
+        try {
+            while (!closed && isTalkActive()) {
+                try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
+                    talkReader = reader;
+                    while (!closed && isTalkActive()) {
+                        RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
+                        if (frame.channel() != TALK_CHANNEL || frame.length() < RTP_HEADER_LENGTH) {
+                            continue;
+                        }
+                        if (encoder != null) {
+                            setPayloadType(rtpBuffer);
+                            encoder.send(rtpBuffer, frame.length());
+                        } else {
+                            Session current = session;
+                            if (current != null) {
+                                sendTalk(current, rtpBuffer, frame.length(), srtpBuffer);
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    if (closed) {
+                        return;
+                    }
+                    // a reader closed by stopTalk() is expected and not a failure
+                    if (isTalkActive()) {
+                        LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
+                        if (!pauseBeforeTalkRetry()) {
+                            return;
+                        }
+                    }
+                } finally {
+                    talkReader = null;
+                }
+            }
+        } finally {
+            if (encoder != null) {
+                encoder.close();
+            }
+        }
+    }
+
+    /**
+     * Creates the Opus to AAC-ELD transcoder for a talk session. Returns null when the camera takes Opus directly.
+     * Encoded packets are encrypted and sent to the camera while the session is active.
+     */
+    private @Nullable FfmpegRtpTranscoder openTalkEncoder(byte[] srtpBuffer) throws IOException {
+        if (audioCodec.codecType() != AudioCodecType.AAC_ELD) {
+            return null;
+        }
+        String ffmpeg = ffmpegBinary;
+        if (ffmpeg == null) {
+            throw new IOException("No ffmpeg binary available for AAC-ELD talk-back");
+        }
+        return FfmpegRtpTranscoder.opusToAacEld(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE, (data, length) -> {
+            Session current = session;
+            if (current != null) {
+                sendTalk(current, data, length, srtpBuffer);
+            }
+        });
     }
 
     /**
@@ -400,8 +451,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Re-labels a talk RTP packet with the talk payload type and sync source, then encrypts and sends it to the camera.
      */
     private void sendTalk(Session current, byte[] rtpBuffer, int length, byte[] srtpBuffer) throws IOException {
-        // keep marker bit (bit 7) and replace payload type
-        rtpBuffer[1] = (byte) ((rtpBuffer[1] & 0x80) | AUDIO_PAYLOAD_TYPE);
+        setPayloadType(rtpBuffer);
         // header bytes 8-11 contain SSRC in network byte order
         rtpBuffer[8] = (byte) (AUDIO_SYNC_SOURCE >>> 24);
         rtpBuffer[9] = (byte) (AUDIO_SYNC_SOURCE >>> 16);
@@ -409,6 +459,11 @@ public class Go2RtcDataPump implements AutoCloseable {
         rtpBuffer[11] = (byte) AUDIO_SYNC_SOURCE;
         int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
         talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
+    }
+
+    private static void setPayloadType(byte[] rtpBuffer) {
+        // keep marker bit (bit 7) and replace payload type
+        rtpBuffer[1] = (byte) ((rtpBuffer[1] & 0x80) | AUDIO_PAYLOAD_TYPE);
     }
 
     /**

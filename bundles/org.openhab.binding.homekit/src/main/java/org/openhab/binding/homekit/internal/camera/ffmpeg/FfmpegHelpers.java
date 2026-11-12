@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.homekit.internal.camera.ffmpeg;
 
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -98,19 +99,65 @@ public final class FfmpegHelpers {
     }
 
     /**
-     * Builds the command line for an ffmpeg instance that reads the camera's AAC-ELD RTP described by an SDP file and
-     * sends it as Opus RTP to a loopback UDP port.
+     * Returns an SDP description of a browser Opus RTP stream (48 kHz, stereo RTP clock), received on the given
+     * loopback UDP port.
+     *
+     * @param port the loopback UDP port on which ffmpeg receives the RTP
+     * @param payloadType the RTP payload type of the Opus packets
+     * @return the SDP text
+     */
+    public static String opusInputSdp(int port, int payloadType) {
+        return """
+                v=0
+                o=- 0 0 IN IP4 127.0.0.1
+                s=HomeKit Opus
+                c=IN IP4 127.0.0.1
+                t=0 0
+                m=audio %d RTP/AVP %d
+                a=rtpmap:%d opus/48000/2
+                """.formatted(port, payloadType, payloadType);
+    }
+
+    /**
+     * Returns the ffmpeg arguments that encode to Opus.
+     *
+     * @return the encoder arguments
+     */
+    public static List<String> opusEncoderArgs() {
+        return List.of("-c:a", "libopus", "-ar", "48000", "-ac", "2", "-b:a", "48k");
+    }
+
+    /**
+     * Returns the ffmpeg arguments that encode to AAC-ELD at the camera's sample rate, channel count and bitrate.
+     * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD.
+     *
+     * @param codec the camera's AAC-ELD audio codec
+     * @return the encoder arguments
+     */
+    public static List<String> aacEldEncoderArgs(AudioCodec codec) {
+        return List.of("-c:a", "libfdk_aac", "-profile:a", "aac_eld", "-ar",
+                String.valueOf(codec.sampleRateKhz() * 1000), "-ac", String.valueOf(codec.channels()), "-b:a",
+                codec.maxBitrateKbps() + "k");
+    }
+
+    /**
+     * Builds the command line for an ffmpeg instance that reads RTP described by an SDP file, encodes it with the given
+     * arguments and sends the result as RTP to a loopback UDP port.
      *
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
-     * @param inputSdpFile path to the SDP file from {@link #aacEldInputSdp}
-     * @param outputPort the loopback UDP port that receives the Opus RTP
-     * @param payloadType the RTP payload type of the Opus output
+     * @param inputSdpFile path to the SDP file describing the input RTP
+     * @param outputPort the loopback UDP port that receives the output RTP
+     * @param encoderArgs the encoder arguments, see {@link #opusEncoderArgs} and {@link #aacEldEncoderArgs}
+     * @param payloadType the RTP payload type of the output
      * @return the command
      */
-    public static List<String> aacEldToOpusCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
-            int payloadType) {
-        return List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp", "-i",
-                inputSdpFile, "-vn", "-c:a", "libopus", "-ar", "48000", "-ac", "2", "-b:a", "48k", "-payload_type",
-                String.valueOf(payloadType), "-f", "rtp", "rtp://127.0.0.1:" + outputPort);
+    public static List<String> transcodeCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
+            List<String> encoderArgs, int payloadType) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
+                "-protocol_whitelist", "file,rtp,udp", "-i", inputSdpFile, "-vn"));
+        command.addAll(encoderArgs);
+        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp",
+                "rtp://127.0.0.1:" + outputPort));
+        return command;
     }
 }
