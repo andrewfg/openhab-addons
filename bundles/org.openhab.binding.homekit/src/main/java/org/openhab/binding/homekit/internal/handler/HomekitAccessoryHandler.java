@@ -1583,7 +1583,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         try {
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
             String host = localHost(remoteIpAddress);
-            Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.exportCoreCertificate(cacheDir());
+            Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.generateCertificate(cacheDir(), host);
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort(),
                     tls == null ? 0 : Go2RtcConfig.stableTcpPort(go2rtcPortStorage, thing.getUID().getAsString()));
