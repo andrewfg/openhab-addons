@@ -81,8 +81,8 @@ public final class Go2RtcConfig {
 
     /**
      * Returns a TCP port that stays the same across go2rtc restarts, so that a browser that accepted the HTTPS viewer
-     * certificate on that port keeps trusting it. The port is read from and written to the given storage under the given
-     * key, and is replaced only when the stored port can no longer be bound.
+     * certificate on that port keeps trusting it. The port is read from and written to the given storage under the
+     * given key, and is replaced only when the stored port can no longer be bound.
      */
     public static int stableTcpPort(Storage<String> storage, String key) throws IOException {
         String stored = storage.get(key);
