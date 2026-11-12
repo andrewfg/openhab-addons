@@ -1465,8 +1465,9 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 pump.videoPort(), pump.audioPort(), dummyParams, talkParams);
         logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
 
+        writeTlvCharacteristic(aid, setupIid, endpointRequest.encode());
         SetupEndpointsResponse endpointResponse = SetupEndpointsResponse
-                .decode(writeTlvCharacteristic(aid, setupIid, endpointRequest.encode(), true));
+                .decode(readTlvCharacteristic(aid, setupIid));
         logger.debug("{} openCameraSession() {}", thing.getUID(), endpointResponse);
 
         if (endpointResponse.status() != SetupEndpointsStatus.SUCCESS) {
@@ -1498,7 +1499,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 selectedVideoParams(pump.videoCodec()), selectedAudioParams(pump.audioCodec()));
         logger.debug("{} openCameraSession() {}", thing.getUID(), config);
 
-        writeTlvCharacteristic(aid, selectedIid, config.encode(), false);
+        writeTlvCharacteristic(aid, selectedIid, config.encode());
         logger.debug("{} openCameraSession() completed", thing.getUID());
     }
 
@@ -1527,8 +1528,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             try {
                 writeTlvCharacteristic(aid, selectedIid,
                         new SrtpStreamConfiguration(id, SessionCommand.END, selectedAudioParams(pump.audioCodec()))
-                                .encode(),
-                        false);
+                                .encode());
             } catch (Exception e) {
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }
@@ -1858,26 +1858,28 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     }
 
     /**
-     * Writes a TLV8 value to a characteristic, optionally requesting the response value back.
-     *
-     * @return the response TLV8 bytes, or an empty array if no response was requested
+     * Writes a TLV8 value to a characteristic.
      */
-    private byte[] writeTlvCharacteristic(long aid, long iid, byte[] tlv, boolean withResponse) throws Exception {
+    private void writeTlvCharacteristic(long aid, long iid, byte[] tlv) throws Exception {
         JsonObject entry = new JsonObject();
         entry.addProperty("aid", aid);
         entry.addProperty("iid", iid);
         entry.addProperty("value", Base64.getEncoder().encodeToString(tlv));
-        if (withResponse) {
-            entry.addProperty("r", true);
-        }
         JsonArray characteristics = new JsonArray();
         characteristics.add(entry);
         JsonObject body = new JsonObject();
         body.add("characteristics", characteristics);
-        String response = writeCharacteristics(GSON.toJson(body));
-        if (!withResponse) {
-            return new byte[0];
-        }
+        writeCharacteristics(GSON.toJson(body));
+    }
+
+    /**
+     * Reads the TLV8 value of a characteristic. Used for write-only-readable characteristics such as SetupEndpoints,
+     * whose response to a preceding write is only available via a subsequent read (and not via the write response).
+     *
+     * @return the TLV8 bytes of the characteristic value
+     */
+    private byte[] readTlvCharacteristic(long aid, long iid) throws Exception {
+        String response = readCharacteristics("%s.%s".formatted(aid, iid));
         JsonObject result = JsonParser.parseString(response).getAsJsonObject().getAsJsonArray("characteristics").get(0)
                 .getAsJsonObject();
         if (!(result.get("value") instanceof JsonPrimitive value)) {
