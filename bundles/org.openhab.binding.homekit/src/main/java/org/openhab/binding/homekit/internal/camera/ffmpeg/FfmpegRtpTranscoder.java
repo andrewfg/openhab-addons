@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.homekit.internal.camera.ffmpeg;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -79,14 +80,17 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
             Files.writeString(sdpFile, inputSdp.apply(inputPort));
             process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
                     outputSocket.getLocalPort(), encoderArgs, payloadType))
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
+                    .redirectErrorStream(true).start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
             Files.deleteIfExists(sdpFile);
             throw e;
         }
+
+        Thread logger = new Thread(() -> logOutput(process), "OH-binding-homekit-ffmpeg-log");
+        logger.setDaemon(true);
+        logger.start();
 
         Thread reader = new Thread(() -> forwardOutput(sink), "OH-binding-homekit-ffmpeg-transcoder");
         reader.setDaemon(true);
@@ -132,6 +136,17 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      */
     public void send(byte[] data, int length) throws IOException {
         inputSocket.send(new DatagramPacket(data, length, loopback, inputPort));
+    }
+
+    private void logOutput(Process p) {
+        try (BufferedReader reader = p.inputReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                LOGGER.debug("ffmpeg: {}", line);
+            }
+        } catch (IOException e) {
+            LOGGER.debug("ffmpeg output closed", e);
+        }
     }
 
     private void forwardOutput(PacketSink sink) {
