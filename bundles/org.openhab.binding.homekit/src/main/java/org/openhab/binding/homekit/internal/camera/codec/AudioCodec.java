@@ -153,13 +153,13 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
      * @throws IllegalArgumentException if the camera supports neither Opus nor AAC-ELD at 16 or 24 kHz
      */
     public static AudioCodec preferred(List<AudioCodec> codecs) {
-        return codecs.stream()
-                .filter(codec -> AudioCodecType.OPUS == codec.codecType() && isSupportedRate(codec))
+        return codecs.stream().filter(codec -> AudioCodecType.OPUS == codec.codecType() && isSupportedRate(codec))
                 .findFirst()
                 .or(() -> codecs.stream()
                         .filter(codec -> AudioCodecType.AAC_ELD == codec.codecType() && isSupportedRate(codec))
                         .findFirst())
-                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus or AAC-ELD at 16 or 24 kHz"));
+                .orElseThrow(
+                        () -> new IllegalArgumentException("camera does not support Opus or AAC-ELD at 16 or 24 kHz"));
     }
 
     private static boolean isSupportedRate(AudioCodec codec) {

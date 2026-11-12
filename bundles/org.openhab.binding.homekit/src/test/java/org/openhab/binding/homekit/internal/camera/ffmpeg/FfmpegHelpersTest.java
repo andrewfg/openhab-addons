@@ -31,7 +31,7 @@ class FfmpegHelpersTest {
     void testAudioSpecificConfigForAacEld() {
         assertEquals("F8F03000", FfmpegHelpers.audioSpecificConfig(16, 1));
         assertEquals("F8EC3000", FfmpegHelpers.audioSpecificConfig(24, 1));
-        assertEquals("F8F0A000", FfmpegHelpers.audioSpecificConfig(16, 2));
+        assertEquals("F8F05000", FfmpegHelpers.audioSpecificConfig(16, 2));
     }
 
     @Test

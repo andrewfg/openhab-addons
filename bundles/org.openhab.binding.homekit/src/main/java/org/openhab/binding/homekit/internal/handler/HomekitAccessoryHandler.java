@@ -522,7 +522,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
             findCameraCharacteristics(accessory);
-            if (isCameraStreamAvailable()) { = ChannelBuilder
+            if (isCameraStreamAvailable()) {
+                Channel cameraUrlChannel = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
                         .withType(CHANNEL_TYPE_CAMERA_URL).build();
                 uniqueChannelsMap.put(CHANNEL_CAMERA_URL, cameraUrlChannel);
@@ -1931,9 +1932,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * either directly (Opus) or after transcoding (AAC-ELD).
      */
     private boolean isCameraStreamAvailable() {
-        return cameraSetupIid != null && cameraSelectedIid != null
-                && audioCodecs.stream().anyMatch(codec -> codec.codecType() == AudioCodecType.OPUS
-                        || codec.codecType() == AudioCodecType.AAC_ELD)
+        return cameraSetupIid != null && cameraSelectedIid != null && audioCodecs.stream().anyMatch(
+                codec -> codec.codecType() == AudioCodecType.OPUS || codec.codecType() == AudioCodecType.AAC_ELD)
                 && videoCodecs.stream().anyMatch(codec -> codec.codecType() == VideoCodecType.H_264);
     }
 

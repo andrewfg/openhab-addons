@@ -36,6 +36,26 @@ public final class FfmpegHelpers {
     }
 
     /**
+     * Returns an SDP description of a browser Opus RTP stream (48 kHz, stereo RTP clock), received on the given
+     * loopback UDP port.
+     *
+     * @param port the loopback UDP port on which ffmpeg receives the RTP
+     * @param payloadType the RTP payload type of the Opus packets
+     * @return the SDP text
+     */
+    public static String opusInputSdp(int port, int payloadType) {
+        return """
+                v=0
+                o=- 0 0 IN IP4 127.0.0.1
+                s=HomeKit Opus
+                c=IN IP4 127.0.0.1
+                t=0 0
+                m=audio %d RTP/AVP %d
+                a=rtpmap:%d opus/48000/2
+                """.formatted(port, payloadType, payloadType);
+    }
+
+    /**
      * Returns an SDP description of the camera's AAC-ELD RTP stream, received on the given loopback UDP port.
      *
      * @param port the loopback UDP port on which ffmpeg receives the RTP
@@ -53,8 +73,9 @@ public final class FfmpegHelpers {
                 m=audio %d RTP/AVP %d
                 a=rtpmap:%d mpeg4-generic/%d/%d
                 a=fmtp:%d streamtype=5;profile-level-id=39;mode=AAC-hbr;config=%s;sizelength=13;indexlength=3;indexdeltalength=3;constantDuration=480
-                """.formatted(port, payloadType, payloadType, codec.sampleRateKhz() * 1000, codec.channels(),
-                payloadType, audioSpecificConfig(codec.sampleRateKhz(), codec.channels()));
+                """
+                .formatted(port, payloadType, payloadType, codec.sampleRateKhz() * 1000, codec.channels(), payloadType,
+                        audioSpecificConfig(codec.sampleRateKhz(), codec.channels()));
     }
 
     /**
@@ -99,26 +120,6 @@ public final class FfmpegHelpers {
     }
 
     /**
-     * Returns an SDP description of a browser Opus RTP stream (48 kHz, stereo RTP clock), received on the given
-     * loopback UDP port.
-     *
-     * @param port the loopback UDP port on which ffmpeg receives the RTP
-     * @param payloadType the RTP payload type of the Opus packets
-     * @return the SDP text
-     */
-    public static String opusInputSdp(int port, int payloadType) {
-        return """
-                v=0
-                o=- 0 0 IN IP4 127.0.0.1
-                s=HomeKit Opus
-                c=IN IP4 127.0.0.1
-                t=0 0
-                m=audio %d RTP/AVP %d
-                a=rtpmap:%d opus/48000/2
-                """.formatted(port, payloadType, payloadType);
-    }
-
-    /**
      * Returns the ffmpeg arguments that encode to Opus.
      *
      * @return the encoder arguments
@@ -156,8 +157,8 @@ public final class FfmpegHelpers {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
                 "-protocol_whitelist", "file,rtp,udp", "-i", inputSdpFile, "-vn"));
         command.addAll(encoderArgs);
-        command.addAll(List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp",
-                "rtp://127.0.0.1:" + outputPort));
+        command.addAll(
+                List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp", "rtp://127.0.0.1:" + outputPort));
         return command;
     }
 }

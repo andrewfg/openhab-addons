@@ -115,7 +115,8 @@ public class Go2RtcDataPump implements AutoCloseable {
      *
      * @param audioCodecs the audio codecs the camera supports
      * @param videoCodecs the video configurations the camera supports
-     * @param ffmpegBinary the ffmpeg executable, required only when the camera's audio is AAC-ELD; otherwise may be null
+     * @param ffmpegBinary the ffmpeg executable, required only when the camera's audio is AAC-ELD; otherwise may be
+     *            null
      * @throws IllegalArgumentException if the camera does not support Opus or AAC-ELD audio or H.264 video, or if
      *             AAC-ELD is used without an ffmpeg executable
      * @throws IOException if the sockets cannot be created
@@ -342,7 +343,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Relays one talk session, reconnecting to go2rtc while the session stays active. The talk transcoder, if any, lives
+     * Relays one talk session, reconnecting to go2rtc while the session stays active. The talk transcoder, if any,
+     * lives
      * for the whole session.
      */
     private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
