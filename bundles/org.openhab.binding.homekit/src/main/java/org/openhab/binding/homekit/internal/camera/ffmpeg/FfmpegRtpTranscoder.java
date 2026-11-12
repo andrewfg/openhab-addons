@@ -71,9 +71,15 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> encoderArgs, int payloadType,
             PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
-        inputPort = freeRtpPortPair();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
+        try {
+            inputPort = freeRtpPortPair();
+        } catch (IOException e) {
+            inputSocket.close();
+            outputSocket.close();
+            throw e;
+        }
 
         sdpFile = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
         try {
