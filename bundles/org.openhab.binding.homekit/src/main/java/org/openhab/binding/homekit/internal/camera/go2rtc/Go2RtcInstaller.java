@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.homekit.internal.camera.go2rtc;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -35,10 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Locates or downloads the go2rtc binary, following the same approach as the unifi binding:
- * <p>
- * If a go2rtc binary is already on the PATH, it is used directly. Otherwise the release asset
- * is downloaded into the binding's cache directory.
+ * Locates or downloads the go2rtc binary. The release asset is downloaded into the binding's cache directory if it is
+ * not already present. A go2rtc binary on the PATH is never used, so the binding always runs the version it expects.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -70,14 +67,8 @@ public class Go2RtcInstaller {
         String os = Objects.requireNonNull(System.getProperty("os.name", ""));
         String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
         logger.debug("Go2RtcInstaller() os={}, arch={}", os, arch);
-        if (isOnPath(NAME, os)) {
-            return Paths.get(NAME);
-        }
-
         String asset = assetName(os, arch);
-        Path path = baseDir
-                .resolve((os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT)).replace(' ', '_'))
-                .resolve(VERSION);
+        Path path = baseDir.resolve(NAME);
         Path binary = path.resolve(NAME + (isWindows(os) ? ".exe" : ""));
         logger.debug("ensureBinary() destBinary={}", binary);
         if (!Files.exists(binary)) {
@@ -121,20 +112,6 @@ public class Go2RtcInstaller {
             return "go2rtc_win64.zip";
         }
         throw new IOException("Unsupported platform for go2rtc: " + osName + " " + arch);
-    }
-
-    private boolean isOnPath(String name, String os) {
-        String pathEnv = System.getenv("PATH");
-        if (pathEnv == null) {
-            return false;
-        }
-        String fileName = name + (isWindows(os) ? ".exe" : "");
-        for (String dir : pathEnv.split(File.pathSeparator)) {
-            if (Files.isExecutable(Paths.get(dir, fileName))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean isWindows(String os) {

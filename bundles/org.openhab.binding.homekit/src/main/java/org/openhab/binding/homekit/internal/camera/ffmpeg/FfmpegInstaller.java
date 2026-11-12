@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.homekit.internal.camera.ffmpeg;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,7 +19,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Locale;
@@ -32,9 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Locates or downloads the ffmpeg binary used to trans-code and mux the plain RTP streams for go2rtc. As in the unifi
- * binding, an ffmpeg on the PATH is used directly, otherwise the homebridge static build is downloaded into the
- * binding's cache directory.
+ * Locates or downloads the ffmpeg binary used to trans-code the camera's AAC-ELD audio for go2rtc. The homebridge static
+ * build is downloaded into the binding's cache directory if it is not already present. A ffmpeg on the PATH is never
+ * used, because it may lack the codecs (for example libfdk_aac) that the binding requires.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -54,7 +52,8 @@ public final class FfmpegInstaller {
     }
 
     /**
-     * Returns the command to execute ffmpeg, downloading the binary first if it is not on the PATH and not cached.
+     * Returns the command to execute ffmpeg, downloading the binary first if it is not already cached. A ffmpeg on the
+     * PATH is never used, so the binding always runs the version it expects.
      * Synchronized so that concurrent callers do not download or extract into the same location at once.
      *
      * @param baseDir the directory in which downloaded binaries are cached
@@ -64,13 +63,8 @@ public final class FfmpegInstaller {
     public static synchronized String ensureBinary(Path baseDir) throws IOException, InterruptedException {
         String os = Objects.requireNonNull(System.getProperty("os.name", ""));
         String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
-        if (isOnPath(NAME, os)) {
-            return NAME;
-        }
-
         String asset = assetName(os, arch);
-        Path destDir = baseDir.resolve(os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT))
-                .resolve(VERSION);
+        Path destDir = baseDir.resolve(NAME);
         Path destBinary = destDir.resolve(NAME + (isWindows(os) ? ".exe" : ""));
         if (!Files.exists(destBinary)) {
             LOGGER.debug("Downloading {} to {}", asset, destBinary);
@@ -109,20 +103,6 @@ public final class FfmpegInstaller {
             return "ffmpeg.exe";
         }
         throw new IOException("Unsupported platform for ffmpeg: " + osName + " " + arch);
-    }
-
-    private static boolean isOnPath(String name, String os) {
-        String pathEnv = System.getenv("PATH");
-        if (pathEnv == null) {
-            return false;
-        }
-        String fileName = name + (isWindows(os) ? ".exe" : "");
-        for (String dir : pathEnv.split(File.pathSeparator)) {
-            if (Files.isExecutable(Paths.get(dir, fileName))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean isWindows(String os) {
