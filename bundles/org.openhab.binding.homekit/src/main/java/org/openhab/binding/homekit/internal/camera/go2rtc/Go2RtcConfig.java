@@ -19,6 +19,7 @@ import java.net.SocketException;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.core.storage.Storage;
 
 /**
  * Builds the go2rtc YAML configuration.
@@ -75,6 +76,36 @@ public final class Go2RtcConfig {
     public static int freeTcpPort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
+        }
+    }
+
+    /**
+     * Returns a TCP port that stays the same across go2rtc restarts, so that a browser that accepted the HTTPS viewer
+     * certificate on that port keeps trusting it. The port is read from and written to the given storage under the
+     * given key, and is replaced only when the stored port can no longer be bound.
+     */
+    public static int stableTcpPort(Storage<String> storage, String key) throws IOException {
+        String stored = storage.get(key);
+        if (stored != null) {
+            try {
+                int port = Integer.parseInt(stored);
+                if (port > 0 && isTcpPortFree(port)) {
+                    return port;
+                }
+            } catch (NumberFormatException e) {
+                // unusable stored value; allocate a new port below
+            }
+        }
+        int port = freeTcpPort();
+        storage.put(key, Integer.toString(port));
+        return port;
+    }
+
+    private static boolean isTcpPortFree(int port) {
+        try (ServerSocket socket = new ServerSocket(port)) {
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 

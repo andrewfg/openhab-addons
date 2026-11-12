@@ -27,6 +27,8 @@ import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.core.config.discovery.mdns.MDNSDiscoveryParticipant;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
+import org.openhab.core.storage.Storage;
+import org.openhab.core.storage.StorageService;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ManagedThingProvider;
 import org.openhab.core.thing.Thing;
@@ -64,6 +66,7 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
     private final HomekitMdnsDiscoveryParticipant discoveryParticipant;
     private final MacResolver macResolver;
     private final Go2RtcCameraServlet cameraServlet;
+    private final Storage<String> go2rtcPortStorage;
 
     /**
      * Constructor.
@@ -78,7 +81,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
             @Reference ChannelGroupTypeRegistry channelGroupTypeRegistry, @Reference HomekitKeyStore keyStore,
             @Reference TranslationProvider translationProvider, @Reference ManagedThingProvider managedThingProvider,
             @Reference(target = "(class.id=homekit)") MDNSDiscoveryParticipant mdnsDiscoveryParticipant,
-            @Reference MacResolver macResolver, @Reference Go2RtcCameraServlet cameraServlet) {
+            @Reference MacResolver macResolver, @Reference Go2RtcCameraServlet cameraServlet,
+            @Reference StorageService storageService) {
         this.typeProvider = typeProvider;
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
@@ -89,6 +93,8 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
         this.discoveryParticipant = (HomekitMdnsDiscoveryParticipant) mdnsDiscoveryParticipant;
         this.macResolver = macResolver;
         this.cameraServlet = cameraServlet;
+        this.go2rtcPortStorage = storageService.getStorage(getClass().getName() + ".go2rtcPorts",
+                getClass().getClassLoader());
     }
 
     @Override
@@ -105,7 +111,7 @@ public class HomekitHandlerFactory extends BaseThingHandlerFactory {
         } else if (THING_TYPE_BRIDGED_ACCESSORY.equals(thingTypeUID) || THING_TYPE_ACCESSORY.equals(thingTypeUID)) {
             return new HomekitAccessoryHandler(thing, typeProvider, channelTypeRegistry, channelGroupTypeRegistry,
                     keyStore, i18nProvider, bundle, managedThingProvider, discoveryParticipant, macResolver,
-                    cameraServlet);
+                    cameraServlet, go2rtcPortStorage);
         }
         return null;
     }
