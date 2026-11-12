@@ -153,7 +153,9 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         try (BufferedReader reader = p.inputReader()) {
             String line;
             while ((line = reader.readLine()) != null) {
-                LOGGER.debug("ffmpeg: {}", line);
+                if (!line.isBlank()) {
+                    LOGGER.debug("ffmpeg: {}", line);
+                }
             }
         } catch (IOException e) {
             LOGGER.debug("ffmpeg output closed", e);
