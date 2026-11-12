@@ -292,6 +292,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     public void startTalk() {
         synchronized (talkMonitor) {
+            if (!talkActive) {
+                LOGGER.debug("Talk-back session started");
+            }
             talkActive = true;
             talkMonitor.notifyAll();
         }
@@ -302,6 +305,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     public void stopTalk() {
         synchronized (talkMonitor) {
+            if (talkActive) {
+                LOGGER.debug("Talk-back session stopped");
+            }
             talkActive = false;
             talkMonitor.notifyAll();
         }
@@ -399,6 +405,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         try {
             while (!closed && isTalkActive()) {
                 try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
+                    LOGGER.debug("Talk-back reading go2rtc stream {}", talkStream);
                     talkReader = reader;
                     while (!closed && isTalkActive()) {
                         RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
