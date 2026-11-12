@@ -16,12 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.openhab.core.storage.Storage;
+import org.openhab.core.test.storage.VolatileStorageService;
 
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
@@ -51,21 +50,21 @@ class Go2RtcConfigTest {
     }
 
     @Test
-    void stableTcpPortReusesStoredPortAcrossCalls(@TempDir Path dir) throws IOException {
-        Path portFile = dir.resolve("port.txt");
-        int first = Go2RtcConfig.stableTcpPort(portFile);
-        assertEquals(first, Go2RtcConfig.stableTcpPort(portFile));
-        assertEquals(Integer.toString(first), Files.readString(portFile));
+    void stableTcpPortReusesStoredPortAcrossCalls() throws IOException {
+        Storage<String> storage = new VolatileStorageService().getStorage("test");
+        int first = Go2RtcConfig.stableTcpPort(storage, "thing");
+        assertEquals(first, Go2RtcConfig.stableTcpPort(storage, "thing"));
+        assertEquals(Integer.toString(first), storage.get("thing"));
     }
 
     @Test
-    void stableTcpPortReplacesStoredPortWhenInUse(@TempDir Path dir) throws IOException {
+    void stableTcpPortReplacesStoredPortWhenInUse() throws IOException {
+        Storage<String> storage = new VolatileStorageService().getStorage("test");
         try (ServerSocket busy = new ServerSocket(0)) {
-            Path portFile = dir.resolve("port.txt");
-            Files.writeString(portFile, Integer.toString(busy.getLocalPort()));
-            int port = Go2RtcConfig.stableTcpPort(portFile);
+            storage.put("thing", Integer.toString(busy.getLocalPort()));
+            int port = Go2RtcConfig.stableTcpPort(storage, "thing");
             assertNotEquals(busy.getLocalPort(), port);
-            assertEquals(Integer.toString(port), Files.readString(portFile));
+            assertEquals(Integer.toString(port), storage.get("thing"));
         }
     }
 

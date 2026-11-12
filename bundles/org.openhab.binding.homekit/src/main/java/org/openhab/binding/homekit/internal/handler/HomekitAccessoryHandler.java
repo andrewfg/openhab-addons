@@ -94,6 +94,7 @@ import org.openhab.core.library.types.UpDownType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.semantics.SemanticTag;
 import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
+import org.openhab.core.storage.Storage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -210,6 +211,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     // fields for camera talk-back sessions
     private final Go2RtcDemand go2rtcDemand = new Go2RtcDemand();
     private final Go2RtcCameraServlet cameraServlet;
+    private final Storage<String> go2rtcPortStorage;
     private final AtomicBoolean go2rtcDemandChecking = new AtomicBoolean(false);
     private final ExecutorService go2rtcExecutor = ThreadPoolManager.getPool(BINDING_ID + "-go2rtc");
 
@@ -231,13 +233,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver, Go2RtcCameraServlet cameraServlet) {
+            MacResolver macResolver, Go2RtcCameraServlet cameraServlet, Storage<String> go2rtcPortStorage) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
         this.bundle = bundle;
         this.cameraServlet = cameraServlet;
+        this.go2rtcPortStorage = go2rtcPortStorage;
     }
 
     /**
@@ -1561,13 +1564,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     }
 
     /**
-     * Returns the file that stores this Thing's HTTPS viewer port, so the port survives go2rtc restarts.
-     */
-    private Path tlsPortFile() {
-        return cacheDir().resolve("go2rtc-tls-port-" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_-]", "_") + ".txt");
-    }
-
-    /**
      * Starts the go2rtc browser bridge, which is a separate process that relays audio and video streams to the browser.
      * The go2rtc process is started with a YAML configuration that specifies the ports, codecs, and commands to run.
      * If the process fails to start or does not become ready, it is stopped and cleaned up.
@@ -1589,7 +1585,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.exportCoreCertificate(cacheDir());
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort(),
-                    tls == null ? 0 : Go2RtcConfig.stableTcpPort(tlsPortFile()));
+                    tls == null ? 0 : Go2RtcConfig.stableTcpPort(go2rtcPortStorage, thing.getUID().getAsString()));
             logger.debug("{} startGo2rtc() address={}", thing.getUID(), address);
 
             String ffmpegBinary = AudioCodec.preferred(audioCodecs).codecType() == AudioCodecType.AAC_ELD

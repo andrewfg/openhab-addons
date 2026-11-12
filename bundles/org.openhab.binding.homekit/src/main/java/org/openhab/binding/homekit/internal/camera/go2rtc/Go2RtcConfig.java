@@ -16,12 +16,10 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.SocketException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.core.storage.Storage;
 
 /**
  * Builds the go2rtc YAML configuration.
@@ -83,21 +81,23 @@ public final class Go2RtcConfig {
 
     /**
      * Returns a TCP port that stays the same across go2rtc restarts, so that a browser that accepted the HTTPS viewer
-     * certificate on that port keeps trusting it. The port is read from and written to the given file, and is replaced
-     * only when the stored port can no longer be bound.
+     * certificate on that port keeps trusting it. The port is read from and written to the given storage under the given
+     * key, and is replaced only when the stored port can no longer be bound.
      */
-    public static int stableTcpPort(Path portFile) throws IOException {
-        try {
-            int port = Integer.parseInt(Files.readString(portFile).strip());
-            if (port > 0 && isTcpPortFree(port)) {
-                return port;
+    public static int stableTcpPort(Storage<String> storage, String key) throws IOException {
+        String stored = storage.get(key);
+        if (stored != null) {
+            try {
+                int port = Integer.parseInt(stored);
+                if (port > 0 && isTcpPortFree(port)) {
+                    return port;
+                }
+            } catch (NumberFormatException e) {
+                // unusable stored value; allocate a new port below
             }
-        } catch (IOException | NumberFormatException e) {
-            // no usable stored port; allocate a new one below
         }
         int port = freeTcpPort();
-        Files.createDirectories(portFile.getParent());
-        Files.writeString(portFile, Integer.toString(port), StandardCharsets.US_ASCII);
+        storage.put(key, Integer.toString(port));
         return port;
     }
 
