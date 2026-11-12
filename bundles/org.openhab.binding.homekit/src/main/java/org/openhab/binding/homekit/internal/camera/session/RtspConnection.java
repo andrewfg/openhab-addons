@@ -83,7 +83,8 @@ public class RtspConnection implements AutoCloseable {
      * @return the response
      * @throws IOException if the connection fails or the response status is not 200
      */
-    public Response request(String method, String url, String headers, @Nullable String body) throws IOException {
+    public synchronized Response request(String method, String url, String headers, @Nullable String body)
+            throws IOException {
         cseq++;
         StringBuilder message = new StringBuilder();
         message.append(method).append(' ').append(url).append(" RTSP/1.0\r\n");

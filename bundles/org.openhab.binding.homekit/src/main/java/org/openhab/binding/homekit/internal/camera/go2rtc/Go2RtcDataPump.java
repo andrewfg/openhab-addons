@@ -103,6 +103,7 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     private volatile @Nullable Session session = null;
     private volatile @Nullable RtspConnection publisher = null;
+    private volatile @Nullable String publishUrl = null;
     private volatile @Nullable RtspConnection talkReader = null;
     private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
     private volatile boolean closed;
@@ -193,13 +194,15 @@ public class Go2RtcDataPump implements AutoCloseable {
             throw new IllegalStateException("data pump is already connected or closed");
         }
         RtspConnection connection = new RtspConnection(RTSP_HOST, rtspPort);
+        String url = url(rtspPort, listenStream);
         try {
-            publish(connection, url(rtspPort, listenStream));
+            publish(connection, url);
             audioTranscoder = createAudioTranscoder(connection);
         } catch (IOException | RuntimeException e) {
             connection.close();
             throw e;
         }
+        publishUrl = url;
         publisher = connection;
         startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
     }
@@ -239,8 +242,23 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Stops relaying media. Packets received afterwards are dropped, and the browser talk relay is stopped.
      */
     public void stopSession() {
+        LOGGER.debug("Stopping go2rtc relay session: publisherActive={}", publisher != null);
         session = null;
         stopTalk();
+    }
+
+    /**
+     * Sends an RTSP OPTIONS request on the publisher connection. go2rtc drops an idle publisher after its timeout, and
+     * each request it receives resets that timeout. The response is read here, so it does not accumulate.
+     *
+     * @throws IOException if the publisher connection fails
+     */
+    public void keepAlive() throws IOException {
+        RtspConnection connection = publisher;
+        String url = publishUrl;
+        if (connection != null && url != null) {
+            connection.request("OPTIONS", url, "", null);
+        }
     }
 
     /**
@@ -315,7 +333,10 @@ public class Go2RtcDataPump implements AutoCloseable {
                 if (closed) {
                     return;
                 }
-                LOGGER.debug("go2rtc RTP relay failed: {}", e.getMessage());
+                LOGGER.debug(
+                        "go2rtc RTP relay failed on channel {} ({}: {}) socketClosed={} sessionActive={} publisherActive={}",
+                        channel, e.getClass().getSimpleName(), e.getMessage(), socket.isClosed(), session != null,
+                        publisher != null);
             }
         }
     }
