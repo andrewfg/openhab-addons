@@ -15,9 +15,13 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link Go2RtcConfig} and {@link Go2RtcInstaller#assetName}.
@@ -44,6 +48,25 @@ class Go2RtcConfigTest {
                 "camera_talk", tls);
         assertTrue(yaml.contains("api:\n  listen: \"192.168.1.10:1984\"\n  tls_listen: \"192.168.1.10:8443\"\n"
                 + "  tls_cert: '\\tmp\\cert.pem'\n  tls_key: '\\tmp\\key.pem'\n"));
+    }
+
+    @Test
+    void stableTcpPortReusesStoredPortAcrossCalls(@TempDir Path dir) throws IOException {
+        Path portFile = dir.resolve("port.txt");
+        int first = Go2RtcConfig.stableTcpPort(portFile);
+        assertEquals(first, Go2RtcConfig.stableTcpPort(portFile));
+        assertEquals(Integer.toString(first), Files.readString(portFile));
+    }
+
+    @Test
+    void stableTcpPortReplacesStoredPortWhenInUse(@TempDir Path dir) throws IOException {
+        try (ServerSocket busy = new ServerSocket(0)) {
+            Path portFile = dir.resolve("port.txt");
+            Files.writeString(portFile, Integer.toString(busy.getLocalPort()));
+            int port = Go2RtcConfig.stableTcpPort(portFile);
+            assertNotEquals(busy.getLocalPort(), port);
+            assertEquals(Integer.toString(port), Files.readString(portFile));
+        }
     }
 
     @Test

@@ -1561,6 +1561,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     }
 
     /**
+     * Returns the file that stores this Thing's HTTPS viewer port, so the port survives go2rtc restarts.
+     */
+    private Path tlsPortFile() {
+        return cacheDir().resolve("go2rtc-tls-port-" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_-]", "_") + ".txt");
+    }
+
+    /**
      * Starts the go2rtc browser bridge, which is a separate process that relays audio and video streams to the browser.
      * The go2rtc process is started with a YAML configuration that specifies the ports, codecs, and commands to run.
      * If the process fails to start or does not become ready, it is stopped and cleaned up.
@@ -1582,7 +1589,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.exportCoreCertificate(cacheDir());
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
                     Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort(),
-                    tls == null ? 0 : Go2RtcConfig.freeTcpPort());
+                    tls == null ? 0 : Go2RtcConfig.stableTcpPort(tlsPortFile()));
             logger.debug("{} startGo2rtc() address={}", thing.getUID(), address);
 
             String ffmpegBinary = AudioCodec.preferred(audioCodecs).codecType() == AudioCodecType.AAC_ELD
