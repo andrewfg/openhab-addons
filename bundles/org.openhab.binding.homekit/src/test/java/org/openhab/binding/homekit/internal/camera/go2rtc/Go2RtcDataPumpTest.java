@@ -32,11 +32,12 @@ class Go2RtcDataPumpTest {
 
     private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 16);
     private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8);
+    private static final AudioCodec AAC_ELD = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16);
     private static final VideoCodec H264 = new VideoCodec(VideoCodecType.H_264, 0, 0, 640, 480, 30);
 
     @Test
     void testSelectsOpusAudioAndH264Video() throws IOException {
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(List.of(PCMA, OPUS), List.of(H264))) {
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(List.of(PCMA, OPUS), List.of(H264), null)) {
             assertEquals(AudioCodecType.OPUS, pump.audioCodec().codecType());
             assertEquals(VideoCodecType.H_264, pump.videoCodec().codecType());
         }
@@ -44,7 +45,7 @@ class Go2RtcDataPumpTest {
 
     @Test
     void testAllocatesDistinctPorts() throws IOException {
-        try (Go2RtcDataPump pump = new Go2RtcDataPump(List.of(OPUS), List.of(H264))) {
+        try (Go2RtcDataPump pump = new Go2RtcDataPump(List.of(OPUS), List.of(H264), null)) {
             assertTrue(pump.audioPort() > 0);
             assertTrue(pump.videoPort() > 0);
             assertNotEquals(pump.audioPort(), pump.videoPort());
@@ -53,11 +54,16 @@ class Go2RtcDataPumpTest {
 
     @Test
     void testRejectsCameraWithoutOpus() {
-        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(List.of(PCMA), List.of(H264)));
+        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(List.of(PCMA), List.of(H264), null));
     }
 
     @Test
     void testRejectsCameraWithoutH264() {
-        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(List.of(OPUS), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(List.of(OPUS), List.of(), null));
+    }
+
+    @Test
+    void testAacEldRequiresFfmpegBinary() {
+        assertThrows(IllegalArgumentException.class, () -> new Go2RtcDataPump(List.of(AAC_ELD), List.of(H264), null));
     }
 }

@@ -78,7 +78,8 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
             case PCMU, PCMA -> 64;
             case AMR -> 13;
             case AMR_WB -> 24;
-            case AAC_ELD, MSBC -> throw new IllegalStateException("Unsupported codec: " + codecType);
+            case AAC_ELD -> 32;
+            case MSBC -> throw new IllegalStateException("Unsupported codec: " + codecType);
         };
     }
 
@@ -129,7 +130,8 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
             case OPUS -> new int[] { 8, 16, 24 };
             case PCMU, PCMA, AMR -> new int[] { 8 };
             case AMR_WB -> new int[] { 16 };
-            case AAC_ELD, MSBC -> new int[0];
+            case AAC_ELD -> new int[] { 16, 24 };
+            case MSBC -> new int[0];
         };
     }
 
@@ -143,17 +145,24 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     }
 
     /**
-     * Returns the Opus codec used for both listen and talk. HomeKit mandates Opus at 16 or 24 kHz.
+     * Returns the audio codec used for the camera stream. Opus is preferred because it supports talk-back. AAC-ELD is
+     * used when the camera offers no Opus, and must then be transcoded to Opus for go2rtc.
      *
      * @param codecs the audio codecs the camera supports
-     * @return the Opus codec
-     * @throws IllegalArgumentException if the camera does not support Opus at 16 or 24 kHz
+     * @return the Opus codec, or else the AAC-ELD codec, at 16 or 24 kHz
+     * @throws IllegalArgumentException if the camera supports neither Opus nor AAC-ELD at 16 or 24 kHz
      */
     public static AudioCodec preferred(List<AudioCodec> codecs) {
         return codecs.stream()
-                .filter(codec -> AudioCodecType.OPUS == codec.codecType()
-                        && (codec.sampleRateKhz() == 16 || codec.sampleRateKhz() == 24))
+                .filter(codec -> AudioCodecType.OPUS == codec.codecType() && isSupportedRate(codec))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus at 16 or 24 kHz"));
+                .or(() -> codecs.stream()
+                        .filter(codec -> AudioCodecType.AAC_ELD == codec.codecType() && isSupportedRate(codec))
+                        .findFirst())
+                .orElseThrow(() -> new IllegalArgumentException("camera does not support Opus or AAC-ELD at 16 or 24 kHz"));
+    }
+
+    private static boolean isSupportedRate(AudioCodec codec) {
+        return codec.sampleRateKhz() == 16 || codec.sampleRateKhz() == 24;
     }
 }
