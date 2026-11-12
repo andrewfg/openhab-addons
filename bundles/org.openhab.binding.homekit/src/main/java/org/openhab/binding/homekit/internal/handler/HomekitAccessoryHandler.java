@@ -46,6 +46,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
+import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcCameraServlet;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcConfig;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
@@ -521,8 +522,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
             findCameraCharacteristics(accessory);
-            if (isTalkbackAvailable()) {
-                Channel cameraUrlChannel = ChannelBuilder
+            if (isCameraStreamAvailable()) { = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
                         .withType(CHANNEL_TYPE_CAMERA_URL).build();
                 uniqueChannelsMap.put(CHANNEL_CAMERA_URL, cameraUrlChannel);
@@ -1540,7 +1540,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * so the next call retries it.
      */
     private synchronized void startGo2rtcIfAvailable() {
-        if (!isTalkbackAvailable() || go2rtcStarting
+        if (!isCameraStreamAvailable() || go2rtcStarting
                 || !(getConfig().get(CONFIG_IP_ADDRESS) instanceof String remoteIpAddress)) {
             return;
         }
@@ -1584,7 +1584,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                     tls == null ? 0 : Go2RtcConfig.freeTcpPort());
             logger.debug("{} startGo2rtc() address={}", thing.getUID(), address);
 
-            pump = new Go2RtcDataPump(audioCodecs, videoCodecs);
+            String ffmpegBinary = AudioCodec.preferred(audioCodecs).codecType() == AudioCodecType.AAC_ELD
+                    ? FfmpegInstaller.ensureBinary(cacheDir())
+                    : null;
+            pump = new Go2RtcDataPump(audioCodecs, videoCodecs, ffmpegBinary);
             logger.debug("{} startGo2rtc() pump={}", thing.getUID(), pump);
             synchronized (this) {
                 if (disposing.get()) {
@@ -1918,18 +1921,19 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 }
             }
         }
-        if (isTalkbackAvailable()) {
+        if (isCameraStreamAvailable()) {
             startGo2rtcIfAvailable();
         }
     }
 
     /**
-     * Returns true if the camera has all required talk-back characteristics and at least one supported audio and
-     * video codec.
+     * Returns true if the camera has the required setup characteristics, H.264 video, and audio that go2rtc can receive
+     * either directly (Opus) or after transcoding (AAC-ELD).
      */
-    private boolean isTalkbackAvailable() {
+    private boolean isCameraStreamAvailable() {
         return cameraSetupIid != null && cameraSelectedIid != null
-                && audioCodecs.stream().anyMatch(codec -> codec.codecType() == AudioCodecType.OPUS)
+                && audioCodecs.stream().anyMatch(codec -> codec.codecType() == AudioCodecType.OPUS
+                        || codec.codecType() == AudioCodecType.AAC_ELD)
                 && videoCodecs.stream().anyMatch(codec -> codec.codecType() == VideoCodecType.H_264);
     }
 

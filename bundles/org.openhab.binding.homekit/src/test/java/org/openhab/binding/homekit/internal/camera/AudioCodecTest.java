@@ -82,6 +82,22 @@ class AudioCodecTest {
         assertThrows(IllegalArgumentException.class, () -> AudioCodec.preferred(List.of(opus8)));
     }
 
+    @Test
+    void testPreferredPrefersOpusOverAacEld() {
+        AudioCodec aac = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16);
+        AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 16);
+        assertEquals(opus, AudioCodec.preferred(List.of(aac, opus)));
+        assertEquals(aac, AudioCodec.preferred(List.of(aac)));
+    }
+
+    @Test
+    void testPreferredAacEldRequires16Or24kHz() {
+        AudioCodec aac8 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 8);
+        AudioCodec aac24 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 24);
+        assertEquals(aac24, AudioCodec.preferred(List.of(aac8, aac24)));
+        assertThrows(IllegalArgumentException.class, () -> AudioCodec.preferred(List.of(aac8)));
+    }
+
     /** Builds one AUDIO_CODEC_CONFIGURATION entry with the given codec, channel count and sample-rate codes. */
     private static byte[] entry(AudioCodecType codec, int channels, int... sampleRateCodes) {
         return entry(codec.value, channels, sampleRateCodes);
