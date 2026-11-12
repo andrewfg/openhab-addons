@@ -522,7 +522,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             logChannelInformation(channel);
             snapshotTriggersFinalize(accessory);
             findCameraCharacteristics(accessory);
-            if (isCameraStreamAvailable()) { = ChannelBuilder
+            if (isCameraStreamAvailable()) {
+                Channel cameraUrlChannel = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
                         .withType(CHANNEL_TYPE_CAMERA_URL).build();
                 uniqueChannelsMap.put(CHANNEL_CAMERA_URL, cameraUrlChannel);
