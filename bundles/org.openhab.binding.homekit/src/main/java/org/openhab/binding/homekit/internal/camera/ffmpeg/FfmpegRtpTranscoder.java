@@ -87,8 +87,8 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         try {
             Files.writeString(sdpFile, inputSdp.apply(inputPort));
             process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType))
-                    .redirectErrorStream(true).start();
+                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType)).redirectErrorStream(true)
+                            .start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
