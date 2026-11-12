@@ -71,7 +71,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> encoderArgs, int payloadType,
             PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
-        inputPort = freeLoopbackPort();
+        inputPort = freeRtpPortPair();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
 
@@ -180,12 +180,24 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     }
 
     /**
-     * Returns a loopback UDP port that is free at the time of the call. ffmpeg binds this port itself, so another
-     * process could take it first; the caller accepts that small risk.
+     * Returns a UDP port whose successor is also free, so that ffmpeg can bind both its RTP port and its RTCP port
+     * (port + 1) on the wildcard address. ffmpeg binds these itself, so another process could take them first; the
+     * caller accepts that small risk.
      */
-    private static int freeLoopbackPort() throws IOException {
-        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            return probe.getLocalPort();
+    private static int freeRtpPortPair() throws IOException {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int port;
+            try (DatagramSocket probe = new DatagramSocket(0)) {
+                port = probe.getLocalPort();
+            }
+            if (port < 65535) {
+                try (DatagramSocket rtcpProbe = new DatagramSocket(port + 1)) {
+                    return port;
+                } catch (IOException e) {
+                    // RTCP port taken, try another pair
+                }
+            }
         }
+        throw new IOException("No free RTP/RTCP UDP port pair available");
     }
 }
