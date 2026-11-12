@@ -40,10 +40,10 @@ class AudioCodecTest {
 
     @Test
     void testSkipsCodecsThatCannotBeBridged() {
-        byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x02), entry(AudioCodecType.MSBC, 1, 0x00),
+        byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x00, 0x02), entry(AudioCodecType.MSBC, 1, 0x00),
                 entry(AudioCodecType.PCMA, 1, 0x01));
 
-        assertEquals(List.of(), AudioCodec.decode(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 24)), AudioCodec.decode(tlv));
     }
 
     @Test
