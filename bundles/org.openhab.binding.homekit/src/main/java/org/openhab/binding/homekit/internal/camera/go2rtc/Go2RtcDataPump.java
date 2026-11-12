@@ -239,6 +239,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * Stops relaying media. Packets received afterwards are dropped, and the browser talk relay is stopped.
      */
     public void stopSession() {
+        LOGGER.debug("Stopping go2rtc relay session: publisherActive={}", publisher != null);
         session = null;
         stopTalk();
     }
@@ -315,7 +316,10 @@ public class Go2RtcDataPump implements AutoCloseable {
                 if (closed) {
                     return;
                 }
-                LOGGER.debug("go2rtc RTP relay failed: {}", e.getMessage());
+                LOGGER.debug(
+                        "go2rtc RTP relay failed on channel {} ({}: {}) socketClosed={} sessionActive={} publisherActive={}",
+                        channel, e.getClass().getSimpleName(), e.getMessage(), socket.isClosed(), session != null,
+                        publisher != null);
             }
         }
     }
