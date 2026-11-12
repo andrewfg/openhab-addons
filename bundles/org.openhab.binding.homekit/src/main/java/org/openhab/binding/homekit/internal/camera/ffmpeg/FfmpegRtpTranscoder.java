@@ -64,13 +64,14 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      *
      * @param ffmpeg the ffmpeg executable
      * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from
+     * @param inputArgs the decoder arguments applied to the input, see {@link #aacEldDecoderArgs}
      * @param encoderArgs the ffmpeg arguments that select the output codec
      * @param payloadType the RTP payload type of the input and output streams
      * @param sink receives each RTP packet produced by ffmpeg
      * @throws IOException if the sockets, SDP file or process cannot be created
      */
-    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> encoderArgs, int payloadType,
-            PacketSink sink) throws IOException {
+    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> inputArgs,
+            List<String> encoderArgs, int payloadType, PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
@@ -86,7 +87,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         try {
             Files.writeString(sdpFile, inputSdp.apply(inputPort));
             process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), encoderArgs, payloadType))
+                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType))
                     .redirectErrorStream(true).start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
@@ -116,7 +117,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     public static FfmpegRtpTranscoder aacEldToOpus(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
             throws IOException {
         return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.aacEldInputSdp(port, codec, payloadType),
-                FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
+                FfmpegHelpers.aacEldDecoderArgs(), FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
     }
 
     /**
@@ -130,7 +131,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      */
     public static FfmpegRtpTranscoder opusToAacEld(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
             throws IOException {
-        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType),
+        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType), List.of(),
                 FfmpegHelpers.aacEldEncoderArgs(codec), payloadType, sink);
     }
 

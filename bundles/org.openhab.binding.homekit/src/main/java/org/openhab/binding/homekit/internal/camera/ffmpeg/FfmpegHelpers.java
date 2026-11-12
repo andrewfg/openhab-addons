@@ -129,6 +129,16 @@ public final class FfmpegHelpers {
     }
 
     /**
+     * Returns the ffmpeg arguments that decode AAC-ELD input. Requires an ffmpeg build with libfdk_aac, because ffmpeg's
+     * native AAC decoder cannot decode AAC-ELD.
+     *
+     * @return the decoder arguments
+     */
+    public static List<String> aacEldDecoderArgs() {
+        return List.of("-c:a", "libfdk_aac");
+    }
+
+    /**
      * Returns the ffmpeg arguments that encode to AAC-ELD at the camera's sample rate, channel count and bitrate.
      * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD.
      *
@@ -148,14 +158,17 @@ public final class FfmpegHelpers {
      * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
      * @param inputSdpFile path to the SDP file describing the input RTP
      * @param outputPort the loopback UDP port that receives the output RTP
+     * @param inputArgs the decoder arguments applied to the input, see {@link #aacEldDecoderArgs}
      * @param encoderArgs the encoder arguments, see {@link #opusEncoderArgs} and {@link #aacEldEncoderArgs}
      * @param payloadType the RTP payload type of the output
      * @return the command
      */
     public static List<String> transcodeCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
-            List<String> encoderArgs, int payloadType) {
+            List<String> inputArgs, List<String> encoderArgs, int payloadType) {
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-protocol_whitelist", "file,rtp,udp", "-i", inputSdpFile, "-vn"));
+                "-protocol_whitelist", "file,rtp,udp"));
+        command.addAll(inputArgs);
+        command.addAll(List.of("-i", inputSdpFile, "-vn"));
         command.addAll(encoderArgs);
         command.addAll(
                 List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp", "rtp://127.0.0.1:" + outputPort));

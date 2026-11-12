@@ -52,7 +52,7 @@ class FfmpegHelpersTest {
 
     @Test
     void testOpusCommandLine() {
-        List<String> cmd = FfmpegHelpers.transcodeCommandLine("/usr/bin/ffmpeg", "/tmp/in.sdp", 6000,
+        List<String> cmd = FfmpegHelpers.transcodeCommandLine("/usr/bin/ffmpeg", "/tmp/in.sdp", 6000, List.of(),
                 FfmpegHelpers.opusEncoderArgs(), 110);
         assertEquals("/usr/bin/ffmpeg", cmd.get(0));
         assertEquals("/tmp/in.sdp", cmd.get(cmd.indexOf("-i") + 1));
