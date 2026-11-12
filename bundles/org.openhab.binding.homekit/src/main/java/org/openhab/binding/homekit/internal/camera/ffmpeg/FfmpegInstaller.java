@@ -64,8 +64,7 @@ public final class FfmpegInstaller {
         String os = Objects.requireNonNull(System.getProperty("os.name", ""));
         String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
         String asset = assetName(os, arch);
-        Path destDir = baseDir.resolve(os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT))
-                .resolve(VERSION);
+        Path destDir = baseDir.resolve(NAME);
         Path destBinary = destDir.resolve(NAME + (isWindows(os) ? ".exe" : ""));
         if (!Files.exists(destBinary)) {
             LOGGER.debug("Downloading {} to {}", asset, destBinary);

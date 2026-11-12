@@ -68,9 +68,7 @@ public class Go2RtcInstaller {
         String arch = Objects.requireNonNull(System.getProperty("os.arch", ""));
         logger.debug("Go2RtcInstaller() os={}, arch={}", os, arch);
         String asset = assetName(os, arch);
-        Path path = baseDir
-                .resolve((os.toLowerCase(Locale.ROOT) + "-" + arch.toLowerCase(Locale.ROOT)).replace(' ', '_'))
-                .resolve(VERSION);
+        Path path = baseDir.resolve(NAME);
         Path binary = path.resolve(NAME + (isWindows(os) ? ".exe" : ""));
         logger.debug("ensureBinary() destBinary={}", binary);
         if (!Files.exists(binary)) {
