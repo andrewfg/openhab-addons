@@ -1447,8 +1447,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * @throws Exception if the camera does not support talk-back or the exchange fails
      */
     private void openCameraSession(Go2RtcDataPump pump, String remoteAddress) throws Exception {
-        logger.debug("{} openCameraSession() called", thing.getUID());
-
+        logger.debug("{} openCameraSession() opening session", thing.getUID());
         Long aid;
         Long setupIid;
         Long selectedIid;
@@ -1504,7 +1503,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         logger.debug("{} openCameraSession() {}", thing.getUID(), config);
 
         writeTlvCharacteristic(aid, selectedIid, config.encode());
-        logger.debug("{} openCameraSession() completed", thing.getUID());
     }
 
     /**
@@ -1513,7 +1511,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
      */
     private void closeCameraSession(Go2RtcDataPump pump, boolean notifyCamera) {
-        logger.debug("{} closeCameraSession() called", thing.getUID());
         byte[] id;
         Long aid;
         Long selectedIid;
@@ -1537,6 +1534,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }
         }
+        logger.debug("{} closeCameraSession() session closed", thing.getUID());
     }
 
     /**
