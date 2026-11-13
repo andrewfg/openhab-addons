@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.function.Function;
 
@@ -24,6 +25,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.openhab.binding.homekit.internal.camera.codec.VideoCodec;
 import org.openhab.binding.homekit.internal.camera.ffmpeg.FfmpegRtpTranscoder;
+import org.openhab.binding.homekit.internal.camera.session.RtcpReceiverReport;
 import org.openhab.binding.homekit.internal.camera.session.RtspConnection;
 import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.session.SrtpSession;
@@ -53,6 +55,12 @@ public class Go2RtcDataPump implements AutoCloseable {
     private static final int MAX_DATAGRAM_SIZE = 2048;
     private static final int RTP_HEADER_LENGTH = 12;
     private static final int SRTP_AUTH_TAG_LENGTH = 10;
+    // RFC 3550 RTCP packet types 200 (SR) to 204 (APP)
+    private static final int RTCP_SENDER_REPORT = 200;
+    private static final int RTCP_APP = 204;
+    private static final int SRTCP_TRAILER_LENGTH = 4 + SRTP_AUTH_TAG_LENGTH;
+    private static final long RTCP_REPORT_INTERVAL_MS = 1000L;
+    private static final int VIDEO_CLOCK_RATE = 90000;
     private static final int TALK_RETRY_DELAY_MS = 2000;
     private static final int PUBLISH_TIMEOUT_SECONDS = 60;
 
@@ -88,10 +96,11 @@ public class Go2RtcDataPump implements AutoCloseable {
             VIDEO_PAYLOAD_TYPE);
 
     /**
-     * The SRTP contexts of one camera session. Each context is used only by its own relay thread.
+     * The SRTP contexts of one camera session. The camera's inbound contexts are used only by their relay thread. The
+     * outbound contexts encrypt talk audio and Receiver Reports, and are shared between threads.
      */
     public record Session(SrtpSession audioSession, SrtpSession videoSession, SrtpSession talkSession,
-            InetSocketAddress talkAddress) {
+            SrtpSession videoControlSession, InetSocketAddress talkAddress) {
     }
 
     private final AudioCodec audioCodec;
@@ -100,6 +109,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     private final DatagramSocket audioSocket;
     private final DatagramSocket videoSocket;
     private final DatagramSocket talkSocket;
+    private final RtcpReceiverReport audioReport;
+    private final RtcpReceiverReport videoReport;
 
     private volatile @Nullable Session session = null;
     private volatile @Nullable RtspConnection publisher = null;
@@ -146,9 +157,14 @@ public class Go2RtcDataPump implements AutoCloseable {
         audioSocket = audio;
         videoSocket = video;
         talkSocket = talk;
+        audioReport = new RtcpReceiverReport(AUDIO_SYNC_SOURCE, audioCodec.rtpClockRate());
+        videoReport = new RtcpReceiverReport(VIDEO_SYNC_SOURCE, VIDEO_CLOCK_RATE);
 
-        startThread("audio-rtp", () -> relayListen(audioSocket, AUDIO_CHANNEL, Session::audioSession));
-        startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, Session::videoSession));
+        startThread("audio-rtp", () -> relayListen(audioSocket, AUDIO_CHANNEL, audioReport, Session::audioSession,
+                Session::talkSession));
+        startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, videoReport, Session::videoSession,
+                Session::videoControlSession));
+        startThread("rtcp-rr", this::sendReceiverReports);
     }
 
     /**
@@ -224,15 +240,21 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @param audioSrtpParameters the SRTP parameters the camera uses to encrypt its audio
      * @param videoSrtpParameters the SRTP parameters the camera uses to encrypt its video
      * @param talkParameters the SRTP parameters the binding uses to encrypt talk audio towards the camera
+     * @param videoControlParameters the SRTP parameters the binding uses to encrypt video Receiver Reports towards the
+     *            camera
      * @param remoteHost the camera's IP address
      * @param remoteTalkPort the camera's audio port from the SetupEndpoints response
      * @return the new session
      * @throws IllegalArgumentException if a crypto suite is NONE
      */
     public synchronized Session startSession(SrtpParameters audioParameters, SrtpParameters videoParameters,
-            SrtpParameters talkParameters, String remoteHost, int remoteTalkPort) {
+            SrtpParameters talkParameters, SrtpParameters videoControlParameters, String remoteHost,
+            int remoteTalkPort) {
         Session newSession = new Session(SrtpSession.create(audioParameters), SrtpSession.create(videoParameters),
-                SrtpSession.create(talkParameters), new InetSocketAddress(remoteHost, remoteTalkPort));
+                SrtpSession.create(talkParameters), SrtpSession.create(videoControlParameters),
+                new InetSocketAddress(remoteHost, remoteTalkPort));
+        audioReport.reset();
+        videoReport.reset();
         session = newSession;
         startAudioTranscoder();
         return newSession;
@@ -337,9 +359,11 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     /**
      * Decrypts camera audio or video SRTP and publishes it as interleaved RTP to go2rtc. AAC-ELD audio is passed to the
-     * transcoder instead, which publishes Opus.
+     * transcoder instead, which publishes Opus. Camera SRTCP on the same socket is dropped and not decrypted. The
+     * camera's address is learned from the first RTP packet that authenticates, and Receiver Reports are sent to it.
      */
-    private void relayListen(DatagramSocket socket, int channel, Function<Session, SrtpSession> stream) {
+    private void relayListen(DatagramSocket socket, int channel, RtcpReceiverReport report,
+            Function<Session, SrtpSession> stream, Function<Session, SrtpSession> control) {
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket receivePacket = new DatagramPacket(srtpBuffer, srtpBuffer.length);
@@ -350,8 +374,14 @@ public class Go2RtcDataPump implements AutoCloseable {
                 Session current = session;
                 RtspConnection connection = publisher;
                 if (current != null && connection != null) {
-                    int rtpLength = stream.apply(current).decrypt(srtpBuffer, receivePacket.getLength(), rtpBuffer);
+                    int length = receivePacket.getLength();
+                    if (isRtcp(srtpBuffer, length)) {
+                        continue;
+                    }
+                    int rtpLength = stream.apply(current).decrypt(srtpBuffer, length, rtpBuffer);
                     if (rtpLength >= 0) {
+                        report.setPeer(receivePacket.getSocketAddress());
+                        report.onRtp(rtpBuffer, rtpLength, nowMicros());
                         FfmpegRtpTranscoder transcoder = audioTranscoder;
                         if (channel == AUDIO_CHANNEL && transcoder != null) {
                             transcoder.send(rtpBuffer, rtpLength);
@@ -570,6 +600,64 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     private static String url(int rtspPort, String stream) {
         return "rtsp://%s:%d/%s".formatted(RTSP_HOST, rtspPort, stream);
+    }
+
+    /**
+     * Sends a Receiver Report for each stream once per interval while a camera session is active. The audio report uses
+     * the talk SRTP context, and the video report uses the video control context.
+     */
+    private void sendReceiverReports() {
+        while (!closed) {
+            try {
+                Thread.sleep(RTCP_REPORT_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            Session current = session;
+            if (current != null) {
+                sendReceiverReport(audioSocket, audioReport, current.talkSession());
+                sendReceiverReport(videoSocket, videoReport, current.videoControlSession());
+            }
+        }
+    }
+
+    /**
+     * Builds, encrypts and sends one Receiver Report to the camera address learned from its media. Nothing is sent
+     * until the camera's media has been authenticated.
+     */
+    private void sendReceiverReport(DatagramSocket socket, RtcpReceiverReport report, SrtpSession control) {
+        SocketAddress peer = report.peer();
+        if (peer == null) {
+            return;
+        }
+        byte[] rr = report.buildReport();
+        byte[] srtcp = new byte[rr.length + SRTCP_TRAILER_LENGTH];
+        try {
+            int length = control.encryptRtcp(rr, rr.length, srtcp);
+            socket.send(new DatagramPacket(srtcp, length, peer));
+        } catch (IOException e) {
+            if (!closed) {
+                LOGGER.debug("Receiver Report send failed ({}: {})", e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * RFC 5761 demultiplexing: RTCP packet types 200-204 appear in the second byte, where RTP carries the marker bit
+     * and payload type. The payload types used here do not collide with that range. The first eight bytes of SRTCP
+     * are not encrypted, so the type is readable before decryption.
+     */
+    private static boolean isRtcp(byte[] packet, int length) {
+        if (length < 2) {
+            return false;
+        }
+        int packetType = packet[1] & 0xFF;
+        return packetType >= RTCP_SENDER_REPORT && packetType <= RTCP_APP;
+    }
+
+    private static long nowMicros() {
+        return System.nanoTime() / 1000L;
     }
 
     /**

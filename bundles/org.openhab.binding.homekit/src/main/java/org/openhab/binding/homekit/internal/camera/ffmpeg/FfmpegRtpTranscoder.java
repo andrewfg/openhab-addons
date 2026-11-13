@@ -41,6 +41,8 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FfmpegRtpTranscoder.class);
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
+    private static final int SDP_DELETE_ATTEMPTS = 5;
+    private static final long SDP_DELETE_RETRY_MS = 200;
 
     /**
      * Receives RTP packets produced by ffmpeg.
@@ -191,11 +193,26 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         inputSocket.close();
         outputSocket.close();
         process.destroy();
-        try {
-            Files.deleteIfExists(sdpFile);
-        } catch (IOException e) {
-            LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
-        }
+        // destroy() is asynchronous and Windows may keep the SDP file locked briefly after ffmpeg exits, so retry
+        process.onExit().thenRun(() -> {
+            for (int attempt = 1; attempt <= SDP_DELETE_ATTEMPTS; attempt++) {
+                try {
+                    Files.deleteIfExists(sdpFile);
+                    return;
+                } catch (IOException e) {
+                    if (attempt == SDP_DELETE_ATTEMPTS) {
+                        LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
+                    } else {
+                        try {
+                            Thread.sleep(SDP_DELETE_RETRY_MS);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                }
+            }
+        });
     }
 
     /**
