@@ -50,6 +50,9 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         void accept(byte[] data, int length) throws IOException;
     }
 
+    private static final int RTP_PORT_ATTEMPTS = 16;
+    private static final int MAX_PORT = 65535;
+
     private final DatagramSocket inputSocket;
     private final DatagramSocket outputSocket;
     private final InetAddress loopback;
@@ -180,12 +183,23 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     }
 
     /**
-     * Returns a loopback UDP port that is free at the time of the call. ffmpeg binds this port itself, so another
-     * process could take it first; the caller accepts that small risk.
+     * Returns a UDP port whose port + 1 is also free at the time of the call. ffmpeg binds the RTP port and, by default,
+     * the RTCP port one above it, so both are probed on the wildcard address that ffmpeg binds. ffmpeg binds the port
+     * itself, so another process could take it first; the caller accepts that small risk.
      */
     private static int freeLoopbackPort() throws IOException {
-        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            return probe.getLocalPort();
+        for (int attempt = 0; attempt < RTP_PORT_ATTEMPTS; attempt++) {
+            try (DatagramSocket rtp = new DatagramSocket(0)) {
+                int port = rtp.getLocalPort();
+                if (port < MAX_PORT) {
+                    try (DatagramSocket rtcp = new DatagramSocket(port + 1)) {
+                        return port;
+                    } catch (IOException e) {
+                        // RTCP port in use or reserved, try another pair
+                    }
+                }
+            }
         }
+        throw new IOException("No free UDP port pair for ffmpeg RTP and RTCP");
     }
 }
