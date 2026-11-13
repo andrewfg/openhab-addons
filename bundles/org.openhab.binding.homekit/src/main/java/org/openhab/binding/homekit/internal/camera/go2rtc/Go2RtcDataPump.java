@@ -335,9 +335,8 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     /**
      * Decrypts camera audio or video SRTP and publishes it as interleaved RTP to go2rtc. AAC-ELD audio is passed to the
-     * transcoder instead, which publishes Opus. Camera SRTCP (Sender Reports) on the same socket is decrypted to feed
-     * the Receiver Report statistics, and is not published. The camera's address is learned from the first packet that
-     * authenticates, and Receiver Reports are sent to it.
+     * transcoder instead, which publishes Opus. Camera SRTCP on the same socket is dropped and not decrypted. The
+     * camera's address is learned from the first RTP packet that authenticates, and Receiver Reports are sent to it.
      */
     private void relayListen(DatagramSocket socket, int channel, RtcpReceiverReport report,
             Function<Session, SrtpSession> stream, Function<Session, SrtpSession> control) {
@@ -353,11 +352,6 @@ public class Go2RtcDataPump implements AutoCloseable {
                 if (current != null && connection != null) {
                     int length = receivePacket.getLength();
                     if (isRtcp(srtpBuffer, length)) {
-                        int rtcpLength = stream.apply(current).decryptRtcp(srtpBuffer, length, rtpBuffer);
-                        if (rtcpLength >= 0) {
-                            report.setPeer(receivePacket.getSocketAddress());
-                            report.onRtcp(rtpBuffer, rtcpLength, nowMicros());
-                        }
                         continue;
                     }
                     int rtpLength = stream.apply(current).decrypt(srtpBuffer, length, rtpBuffer);
@@ -613,7 +607,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         if (peer == null) {
             return;
         }
-        byte[] rr = report.buildReport(nowMicros());
+        byte[] rr = report.buildReport();
         byte[] srtcp = new byte[rr.length + SRTCP_TRAILER_LENGTH];
         try {
             int length = control.encryptRtcp(rr, rr.length, srtcp);

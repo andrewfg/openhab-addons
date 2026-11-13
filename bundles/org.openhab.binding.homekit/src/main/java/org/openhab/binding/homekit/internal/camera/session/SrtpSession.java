@@ -173,38 +173,6 @@ public final class SrtpSession {
     }
 
     /**
-     * Authenticates and decrypts an SRTCP packet, returning the RTCP packet. Replay protection is not applied.
-     *
-     * @param srtcp the SRTCP packet
-     * @param srtcpLength the length of the SRTCP packet
-     * @param rtcp the output buffer, which must be at least srtcpLength bytes
-     * @return the length of the RTCP packet, or -1 if the packet is malformed or fails authentication
-     */
-    public synchronized int decryptRtcp(byte[] srtcp, int srtcpLength, byte[] rtcp) {
-        int authenticatedLength = srtcpLength - AUTH_TAG_LENGTH;
-        if (srtcpLength < RTCP_HEADER_LENGTH + SRTCP_INDEX_LENGTH + AUTH_TAG_LENGTH || (srtcp[0] & 0xC0) != 0x80) {
-            return -1;
-        }
-        computeRtcpTag(srtcp, authenticatedLength);
-        int diff = 0;
-        for (int i = 0; i < AUTH_TAG_LENGTH; i++) {
-            diff |= macBuffer[i] ^ srtcp[authenticatedLength + i];
-        }
-        if (diff != 0) {
-            return -1;
-        }
-        int trailerStart = authenticatedLength - SRTCP_INDEX_LENGTH;
-        int word = readInt(srtcp, trailerStart);
-        int rtcpLength = trailerStart;
-        System.arraycopy(srtcp, 0, rtcp, 0, rtcpLength);
-        if ((word & SRTCP_ENCRYPTED_FLAG) != 0) {
-            applyKeystream(rtcpSessionKey, rtcpSessionSalt, rtcp, RTCP_HEADER_LENGTH, rtcpLength, rtcpSsrc(srtcp),
-                    word & SRTCP_INDEX_MASK);
-        }
-        return rtcpLength;
-    }
-
-    /**
      * Computes the SRTCP authentication tag over the packet up to the given end, into the MAC buffer.
      */
     private void computeRtcpTag(byte[] packet, int end) {

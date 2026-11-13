@@ -29,11 +29,10 @@ class RtcpReceiverReportTest {
     private static final long SENDER_SSRC = 0x11223344L;
     private static final int SOURCE_SSRC = 0xCAFEBABE;
     private static final int VIDEO_CLOCK_RATE = 90000;
-    private static final long ONE_SECOND_MICROS = 1_000_000L;
 
     @Test
     void headerOnlyReportBeforeAnyPacket() {
-        byte[] rr = new RtcpReceiverReport(SENDER_SSRC, VIDEO_CLOCK_RATE).buildReport(0);
+        byte[] rr = new RtcpReceiverReport(SENDER_SSRC, VIDEO_CLOCK_RATE).buildReport();
         assertEquals(8, rr.length);
         assertEquals((byte) 0x80, rr[0]);
         assertEquals(201, rr[1] & 0xFF);
@@ -49,7 +48,7 @@ class RtcpReceiverReportTest {
                 report.onRtp(rtp(seq, 0, SOURCE_SSRC), 12, 0);
             }
         }
-        byte[] rr = report.buildReport(0);
+        byte[] rr = report.buildReport();
         assertEquals(32, rr.length);
         assertEquals((byte) 0x81, rr[0]);
         assertEquals(SOURCE_SSRC, readInt(rr, 8));
@@ -64,7 +63,7 @@ class RtcpReceiverReportTest {
         for (int seq : new int[] { 65534, 65535, 0, 1 }) {
             report.onRtp(rtp(seq, 0, SOURCE_SSRC), 12, 0);
         }
-        byte[] rr = report.buildReport(0);
+        byte[] rr = report.buildReport();
         assertEquals(0x10001, readInt(rr, 16));
         assertEquals(0, readInt(rr, 12) & 0xFFFFFF, "no packets lost");
     }
@@ -76,35 +75,17 @@ class RtcpReceiverReportTest {
             long timestamp = i * 9000L;
             report.onRtp(rtp(i, timestamp, SOURCE_SSRC), 12, i * 100_000L);
         }
-        assertEquals(0, readInt(report.buildReport(0), 20));
+        assertEquals(0, readInt(report.buildReport(), 20));
     }
 
     @Test
-    void lastSenderReportAndDelaySinceAreReported() {
+    void lastSenderReportFieldsAreAlwaysZero() {
         RtcpReceiverReport report = new RtcpReceiverReport(SENDER_SSRC, VIDEO_CLOCK_RATE);
         report.onRtp(rtp(1, 0, SOURCE_SSRC), 12, 0);
-        report.onRtcp(senderReport(0x00010002, 0x00030004), 28, ONE_SECOND_MICROS);
-        byte[] rr = report.buildReport(ONE_SECOND_MICROS + ONE_SECOND_MICROS / 2);
-        assertEquals(0x00020003, readInt(rr, 24), "middle 32 bits of the NTP timestamp");
-        assertEquals(32768, readInt(rr, 28), "0.5 seconds in 1/65536 second units");
-    }
-
-    @Test
-    void lastSenderReportFieldsAreZeroWithoutSenderReport() {
-        RtcpReceiverReport report = new RtcpReceiverReport(SENDER_SSRC, VIDEO_CLOCK_RATE);
-        report.onRtp(rtp(1, 0, SOURCE_SSRC), 12, 0);
-        byte[] rr = report.buildReport(ONE_SECOND_MICROS);
-        assertEquals(0, readInt(rr, 24));
-        assertEquals(0, readInt(rr, 28));
-    }
-
-    @Test
-    void malformedRtcpIsIgnored() {
-        RtcpReceiverReport report = new RtcpReceiverReport(SENDER_SSRC, VIDEO_CLOCK_RATE);
-        report.onRtp(rtp(1, 0, SOURCE_SSRC), 12, 0);
-        byte[] truncated = senderReport(0x00010002, 0x00030004);
-        report.onRtcp(truncated, 10, ONE_SECOND_MICROS);
-        assertEquals(0, readInt(report.buildReport(ONE_SECOND_MICROS), 24));
+        byte[] rr = report.buildReport();
+        assertEquals(32, rr.length);
+        assertEquals(0, readInt(rr, 24), "LSR");
+        assertEquals(0, readInt(rr, 28), "DLSR");
     }
 
     @Test
@@ -114,7 +95,7 @@ class RtcpReceiverReportTest {
         report.onRtp(rtp(1, 0, SOURCE_SSRC), 12, 0);
         report.reset();
         assertNull(report.peer());
-        assertEquals(8, report.buildReport(0).length);
+        assertEquals(8, report.buildReport().length);
     }
 
     private static byte[] rtp(int seq, long timestamp, int ssrc) {
@@ -125,17 +106,6 @@ class RtcpReceiverReportTest {
         packet[3] = (byte) seq;
         writeInt(packet, 4, (int) timestamp);
         writeInt(packet, 8, ssrc);
-        return packet;
-    }
-
-    private static byte[] senderReport(int ntpMsw, int ntpLsw) {
-        byte[] packet = new byte[28];
-        packet[0] = (byte) 0x80;
-        packet[1] = (byte) 200;
-        packet[3] = 6;
-        writeInt(packet, 4, SOURCE_SSRC);
-        writeInt(packet, 8, ntpMsw);
-        writeInt(packet, 12, ntpLsw);
         return packet;
     }
 

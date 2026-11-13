@@ -119,12 +119,13 @@ class SrtpSessionTest {
     }
 
     @Test
-    void rtcpRoundTripRestoresPacket() {
+    void rtcpEncryptsPayloadAfterFixedHeader() {
         byte[] rtcp = rtcpReceiverReport(0x01020304, 0xCAFEBABE);
-        SrtpSession sender = SrtpSession.create(PARAMETERS);
-        byte[] srtcp = encryptRtcp(sender, rtcp);
+        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcp);
         assertEquals(rtcp.length + 14, srtcp.length);
-        assertArrayEquals(rtcp, decryptRtcp(SrtpSession.create(PARAMETERS), srtcp));
+        assertArrayEquals(Arrays.copyOf(rtcp, 8), Arrays.copyOf(srtcp, 8), "first 8 bytes are not encrypted");
+        assertFalse(Arrays.equals(Arrays.copyOfRange(rtcp, 8, rtcp.length),
+                Arrays.copyOfRange(srtcp, 8, rtcp.length)));
     }
 
     @Test
@@ -134,27 +135,8 @@ class SrtpSessionTest {
         byte[] first = encryptRtcp(sender, rtcp);
         byte[] second = encryptRtcp(sender, rtcp);
         assertFalse(Arrays.equals(first, second));
-        assertArrayEquals(rtcp, decryptRtcp(SrtpSession.create(PARAMETERS), second));
-    }
-
-    @Test
-    void tamperedRtcpIsRejected() {
-        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcpReceiverReport(0x01020304, 0xCAFEBABE));
-        srtcp[10] ^= 0x01;
-        assertNull(decryptRtcp(SrtpSession.create(PARAMETERS), srtcp));
-    }
-
-    @Test
-    void rtcpWithWrongKeyIsRejected() {
-        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcpReceiverReport(0x01020304, 0xCAFEBABE));
-        SrtpParameters other = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
-                hex("00112233445566778899AABBCCDDEEFF"), MASTER_SALT);
-        assertNull(decryptRtcp(SrtpSession.create(other), srtcp));
-    }
-
-    @Test
-    void truncatedRtcpIsRejected() {
-        assertNull(decryptRtcp(SrtpSession.create(PARAMETERS), new byte[20]));
+        assertFalse(Arrays.equals(Arrays.copyOfRange(first, rtcp.length, first.length),
+                Arrays.copyOfRange(second, rtcp.length, second.length)), "E-flag and index differ");
     }
 
     @Test
@@ -233,11 +215,5 @@ class SrtpSessionTest {
         byte[] srtcp = new byte[rtcp.length + 14];
         int length = session.encryptRtcp(rtcp, rtcp.length, srtcp);
         return Arrays.copyOf(srtcp, length);
-    }
-
-    private static byte[] decryptRtcp(SrtpSession session, byte[] srtcp) {
-        byte[] rtcp = new byte[srtcp.length];
-        int length = session.decryptRtcp(srtcp, srtcp.length, rtcp);
-        return length < 0 ? null : Arrays.copyOf(rtcp, length);
     }
 }
