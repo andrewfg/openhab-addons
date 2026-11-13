@@ -18,8 +18,6 @@ import java.net.ServerSocket;
 import java.net.SocketException;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.core.storage.Storage;
 
 /**
  * Builds the go2rtc YAML configuration.
@@ -30,9 +28,9 @@ import org.openhab.core.storage.Storage;
 public final class Go2RtcConfig {
 
     /**
-     * The address and ports that go2rtc listens on. The TLS port is used only when TLS files are supplied.
+     * The address and ports that go2rtc listens on.
      */
-    public record Address(String host, int apiPort, int webRtcPort, int rtspPort, int tlsPort) {
+    public record Address(String host, int apiPort, int webRtcPort, int rtspPort) {
     }
 
     private static final int MAX_PORT_ATTEMPTS = 10;
@@ -47,18 +45,11 @@ public final class Go2RtcConfig {
      * @param address the host address and ports to listen on
      * @param listenStream the name of the stream the browser listens to
      * @param talkStream the name of the stream the browser talks to
-     * @param tls the PEM certificate and key for an additional HTTPS API listener, or null for HTTP only
      */
-    public static String toYaml(Address address, String listenStream, String talkStream,
-            Go2RtcTls.@Nullable TlsFiles tls) {
+    public static String toYaml(Address address, String listenStream, String talkStream) {
         StringBuilder yaml = new StringBuilder();
         yaml.append("api:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.apiPort()).append("\"\n");
-        if (tls != null) {
-            yaml.append("  tls_listen: \"").append(address.host()).append(":").append(address.tlsPort()).append("\"\n");
-            yaml.append("  tls_cert: '").append(tls.cert()).append("'\n");
-            yaml.append("  tls_key: '").append(tls.key()).append("'\n");
-        }
         yaml.append("webrtc:\n");
         yaml.append("  listen: \"").append(address.host()).append(":").append(address.webRtcPort()).append("\"\n");
         yaml.append("rtsp:\n");
@@ -76,36 +67,6 @@ public final class Go2RtcConfig {
     public static int freeTcpPort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
-        }
-    }
-
-    /**
-     * Returns a TCP port that stays the same across go2rtc restarts, so that a browser that accepted the HTTPS viewer
-     * certificate on that port keeps trusting it. The port is read from and written to the given storage under the
-     * given key, and is replaced only when the stored port can no longer be bound.
-     */
-    public static int stableTcpPort(Storage<String> storage, String key) throws IOException {
-        String stored = storage.get(key);
-        if (stored != null) {
-            try {
-                int port = Integer.parseInt(stored);
-                if (port > 0 && isTcpPortFree(port)) {
-                    return port;
-                }
-            } catch (NumberFormatException e) {
-                // unusable stored value; allocate a new port below
-            }
-        }
-        int port = freeTcpPort();
-        storage.put(key, Integer.toString(port));
-        return port;
-    }
-
-    private static boolean isTcpPortFree(int port) {
-        try (ServerSocket socket = new ServerSocket(port)) {
-            return true;
-        } catch (IOException e) {
-            return false;
         }
     }
 

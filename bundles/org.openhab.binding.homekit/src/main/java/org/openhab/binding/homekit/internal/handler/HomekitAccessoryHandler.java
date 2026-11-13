@@ -53,7 +53,6 @@ import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDataPump;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcDemand;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcInstaller;
 import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcProcess;
-import org.openhab.binding.homekit.internal.camera.go2rtc.Go2RtcTls;
 import org.openhab.binding.homekit.internal.camera.session.SrtpParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.AudioSelectedParameters;
 import org.openhab.binding.homekit.internal.camera.tlv.SetupEndpointsRequest;
@@ -94,7 +93,6 @@ import org.openhab.core.library.types.UpDownType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.semantics.SemanticTag;
 import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
-import org.openhab.core.storage.Storage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -202,7 +200,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     /**
      * The go2rtc instance for the camera: its API address, the stream names, and the camera's address.
      */
-    private record Go2RtcEndpoint(String host, int apiPort, int tlsPort, String stream, String remoteAddress) {
+    private record Go2RtcEndpoint(String host, int apiPort, String stream, String remoteAddress) {
     }
 
     // constants for camera talk-back sessions
@@ -217,7 +215,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     // fields for camera talk-back sessions
     private final Go2RtcDemand go2rtcDemand = new Go2RtcDemand();
     private final Go2RtcCameraServlet cameraServlet;
-    private final Storage<String> go2rtcPortStorage;
     private final AtomicBoolean go2rtcDemandChecking = new AtomicBoolean(false);
     private final ExecutorService go2rtcExecutor = ThreadPoolManager.getPool(BINDING_ID + "-go2rtc");
 
@@ -240,14 +237,13 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
             HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
             ManagedThingProvider managedThingProvider, HomekitMdnsDiscoveryParticipant discoveryParticipant,
-            MacResolver macResolver, Go2RtcCameraServlet cameraServlet, Storage<String> go2rtcPortStorage) {
+            MacResolver macResolver, Go2RtcCameraServlet cameraServlet) {
         super(thing, typeProvider, keyStore, i18nProvider, bundle, discoveryParticipant, macResolver);
         this.channelTypeRegistry = channelTypeRegistry;
         this.channelGroupTypeRegistry = channelGroupTypeRegistry;
         this.managedThingProvider = managedThingProvider;
         this.bundle = bundle;
         this.cameraServlet = cameraServlet;
-        this.go2rtcPortStorage = go2rtcPortStorage;
     }
 
     /**
@@ -1596,10 +1592,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         try {
             Path go2rtcBinary = new Go2RtcInstaller(cacheDir()).ensureBinary();
             String host = localHost(remoteIpAddress);
-            Go2RtcTls.@Nullable TlsFiles tls = Go2RtcTls.generateCertificate(cacheDir(), host);
             Go2RtcConfig.Address address = new Go2RtcConfig.Address(host, Go2RtcConfig.freeTcpPort(),
-                    Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort(),
-                    tls == null ? 0 : Go2RtcConfig.stableTcpPort(go2rtcPortStorage, thing.getUID().getAsString()));
+                    Go2RtcConfig.freeTcpUdpPort(), Go2RtcConfig.freeTcpPort());
             logger.debug("{} startGo2rtc() address={}", thing.getUID(), address);
 
             String ffmpegBinary = AudioCodec.preferred(audioCodecs).codecType() == AudioCodecType.AAC_ELD
@@ -1616,7 +1610,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
 
             String listenStreamId = "homekit_" + thing.getUID().getId().replaceAll("[^A-Za-z0-9_]", "_");
             String talkStreamId = listenStreamId + "_talk";
-            String yaml = Go2RtcConfig.toYaml(address, listenStreamId, talkStreamId, tls);
+            String yaml = Go2RtcConfig.toYaml(address, listenStreamId, talkStreamId);
             logger.debug("{} startGo2rtc() yaml=\n{}", thing.getUID(), yaml);
 
             process = new Go2RtcProcess(go2rtcBinary);
@@ -1632,8 +1626,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                     return;
                 }
                 go2rtcProcess = process;
-                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), address.tlsPort(), listenStreamId,
-                        remoteIpAddress);
+                go2rtcEndpoint = new Go2RtcEndpoint(host, address.apiPort(), listenStreamId, remoteIpAddress);
                 go2rtcDemandPoller = scheduler.scheduleWithFixedDelay(this::requestGo2rtcDemandCheck,
                         GO2RTC_DEMAND_POLL_SECONDS, GO2RTC_DEMAND_POLL_SECONDS, TimeUnit.SECONDS);
                 go2rtcKeepalive = scheduler.scheduleWithFixedDelay(this::sendGo2rtcKeepalive, GO2RTC_KEEPALIVE_SECONDS,
@@ -1821,7 +1814,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     }
 
     @Override
-    public @Nullable String openBrowserStream() throws InterruptedException {
+    public boolean openBrowserStream() throws InterruptedException {
         Go2RtcProcess process;
         Go2RtcEndpoint endpoint;
         synchronized (this) {
@@ -1829,7 +1822,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             endpoint = go2rtcEndpoint;
         }
         if (process == null || endpoint == null || disposing.get()) {
-            return null;
+            return false;
         }
         synchronized (this) {
             go2rtcDemand.hold(Instant.now().plusSeconds(BROWSER_DEMAND_HOLD_SECONDS));
@@ -1840,17 +1833,38 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         while (!disposing.get() && Instant.now().isBefore(deadline)) {
             try {
                 if (process.hasProducers(endpoint.host(), endpoint.apiPort(), endpoint.stream())) {
-                    String scheme = endpoint.tlsPort() > 0 ? "https://" : "http://";
-                    int viewerPort = endpoint.tlsPort() > 0 ? endpoint.tlsPort() : endpoint.apiPort();
-                    return scheme + endpoint.host() + ":" + viewerPort + "/stream.html?src=" + endpoint.stream()
-                            + "&mode=webrtc";
+                    return true;
                 }
             } catch (IOException e) {
                 logger.debug("{} cannot read go2rtc producers: {}", thing.getUID(), e.getMessage());
             }
             Thread.sleep(BROWSER_OPEN_POLL_MILLIS);
         }
-        return null;
+        return false;
+    }
+
+    @Override
+    public @Nullable String answerBrowserOffer(String offer) throws IOException {
+        return answerWebRtc(offer, false);
+    }
+
+    @Override
+    public @Nullable String answerBrowserTalkOffer(String offer) throws IOException {
+        return answerWebRtc(offer, true);
+    }
+
+    private @Nullable String answerWebRtc(String offer, boolean talk) throws IOException {
+        Go2RtcProcess process;
+        Go2RtcEndpoint endpoint;
+        synchronized (this) {
+            process = go2rtcProcess;
+            endpoint = go2rtcEndpoint;
+        }
+        if (process == null || endpoint == null || disposing.get()) {
+            return null;
+        }
+        String stream = talk ? endpoint.stream() + "_talk" : endpoint.stream();
+        return process.answerWebRtc(endpoint.host(), endpoint.apiPort(), stream, offer);
     }
 
     /**
