@@ -67,11 +67,23 @@ public class Go2RtcCameraServlet extends HttpServlet {
          */
         @Nullable
         String answerBrowserOffer(String offer) throws IOException;
+
+        /**
+         * Exchanges the browser's WebRTC offer, carrying the browser microphone, for an answer from go2rtc. go2rtc
+         * publishes the microphone audio to the camera talk stream.
+         *
+         * @param offer the browser's SDP offer
+         * @return the SDP answer, or null if the talk stream is not available
+         * @throws IOException if go2rtc cannot be reached or rejects the offer
+         */
+        @Nullable
+        String answerBrowserTalkOffer(String offer) throws IOException;
     }
 
     public static final String PATH = "/homekit/camera";
 
     private static final String WEBRTC_SUFFIX = "/webrtc";
+    private static final String TALK_SUFFIX = "/talk";
 
     private static final String VIEWER_PAGE = """
             <!DOCTYPE html>
@@ -79,37 +91,83 @@ public class Go2RtcCameraServlet extends HttpServlet {
             <head>
             <meta charset="utf-8">
             <title>Camera</title>
-            <style>html, body { margin: 0; height: 100%; background: #000; } video { width: 100%; height: 100%; }</style>
+            <style>
+            html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; }
+            video { width: 100%; height: calc(100% - 3em); }
+            #controls { height: 3em; display: flex; align-items: center; gap: 1em; padding: 0 1em; }
+            </style>
             </head>
             <body>
             <video id="video" autoplay playsinline controls></video>
+            <div id="controls">
+            <button id="talk" type="button" disabled>Talk</button>
+            <span id="message"></span>
+            </div>
             <script>
             (async () => {
-              const video = document.getElementById('video');
-              const pc = new RTCPeerConnection({});
-              const media = new MediaStream();
-              pc.ontrack = (event) => media.addTrack(event.track);
-              video.srcObject = media;
-              pc.addTransceiver('video', { direction: 'recvonly' });
-              pc.addTransceiver('audio', { direction: 'recvonly' });
-              await pc.setLocalDescription(await pc.createOffer());
-              await new Promise((resolve) => {
-                if (pc.iceGatheringState === 'complete') { resolve(); return; }
-                const timer = setTimeout(resolve, 3000);
-                pc.addEventListener('icegatheringstatechange', () => {
-                  if (pc.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
-                });
-              });
               const base = location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname;
-              const response = await fetch(base + '/webrtc', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/sdp' },
-                body: pc.localDescription.sdp
-              });
-              if (!response.ok) { throw new Error('HTTP ' + response.status); }
-              await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
+              const video = document.getElementById('video');
+              const talkButton = document.getElementById('talk');
+              const message = document.getElementById('message');
+
+              const exchange = async (pc, path) => {
+                await pc.setLocalDescription(await pc.createOffer());
+                await new Promise((resolve) => {
+                  if (pc.iceGatheringState === 'complete') { resolve(); return; }
+                  const timer = setTimeout(resolve, 3000);
+                  pc.addEventListener('icegatheringstatechange', () => {
+                    if (pc.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
+                  });
+                });
+                const response = await fetch(base + path, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/sdp' },
+                  body: pc.localDescription.sdp
+                });
+                if (!response.ok) { throw new Error('HTTP ' + response.status); }
+                await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
+              };
+
+              let talk = null;
+              const stopTalk = () => {
+                if (talk) {
+                  talk.stream.getTracks().forEach((track) => track.stop());
+                  talk.pc.close();
+                  talk = null;
+                }
+                talkButton.textContent = 'Talk';
+              };
+              if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                talkButton.disabled = false;
+                talkButton.addEventListener('click', async () => {
+                  if (talk) { stopTalk(); return; }
+                  const pc = new RTCPeerConnection({});
+                  try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    talk = { pc, stream };
+                    stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
+                    talkButton.textContent = 'Stop talk';
+                    message.textContent = '';
+                    await exchange(pc, '/talk');
+                  } catch (e) {
+                    message.textContent = 'Talk failed: ' + e.message;
+                    pc.close();
+                    stopTalk();
+                  }
+                });
+              } else {
+                message.textContent = 'Talk requires a secure (HTTPS) connection';
+              }
+
+              const listen = new RTCPeerConnection({});
+              const media = new MediaStream();
+              listen.ontrack = (event) => media.addTrack(event.track);
+              video.srcObject = media;
+              listen.addTransceiver('video', { direction: 'recvonly' });
+              listen.addTransceiver('audio', { direction: 'recvonly' });
+              await exchange(listen, '/webrtc');
             })().catch((e) => {
-              document.body.insertAdjacentText('beforeend', ' Camera stream unavailable: ' + e.message);
+              document.getElementById('message').textContent = 'Camera stream unavailable: ' + e.message;
             });
             </script>
             </body>
@@ -185,11 +243,17 @@ public class Go2RtcCameraServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String pathInfo = request.getPathInfo();
-        if (pathInfo == null || !pathInfo.endsWith(WEBRTC_SUFFIX)) {
+        if (pathInfo == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-        BrowserStreamProvider provider = providerFor(pathInfo.substring(0, pathInfo.length() - WEBRTC_SUFFIX.length()));
+        boolean talk = pathInfo.endsWith(TALK_SUFFIX);
+        String suffix = talk ? TALK_SUFFIX : WEBRTC_SUFFIX;
+        if (!talk && !pathInfo.endsWith(WEBRTC_SUFFIX)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        BrowserStreamProvider provider = providerFor(pathInfo.substring(0, pathInfo.length() - suffix.length()));
         if (provider == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
@@ -197,7 +261,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
         String offer = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         String answer;
         try {
-            answer = provider.answerBrowserOffer(offer);
+            answer = talk ? provider.answerBrowserTalkOffer(offer) : provider.answerBrowserOffer(offer);
         } catch (IOException e) {
             response.sendError(HttpServletResponse.SC_BAD_GATEWAY, "camera stream not reachable");
             return;

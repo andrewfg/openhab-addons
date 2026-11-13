@@ -1832,6 +1832,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
 
     @Override
     public @Nullable String answerBrowserOffer(String offer) throws IOException {
+        return answerWebRtc(offer, false);
+    }
+
+    @Override
+    public @Nullable String answerBrowserTalkOffer(String offer) throws IOException {
+        return answerWebRtc(offer, true);
+    }
+
+    private @Nullable String answerWebRtc(String offer, boolean talk) throws IOException {
         Go2RtcProcess process;
         Go2RtcEndpoint endpoint;
         synchronized (this) {
@@ -1841,7 +1850,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         if (process == null || endpoint == null || disposing.get()) {
             return null;
         }
-        return process.answerWebRtc(endpoint.host(), endpoint.apiPort(), endpoint.stream(), offer);
+        String stream = talk ? endpoint.stream() + "_talk" : endpoint.stream();
+        return process.answerWebRtc(endpoint.host(), endpoint.apiPort(), stream, offer);
     }
 
     /**
