@@ -152,7 +152,7 @@ public class Go2RtcProcess {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while requesting WebRTC answer from go2rtc", e);
         }
-        if (response.statusCode() != 200) {
+        if (response.statusCode() / 100 != 2) {
             throw new IOException("go2rtc WebRTC request failed with HTTP " + response.statusCode());
         }
         return response.body();
