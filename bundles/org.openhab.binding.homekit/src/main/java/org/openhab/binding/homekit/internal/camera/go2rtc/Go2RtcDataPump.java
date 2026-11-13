@@ -224,7 +224,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         String url = url(rtspPort, listenStream);
         try {
             publish(connection, url);
-            audioTranscoder = createAudioTranscoder(connection);
         } catch (IOException | RuntimeException e) {
             connection.close();
             throw e;
@@ -235,15 +234,30 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Creates the AAC-ELD to Opus transcoder when the camera's audio needs one, forwarding its output to the publisher.
+     * Starts the AAC-ELD to Opus transcoder when the camera's audio needs one, forwarding its output to the publisher.
+     * It runs only while a camera session is active, because ffmpeg exits if no input arrives for a while.
      */
-    private @Nullable FfmpegRtpTranscoder createAudioTranscoder(RtspConnection connection) throws IOException {
+    private synchronized void startAudioTranscoder() {
+        RtspConnection connection = publisher;
         String ffmpeg = ffmpegBinary;
-        if (audioCodec.codecType() != AudioCodecType.AAC_ELD || ffmpeg == null) {
-            return null;
+        if (audioTranscoder != null || connection == null || ffmpeg == null
+                || audioCodec.codecType() != AudioCodecType.AAC_ELD) {
+            return;
         }
-        return FfmpegRtpTranscoder.aacEldToOpus(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE,
-                (data, length) -> connection.sendFrame(AUDIO_CHANNEL, data, length));
+        try {
+            audioTranscoder = FfmpegRtpTranscoder.aacEldToOpus(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE,
+                    (data, length) -> connection.sendFrame(AUDIO_CHANNEL, data, length));
+        } catch (IOException e) {
+            LOGGER.debug("Audio transcoder failed to start: {}", e.getMessage());
+        }
+    }
+
+    private synchronized void stopAudioTranscoder() {
+        FfmpegRtpTranscoder transcoder = audioTranscoder;
+        audioTranscoder = null;
+        if (transcoder != null) {
+            transcoder.close();
+        }
     }
 
     /**
@@ -268,6 +282,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         audioReport.reset();
         videoReport.reset();
         session = newSession;
+        startAudioTranscoder();
         return newSession;
     }
 
@@ -277,6 +292,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     public void stopSession() {
         LOGGER.debug("Stopping go2rtc relay session: publisherActive={}", publisher != null);
         session = null;
+        stopAudioTranscoder();
         stopTalk();
     }
 
@@ -326,10 +342,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         audioSocket.close();
         videoSocket.close();
         talkSocket.close();
-        FfmpegRtpTranscoder transcoder = audioTranscoder;
-        if (transcoder != null) {
-            transcoder.close();
-        }
+        stopAudioTranscoder();
         RtspConnection connection = publisher;
         if (connection != null) {
             connection.close();
