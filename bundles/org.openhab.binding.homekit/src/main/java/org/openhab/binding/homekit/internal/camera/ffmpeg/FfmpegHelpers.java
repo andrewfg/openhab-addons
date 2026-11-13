@@ -129,7 +129,8 @@ public final class FfmpegHelpers {
     }
 
     /**
-     * Returns the ffmpeg arguments that decode AAC-ELD input. Requires an ffmpeg build with libfdk_aac, because ffmpeg's
+     * Returns the ffmpeg arguments that decode AAC-ELD input. Requires an ffmpeg build with libfdk_aac, because
+     * ffmpeg's
      * native AAC decoder cannot decode AAC-ELD.
      *
      * @return the decoder arguments
@@ -165,8 +166,8 @@ public final class FfmpegHelpers {
      */
     public static List<String> transcodeCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
             List<String> inputArgs, List<String> encoderArgs, int payloadType) {
-        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-protocol_whitelist", "file,rtp,udp"));
+        List<String> command = new ArrayList<>(
+                List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp"));
         command.addAll(inputArgs);
         command.addAll(List.of("-i", inputSdpFile, "-vn"));
         command.addAll(encoderArgs);

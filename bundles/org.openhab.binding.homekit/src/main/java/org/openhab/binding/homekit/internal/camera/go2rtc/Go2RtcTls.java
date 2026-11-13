@@ -40,8 +40,8 @@ import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERBitString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -124,7 +124,8 @@ public final class Go2RtcTls {
 
     private static boolean isUsable(Path certFile, String host) {
         try (InputStream stream = Files.newInputStream(certFile)) {
-            X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(stream);
+            X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(stream);
             return cert.getNotAfter().after(new Date(System.currentTimeMillis() + RENEWAL_MARGIN_MILLIS))
                     && hasIpAddress(cert, host);
         } catch (IOException | GeneralSecurityException | ClassCastException e) {
@@ -138,8 +139,7 @@ public final class Go2RtcTls {
             return false;
         }
         for (List<?> name : names) {
-            if (name.get(0) instanceof Integer type && type == GENERAL_NAME_IP_ADDRESS
-                    && host.equals(name.get(1))) {
+            if (name.get(0) instanceof Integer type && type == GENERAL_NAME_IP_ADDRESS && host.equals(name.get(1))) {
                 return true;
             }
         }
@@ -154,10 +154,12 @@ public final class Go2RtcTls {
         Extension[] extensions = {
                 new Extension(Extension.basicConstraints, true,
                         new DEROctetString(new BasicConstraints(true).getEncoded(ASN1Encoding.DER))),
-                new Extension(Extension.keyUsage, true, new DEROctetString(
-                        new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyCertSign).getEncoded(ASN1Encoding.DER))),
-                new Extension(Extension.extendedKeyUsage, false, new DEROctetString(
-                        new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth).getEncoded(ASN1Encoding.DER))),
+                new Extension(Extension.keyUsage, true,
+                        new DEROctetString(new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyCertSign)
+                                .getEncoded(ASN1Encoding.DER))),
+                new Extension(Extension.extendedKeyUsage, false,
+                        new DEROctetString(
+                                new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth).getEncoded(ASN1Encoding.DER))),
                 new Extension(Extension.subjectAlternativeName, false,
                         new DEROctetString(sans.getEncoded(ASN1Encoding.DER))) };
 
