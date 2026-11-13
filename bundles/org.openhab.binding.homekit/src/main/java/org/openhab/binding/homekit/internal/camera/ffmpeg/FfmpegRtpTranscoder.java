@@ -20,6 +20,7 @@ import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Random;
 import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -41,6 +42,11 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FfmpegRtpTranscoder.class);
 
     private static final int MAX_DATAGRAM_SIZE = 2048;
+
+    private static final int RTP_PORT_ATTEMPTS = 16;
+    private static final int RTP_PORT_MIN = 20000;
+    private static final int RTP_PORT_MAX = 45000;
+    private static final Random RANDOM = new Random();
 
     /**
      * Receives RTP packets produced by ffmpeg.
@@ -180,12 +186,24 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     }
 
     /**
-     * Returns a loopback UDP port that is free at the time of the call. ffmpeg binds this port itself, so another
-     * process could take it first; the caller accepts that small risk.
+     * Returns a UDP port whose port + 1 is also free at the time of the call. ffmpeg binds the RTP port and the RTCP
+     * port one above it on the wildcard address, so both are probed there. Ports are drawn from below the Windows
+     * dynamic range, which overlaps Windows reserved UDP ranges. ffmpeg binds the port itself, so another process could
+     * take it first; the caller accepts that small risk.
      */
     private static int freeLoopbackPort() throws IOException {
-        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            return probe.getLocalPort();
+        for (int attempt = 0; attempt < RTP_PORT_ATTEMPTS; attempt++) {
+            int port = RTP_PORT_MIN + RANDOM.nextInt(RTP_PORT_MAX - RTP_PORT_MIN);
+            try (DatagramSocket rtp = new DatagramSocket(port)) {
+                try (DatagramSocket rtcp = new DatagramSocket(port + 1)) {
+                    return port;
+                } catch (IOException e) {
+                    // RTCP port in use or reserved, try another pair
+                }
+            } catch (IOException e) {
+                // RTP port in use or reserved, try another pair
+            }
         }
+        throw new IOException("No free UDP port pair for ffmpeg RTP and RTCP");
     }
 }
