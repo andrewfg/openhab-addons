@@ -119,6 +119,26 @@ class SrtpSessionTest {
     }
 
     @Test
+    void rtcpEncryptsPayloadAfterFixedHeader() {
+        byte[] rtcp = rtcpReceiverReport(0x01020304, 0xCAFEBABE);
+        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcp);
+        assertEquals(rtcp.length + 14, srtcp.length);
+        assertArrayEquals(Arrays.copyOf(rtcp, 8), Arrays.copyOf(srtcp, 8), "first 8 bytes are not encrypted");
+        assertFalse(Arrays.equals(Arrays.copyOfRange(rtcp, 8, rtcp.length), Arrays.copyOfRange(srtcp, 8, rtcp.length)));
+    }
+
+    @Test
+    void rtcpIndexAdvancesPerPacket() {
+        byte[] rtcp = rtcpReceiverReport(0x01020304, 0xCAFEBABE);
+        SrtpSession sender = SrtpSession.create(PARAMETERS);
+        byte[] first = encryptRtcp(sender, rtcp);
+        byte[] second = encryptRtcp(sender, rtcp);
+        assertFalse(Arrays.equals(first, second));
+        assertFalse(Arrays.equals(Arrays.copyOfRange(first, rtcp.length, first.length),
+                Arrays.copyOfRange(second, rtcp.length, second.length)), "E-flag and index differ");
+    }
+
+    @Test
     void noneCryptoSuiteIsRejected() {
         SrtpParameters none = new SrtpParameters(SrtpCryptoSuite.NONE, new byte[0], new byte[0]);
         assertThrows(IllegalArgumentException.class, () -> SrtpSession.create(none));
@@ -168,5 +188,31 @@ class SrtpSessionTest {
         byte[] rtp = new byte[srtp.length];
         int length = session.decrypt(srtp, srtp.length, rtp);
         return length < 0 ? null : Arrays.copyOf(rtp, length);
+    }
+
+    private static byte[] rtcpReceiverReport(int senderSsrc, int sourceSsrc) {
+        byte[] packet = new byte[32];
+        packet[0] = (byte) 0x81;
+        packet[1] = (byte) 201;
+        packet[2] = 0;
+        packet[3] = (byte) (packet.length / 4 - 1);
+        packet[4] = (byte) (senderSsrc >>> 24);
+        packet[5] = (byte) (senderSsrc >>> 16);
+        packet[6] = (byte) (senderSsrc >>> 8);
+        packet[7] = (byte) senderSsrc;
+        packet[8] = (byte) (sourceSsrc >>> 24);
+        packet[9] = (byte) (sourceSsrc >>> 16);
+        packet[10] = (byte) (sourceSsrc >>> 8);
+        packet[11] = (byte) sourceSsrc;
+        for (int i = 12; i < packet.length; i++) {
+            packet[i] = (byte) (i * 7);
+        }
+        return packet;
+    }
+
+    private static byte[] encryptRtcp(SrtpSession session, byte[] rtcp) {
+        byte[] srtcp = new byte[rtcp.length + 14];
+        int length = session.encryptRtcp(rtcp, rtcp.length, srtcp);
+        return Arrays.copyOf(srtcp, length);
     }
 }

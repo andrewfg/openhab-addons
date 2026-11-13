@@ -1474,10 +1474,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         byte[] sessionId = new byte[16];
         RANDOM.nextBytes(sessionId);
         SrtpParameters talkParams = SrtpParameters.random();
-        SrtpParameters dummyParams = SrtpParameters.random(); // video 'talk-back' is not supported but params mandatory
+        // the controller's video key: video talk-back is not supported, but the key encrypts video Receiver Reports
+        SrtpParameters videoControlParams = SrtpParameters.random();
 
         SetupEndpointsRequest endpointRequest = new SetupEndpointsRequest(sessionId, false, localHost(remoteAddress),
-                pump.videoPort(), pump.audioPort(), dummyParams, talkParams);
+                pump.videoPort(), pump.audioPort(), videoControlParams, talkParams);
         logger.debug("{} openCameraSession() {}", thing.getUID(), endpointRequest);
 
         writeTlvCharacteristic(aid, setupIid, endpointRequest.encode());
@@ -1505,7 +1506,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             cameraSessionOpen = true;
         }
 
-        Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams,
+        Go2RtcDataPump.Session session = pump.startSession(audioParams, videoParams, talkParams, videoControlParams,
                 remoteAddress.split(":")[0], talkPort);
         logger.debug("{} openCameraSession() {}", thing.getUID(), session);
 
