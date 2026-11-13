@@ -129,11 +129,18 @@ public final class Go2RtcTls {
         try (InputStream stream = Files.newInputStream(certFile)) {
             X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(stream);
             return cert.getNotAfter().after(new Date(System.currentTimeMillis() + RENEWAL_MARGIN_MILLIS))
-                    && cert.getSubjectX500Principal().equals(new X500Principal("O=openHAB, CN=" + host))
+                    && cert.getSubjectX500Principal().equals(subject(host))
                     && hasIpAddress(cert, host);
         } catch (IOException | GeneralSecurityException | ClassCastException e) {
             return false;
         }
+    }
+
+    /**
+     * Built through {@link X500Principal} so the encoded RDN order matches what {@link #isUsable} compares against.
+     */
+    private static X500Principal subject(String host) {
+        return new X500Principal("O=openHAB, CN=" + host);
     }
 
     private static boolean hasIpAddress(X509Certificate cert, String host) throws GeneralSecurityException {
@@ -152,7 +159,7 @@ public final class Go2RtcTls {
 
     private static byte[] buildCertificate(KeyPair keyPair, String host, Date notBefore, Date notAfter)
             throws IOException, GeneralSecurityException {
-        X500Name name = new X500Name("O=openHAB, CN=" + host);
+        X500Name name = X500Name.getInstance(subject(host).getEncoded());
         GeneralNames sans = new GeneralNames(
                 new GeneralName(GeneralName.iPAddress, new DEROctetString(InetAddress.getByName(host).getAddress())));
         Extension[] extensions = {
