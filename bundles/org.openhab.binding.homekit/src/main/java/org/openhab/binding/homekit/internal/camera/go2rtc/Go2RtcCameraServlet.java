@@ -62,8 +62,8 @@ public class Go2RtcCameraServlet extends HttpServlet {
          * Exchanges the browser's WebRTC offer for an answer from go2rtc.
          *
          * @param offer the browser's SDP offer
-         * @return the SDP answer, or null if the stream is not open
-         * @throws IOException if go2rtc cannot be reached or rejects the offer
+         * @return the SDP answer, or null if go2rtc rejects the offer because the stream is not open
+         * @throws IOException if go2rtc cannot be reached
          */
         @Nullable
         String answerBrowserOffer(String offer) throws IOException;
@@ -73,8 +73,8 @@ public class Go2RtcCameraServlet extends HttpServlet {
          * publishes the microphone audio to the camera talk stream.
          *
          * @param offer the browser's SDP offer
-         * @return the SDP answer, or null if the talk stream is not available
-         * @throws IOException if go2rtc cannot be reached or rejects the offer
+         * @return the SDP answer, or null if go2rtc rejects the offer because the talk stream is not available
+         * @throws IOException if go2rtc cannot be reached
          */
         @Nullable
         String answerBrowserTalkOffer(String offer) throws IOException;
