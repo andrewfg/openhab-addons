@@ -27,8 +27,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  * Encrypts and decrypts RTP and RTCP packets using SRTP and SRTCP as defined in RFC 3711, for the
  * AES_CM_128_HMAC_SHA1_80 and AES_CM_256_HMAC_SHA1_80 crypto suites. An instance handles one direction of one stream.
  * <p>
- * The public methods are synchronized, so that RTP and RTCP may be handled by different threads. Packets of one
- * stream must still be processed in order.
+ * The encrypt and encryptRtcp methods are synchronized, because the talk session is used both by the talk relay thread
+ * and by the audio Receiver Report thread. Packets of one stream must still be processed in order.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  * @author Andrew Fiddian-Green - SRTCP support
@@ -130,7 +130,7 @@ public final class SrtpSession {
      * @param srtp the SRTP packet
      * @return the RTP packet, or null if the packet is malformed or fails authentication
      */
-    public synchronized int decrypt(byte[] srtp, int srtpLength, byte[] rtp) {
+    public int decrypt(byte[] srtp, int srtpLength, byte[] rtp) {
         int headerLength = headerLength(srtp, srtpLength);
         int rtpLength = srtpLength - AUTH_TAG_LENGTH;
         if (headerLength < 0 || rtpLength < headerLength) {
