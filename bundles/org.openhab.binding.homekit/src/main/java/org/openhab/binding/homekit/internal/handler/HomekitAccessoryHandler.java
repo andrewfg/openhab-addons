@@ -1515,6 +1515,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         logger.debug("{} openCameraSession() {}", thing.getUID(), config);
 
         writeTlvCharacteristic(aid, selectedIid, config.encode());
+        logger.debug("{} openCameraSession() session open", thing.getUID());
     }
 
     /**
@@ -1584,7 +1585,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * @param remoteIpAddress the IP address of the remote client (browser)
      */
     private void startGo2rtc(List<AudioCodec> audioCodecs, List<VideoCodec> videoCodecs, String remoteIpAddress) {
-        logger.debug("{} startGo2rtc() called", thing.getUID());
+        logger.debug("{} startGo2rtc() starting go2rtc", thing.getUID());
 
         Go2RtcDataPump pump = null;
         Go2RtcProcess process = null;
@@ -1643,8 +1644,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 logger.warn("{} openHAB network address or HTTP port unavailable, camera URL not published",
                         thing.getUID());
             }
-            logger.debug("{} startGo2rtc() succeeded", thing.getUID());
             succeeded = true;
+            logger.debug("{} startGo2rtc() go2rtc started", thing.getUID());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (IOException | IllegalStateException | IllegalArgumentException e) {
