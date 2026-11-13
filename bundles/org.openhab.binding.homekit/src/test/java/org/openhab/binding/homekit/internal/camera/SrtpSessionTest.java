@@ -119,6 +119,45 @@ class SrtpSessionTest {
     }
 
     @Test
+    void rtcpRoundTripRestoresPacket() {
+        byte[] rtcp = rtcpReceiverReport(0x01020304, 0xCAFEBABE);
+        SrtpSession sender = SrtpSession.create(PARAMETERS);
+        byte[] srtcp = encryptRtcp(sender, rtcp);
+        assertEquals(rtcp.length + 14, srtcp.length);
+        assertArrayEquals(rtcp, decryptRtcp(SrtpSession.create(PARAMETERS), srtcp));
+    }
+
+    @Test
+    void rtcpIndexAdvancesPerPacket() {
+        byte[] rtcp = rtcpReceiverReport(0x01020304, 0xCAFEBABE);
+        SrtpSession sender = SrtpSession.create(PARAMETERS);
+        byte[] first = encryptRtcp(sender, rtcp);
+        byte[] second = encryptRtcp(sender, rtcp);
+        assertFalse(Arrays.equals(first, second));
+        assertArrayEquals(rtcp, decryptRtcp(SrtpSession.create(PARAMETERS), second));
+    }
+
+    @Test
+    void tamperedRtcpIsRejected() {
+        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcpReceiverReport(0x01020304, 0xCAFEBABE));
+        srtcp[10] ^= 0x01;
+        assertNull(decryptRtcp(SrtpSession.create(PARAMETERS), srtcp));
+    }
+
+    @Test
+    void rtcpWithWrongKeyIsRejected() {
+        byte[] srtcp = encryptRtcp(SrtpSession.create(PARAMETERS), rtcpReceiverReport(0x01020304, 0xCAFEBABE));
+        SrtpParameters other = new SrtpParameters(SrtpCryptoSuite.AES_CM_128_HMAC_SHA1_80,
+                hex("00112233445566778899AABBCCDDEEFF"), MASTER_SALT);
+        assertNull(decryptRtcp(SrtpSession.create(other), srtcp));
+    }
+
+    @Test
+    void truncatedRtcpIsRejected() {
+        assertNull(decryptRtcp(SrtpSession.create(PARAMETERS), new byte[20]));
+    }
+
+    @Test
     void noneCryptoSuiteIsRejected() {
         SrtpParameters none = new SrtpParameters(SrtpCryptoSuite.NONE, new byte[0], new byte[0]);
         assertThrows(IllegalArgumentException.class, () -> SrtpSession.create(none));
@@ -168,5 +207,37 @@ class SrtpSessionTest {
         byte[] rtp = new byte[srtp.length];
         int length = session.decrypt(srtp, srtp.length, rtp);
         return length < 0 ? null : Arrays.copyOf(rtp, length);
+    }
+
+    private static byte[] rtcpReceiverReport(int senderSsrc, int sourceSsrc) {
+        byte[] packet = new byte[32];
+        packet[0] = (byte) 0x81;
+        packet[1] = (byte) 201;
+        packet[2] = 0;
+        packet[3] = (byte) (packet.length / 4 - 1);
+        packet[4] = (byte) (senderSsrc >>> 24);
+        packet[5] = (byte) (senderSsrc >>> 16);
+        packet[6] = (byte) (senderSsrc >>> 8);
+        packet[7] = (byte) senderSsrc;
+        packet[8] = (byte) (sourceSsrc >>> 24);
+        packet[9] = (byte) (sourceSsrc >>> 16);
+        packet[10] = (byte) (sourceSsrc >>> 8);
+        packet[11] = (byte) sourceSsrc;
+        for (int i = 12; i < packet.length; i++) {
+            packet[i] = (byte) (i * 7);
+        }
+        return packet;
+    }
+
+    private static byte[] encryptRtcp(SrtpSession session, byte[] rtcp) {
+        byte[] srtcp = new byte[rtcp.length + 14];
+        int length = session.encryptRtcp(rtcp, rtcp.length, srtcp);
+        return Arrays.copyOf(srtcp, length);
+    }
+
+    private static byte[] decryptRtcp(SrtpSession session, byte[] srtcp) {
+        byte[] rtcp = new byte[srtcp.length];
+        int length = session.decryptRtcp(srtcp, srtcp.length, rtcp);
+        return length < 0 ? null : Arrays.copyOf(rtcp, length);
     }
 }
