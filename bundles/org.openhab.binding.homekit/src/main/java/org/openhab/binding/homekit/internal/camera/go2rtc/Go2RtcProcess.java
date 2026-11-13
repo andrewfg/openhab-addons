@@ -16,6 +16,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -136,13 +137,13 @@ public class Go2RtcProcess {
      * @param port the API port from the configuration
      * @param stream the stream name to view
      * @param offer the browser's SDP offer
-     * @return the go2rtc SDP answer
-     * @throws IOException if go2rtc cannot be reached or rejects the offer
+     * @return the go2rtc SDP answer, or null if go2rtc rejects the offer, typically because the stream has no producer
+     * @throws IOException if go2rtc cannot be reached
      */
-    public String answerWebRtc(String host, int port, String stream, String offer) throws IOException {
+    public @Nullable String answerWebRtc(String host, int port, String stream, String offer) throws IOException {
         String query = URLEncoder.encode(stream, StandardCharsets.UTF_8);
-        HttpRequest request = HttpRequest.newBuilder(
-                URI.create("http://" + host + ":" + port + "/api/webrtc?src=" + query))
+        HttpRequest request = HttpRequest
+                .newBuilder(URI.create("http://" + host + ":" + port + "/api/webrtc?src=" + query))
                 .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/sdp")
                 .POST(HttpRequest.BodyPublishers.ofString(offer)).build();
         HttpResponse<String> response;
@@ -152,8 +153,9 @@ public class Go2RtcProcess {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while requesting WebRTC answer from go2rtc", e);
         }
-        if (response.statusCode() != 200) {
-            throw new IOException("go2rtc WebRTC request failed with HTTP " + response.statusCode());
+        if (response.statusCode() / 100 != 2) {
+            LOGGER.debug("go2rtc rejected WebRTC offer for stream {} with HTTP {}", stream, response.statusCode());
+            return null;
         }
         return response.body();
     }

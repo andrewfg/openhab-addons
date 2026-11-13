@@ -14,6 +14,8 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
+
 import org.junit.jupiter.api.Test;
 
 /**
