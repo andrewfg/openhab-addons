@@ -176,7 +176,7 @@ then
 end
 ```
 
-### Browser Audio/Video Channel
+### Special Extra Browser Audio/Video Channel
 
 Cameras also expose a Camera URL Channel (`camera-url`).
 The binding downloads and runs a [go2rtc](https://github.com/AlexxIT/go2rtc) process (the same way the UniFi binding installs it) and serves a WebRTC viewer page from openHAB's own web server.
@@ -189,7 +189,6 @@ The **Talk** button sends your browser microphone to the camera speaker.
   Otherwise, the viewer uses plain HTTP.
 - Browsers only allow microphone access on HTTPS, so **Talk** is available only when the viewer is opened over HTTPS and the browser trusts the certificate.
 - The viewer has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
-- The camera only streams audio and video while go2rtc has a connected browser client. The binding checks go2rtc every few seconds, starts the camera stream when a client connects, and stops it after about 15 seconds without a client.
 
 ## Integration with Apple Home App / Ecosystem
 

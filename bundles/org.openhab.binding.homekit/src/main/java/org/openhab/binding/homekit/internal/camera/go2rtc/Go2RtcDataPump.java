@@ -197,7 +197,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         String url = url(rtspPort, listenStream);
         try {
             publish(connection, url);
-            audioTranscoder = createAudioTranscoder(connection);
         } catch (IOException | RuntimeException e) {
             connection.close();
             throw e;
@@ -230,21 +229,47 @@ public class Go2RtcDataPump implements AutoCloseable {
      * @return the new session
      * @throws IllegalArgumentException if a crypto suite is NONE
      */
-    public Session startSession(SrtpParameters audioParameters, SrtpParameters videoParameters,
+    public synchronized Session startSession(SrtpParameters audioParameters, SrtpParameters videoParameters,
             SrtpParameters talkParameters, String remoteHost, int remoteTalkPort) {
         Session newSession = new Session(SrtpSession.create(audioParameters), SrtpSession.create(videoParameters),
                 SrtpSession.create(talkParameters), new InetSocketAddress(remoteHost, remoteTalkPort));
         session = newSession;
+        startAudioTranscoder();
         return newSession;
     }
 
     /**
      * Stops relaying media. Packets received afterwards are dropped, and the browser talk relay is stopped.
      */
-    public void stopSession() {
+    public synchronized void stopSession() {
         LOGGER.debug("Stopping go2rtc relay session: publisherActive={}", publisher != null);
         session = null;
+        stopAudioTranscoder();
         stopTalk();
+    }
+
+    /**
+     * Starts a fresh AAC-ELD transcoder for the session, since ffmpeg exits when its input is idle.
+     */
+    private void startAudioTranscoder() {
+        stopAudioTranscoder();
+        RtspConnection connection = publisher;
+        if (connection == null) {
+            return;
+        }
+        try {
+            audioTranscoder = createAudioTranscoder(connection);
+        } catch (IOException e) {
+            LOGGER.warn("Failed to start audio transcoder: {}", e.getMessage());
+        }
+    }
+
+    private void stopAudioTranscoder() {
+        FfmpegRtpTranscoder transcoder = audioTranscoder;
+        audioTranscoder = null;
+        if (transcoder != null) {
+            transcoder.close();
+        }
     }
 
     /**
@@ -267,6 +292,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     public void startTalk() {
         synchronized (talkMonitor) {
+            if (!talkActive) {
+                LOGGER.debug("Talk-back session started");
+            }
             talkActive = true;
             talkMonitor.notifyAll();
         }
@@ -277,6 +305,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     public void stopTalk() {
         synchronized (talkMonitor) {
+            if (talkActive) {
+                LOGGER.debug("Talk-back session stopped");
+            }
             talkActive = false;
             talkMonitor.notifyAll();
         }
@@ -374,6 +405,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         try {
             while (!closed && isTalkActive()) {
                 try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
+                    LOGGER.debug("Talk-back reading go2rtc stream {}", talkStream);
                     talkReader = reader;
                     while (!closed && isTalkActive()) {
                         RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
