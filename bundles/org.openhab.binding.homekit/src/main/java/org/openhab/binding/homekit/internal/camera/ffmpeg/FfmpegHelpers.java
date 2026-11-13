@@ -154,8 +154,9 @@ public final class FfmpegHelpers {
      */
     public static List<String> transcodeCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
             List<String> encoderArgs, int payloadType) {
+        // ffmpeg's native aac decoder cannot decode AAC-ELD input, so select libfdk_aac explicitly
         List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "warning",
-                "-protocol_whitelist", "file,rtp,udp", "-i", inputSdpFile, "-vn"));
+                "-protocol_whitelist", "file,rtp,udp", "-c:a", "libfdk_aac", "-i", inputSdpFile, "-vn"));
         command.addAll(encoderArgs);
         command.addAll(
                 List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp", "rtp://127.0.0.1:" + outputPort));

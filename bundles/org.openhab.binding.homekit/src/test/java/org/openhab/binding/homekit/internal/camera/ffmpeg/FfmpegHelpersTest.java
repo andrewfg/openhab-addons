@@ -56,7 +56,9 @@ class FfmpegHelpersTest {
                 FfmpegHelpers.opusEncoderArgs(), 110);
         assertEquals("/usr/bin/ffmpeg", cmd.get(0));
         assertEquals("/tmp/in.sdp", cmd.get(cmd.indexOf("-i") + 1));
-        assertEquals("libopus", cmd.get(cmd.indexOf("-c:a") + 1));
+        assertEquals("libopus", cmd.get(cmd.lastIndexOf("-c:a") + 1));
+        assertEquals("libfdk_aac", cmd.get(cmd.indexOf("-c:a") + 1));
+        assertTrue(cmd.indexOf("-c:a") < cmd.indexOf("-i"));
         assertEquals("110", cmd.get(cmd.indexOf("-payload_type") + 1));
         assertEquals("rtp://127.0.0.1:6000", cmd.get(cmd.size() - 1));
     }
