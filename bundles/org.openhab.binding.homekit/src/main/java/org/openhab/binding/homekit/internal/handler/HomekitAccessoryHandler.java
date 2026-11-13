@@ -177,6 +177,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     private volatile @Nullable Channel stopMoveChannel = null;
 
     /*
+     * Channel for the current position (rollershutters)
+     */
+    private volatile @Nullable Channel positionCurrentChannel = null;
+
+    /*
      * Internal record representing a link between an OH channel and a HomeKit characteristic type & iid.
      * Used for light model management.
      */
@@ -572,8 +577,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             if (command instanceof StopMoveType stopMoveType && StopMoveType.STOP == stopMoveType) {
                 if (stopMoveChannel instanceof Channel stopMoveChannel) {
                     writeChannel(stopMoveChannel, OnOffType.ON);
-                } else if (readChannel(channel) instanceof Command actualPosition) {
-                    writeChannel(channel, actualPosition);
+                } else if (positionCurrentChannel instanceof Channel positionChannel
+                        && readChannel(positionChannel) instanceof Command currentPosition) {
+                    writeChannel(channel, currentPosition);
+                } else {
+                    logger.debug("{} not able to execute stop command", thing.getUID());
                 }
             } else if (channelUID.equals(lightModelClientHSBTypeChannel)) {
                 lightModelHandleCommand(command);
@@ -643,6 +651,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         lightModelClientHSBTypeChannel = null;
         stopMoveChannel = null;
         stopGo2rtc();
+        positionCurrentChannel = null;
         super.dispose();
     }
 
@@ -814,20 +823,26 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     }
 
     /**
-     * Initializes the stop/move button channel by searching for a characteristic of type POSITION_HOLD.
+     * Initializes the stop/move button channel by searching for a characteristic of type POSITION_HOLD,
+     * and the current position channel by searching for a characteristic of type POSITION_CURRENT.
      *
      * @param accessory the accessory containing the characteristics
      * @param channels the list of channels to search
      */
     private void stopMoveFinalize(Accessory accessory, Map<String, Channel> channels) {
+        stopMoveChannel = null;
+        positionCurrentChannel = null;
         for (Channel channel : channels.values()) {
             if (channel.getProperties().get(PROPERTY_IID) instanceof String iid) {
                 for (Service service : accessory.services) {
                     for (Characteristic cxx : service.characteristics) {
-                        if (iid.equals(String.valueOf(cxx.iid))
-                                && CharacteristicType.POSITION_HOLD == cxx.getCharacteristicType()) {
-                            stopMoveChannel = channel;
-                            return;
+                        if (iid.equals(String.valueOf(cxx.iid))) {
+                            CharacteristicType cxxType = cxx.getCharacteristicType();
+                            if (CharacteristicType.POSITION_HOLD == cxxType) {
+                                stopMoveChannel = channel;
+                            } else if (CharacteristicType.POSITION_CURRENT == cxxType) {
+                                positionCurrentChannel = channel;
+                            }
                         }
                     }
                 }
@@ -1443,8 +1458,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * @throws Exception if the camera does not support talk-back or the exchange fails
      */
     private void openCameraSession(Go2RtcDataPump pump, String remoteAddress) throws Exception {
-        logger.debug("{} openCameraSession() called", thing.getUID());
-
+        logger.debug("{} openCameraSession() opening session", thing.getUID());
         Long aid;
         Long setupIid;
         Long selectedIid;
@@ -1500,7 +1514,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         logger.debug("{} openCameraSession() {}", thing.getUID(), config);
 
         writeTlvCharacteristic(aid, selectedIid, config.encode());
-        logger.debug("{} openCameraSession() completed", thing.getUID());
     }
 
     /**
@@ -1509,7 +1522,6 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * @param notifyCamera whether to tell the camera to end the session; false avoids blocking I/O during disposal
      */
     private void closeCameraSession(Go2RtcDataPump pump, boolean notifyCamera) {
-        logger.debug("{} closeCameraSession() called", thing.getUID());
         byte[] id;
         Long aid;
         Long selectedIid;
@@ -1533,6 +1545,7 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 logger.debug("{} failed to end talk-back session: {}", thing.getUID(), e.getMessage());
             }
         }
+        logger.debug("{} closeCameraSession() session closed", thing.getUID());
     }
 
     /**
@@ -1959,10 +1972,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 switch (Characteristic.getCharacteristicType(characteristic.type)) {
                     case SETUP_ENDPOINTS -> cameraSetupIid = characteristic.iid;
                     case SELECTED_RTP_STREAM_CONFIGURATION -> cameraSelectedIid = characteristic.iid;
-                    case SUPPORTED_AUDIO_CONFIGURATION ->
-                        audioCodecs = decodeAudioSupportedCodecs(characteristic.value);
-                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION ->
-                        videoCodecs = decodeVideoSupportedCodecs(characteristic.value);
+                    case SUPPORTED_AUDIO_CONFIGURATION -> audioCodecs = decodeAudioSupportedCodecs(
+                            characteristic.value);
+                    case SUPPORTED_VIDEO_STREAM_CONFIGURATION -> videoCodecs = decodeVideoSupportedCodecs(
+                            characteristic.value);
                     default -> {
                     }
                 }

@@ -273,7 +273,7 @@ This will change the communication method and the Mi IO binding can communicate 
 
 # Mi IO Devices
 
-Currently the miio binding supports more than 600 different models.
+Currently the miio binding supports more than 610 different models.
 
 | Device                             | ThingType        | Device Model           | Supported    | Remark     |
 |------------------------------------|------------------|------------------------|--------------|------------|
@@ -441,11 +441,12 @@ Currently the miio binding supports more than 600 different models.
 | Midea Air Conditioner v2           | miio:unsupported | midea.aircondition.v2  | No           |            |
 | Midea AC-Cool Golden               | miio:unsupported | midea.aircondition.xa1 | No           |            |
 | Mi Robot Vacuum-Mop Essential      | miio:basic       | [mijia.vacuum.v2](#mijia-vacuum-v2) | Yes          | This device may be overwhelmed if refresh is too frequent, slowing down the responses. Suggest to increase refresh time to 120 seconds |
-| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s1](#mmgg-pet_waterer-s1) | Experimental | Identified manual actions for execution<br />`action{"did":"filter-reset-filter-life","siid":3,"aiid":1,"in":[]}`<br />`action{"did":"filter-cotton-reset-cotton-life","siid":5,"aiid":1,"in":[]}`<br />`action{"did":"remain-clean-time-reset-clean-time","siid":6,"aiid":1,"in":[]}`<br />Please test and feedback if they are working so they can be linked to a channel.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
-| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s2](#mmgg-pet_waterer-s2) | Experimental | Identified manual actions for execution<br />`action{"did":"filter-reset-filter-life","siid":3,"aiid":1,"in":[]}`<br />`action{"did":"filter-cotton-reset-cotton-life","siid":5,"aiid":1,"in":[]}`<br />`action{"did":"remain-clean-time-reset-clean-time","siid":6,"aiid":1,"in":[]}`<br />Please test and feedback if they are working so they can be linked to a channel.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
-| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s3](#mmgg-pet_waterer-s3) | Experimental | Identified manual actions for execution<br />`action{"did":"filter-reset-filter-life","siid":3,"aiid":1,"in":[]}`<br />`action{"did":"filter-cotton-reset-cotton-life","siid":5,"aiid":1,"in":[]}`<br />`action{"did":"remain-clean-time-reset-clean-time","siid":6,"aiid":1,"in":[]}`<br />Please test and feedback if they are working so they can be linked to a channel.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
-| XIAOWAN Smart Pet Water Dispenser  | miio:basic       | [mmgg.pet_waterer.s4](#mmgg-pet_waterer-s4) | Experimental | Identified manual actions for execution<br />`action{"did":"filter-reset-filter-life","siid":3,"aiid":1,"in":[]}`<br />`action{"did":"filter-cotton-reset-cotton-life","siid":5,"aiid":1,"in":[]}`<br />`action{"did":"remain-clean-time-reset-clean-time","siid":6,"aiid":1,"in":[]}`<br />Please test and feedback if they are working so they can be linked to a channel.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
-| Xiaomi Smart Pet Fountain          | miio:basic       | [mmgg.pet_waterer.wi11](#mmgg-pet_waterer-wi11) | Yes          |            |
+| Xiaomi Smart Pet Food Feeder       | miio:basic       | [mmgg.feeder.fi1](#mmgg-feeder-fi1) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s1](#mmgg-pet_waterer-s1) | Experimental | Smart mode runs the pump 10 minutes on and 10 minutes off from 08:00 to 21:59, otherwise 10 minutes on and 50 minutes off.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s2](#mmgg-pet_waterer-s2) | Experimental | Smart mode runs the pump 10 minutes on and 10 minutes off from 08:00 to 21:59, otherwise 10 minutes on and 50 minutes off.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Pet Water Dispenser    | miio:basic       | [mmgg.pet_waterer.s3](#mmgg-pet_waterer-s3) | Experimental | Smart mode runs the pump 10 minutes on and 10 minutes off from 08:00 to 21:59, otherwise 10 minutes on and 50 minutes off.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| XIAOWAN Smart Pet Water Dispenser  | miio:basic       | [mmgg.pet_waterer.s4](#mmgg-pet_waterer-s4) | Experimental | Smart mode runs the pump 10 minutes on and 10 minutes off from 08:00 to 21:59, otherwise 10 minutes on and 50 minutes off.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Pet Fountain          | miio:basic       | [mmgg.pet_waterer.wi11](#mmgg-pet_waterer-wi11) | Yes          | Smart mode runs the pump 10 minutes on and 10 minutes off from 08:00 to 21:59, otherwise 10 minutes on and 50 minutes off. |
 | MR.BOND                            | miio:basic       | [mrbond.airer.m0](#mrbond-airer-m0) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | MR.BOND                            | miio:basic       | [mrbond.airer.m1pro](#mrbond-airer-m1pro) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | MR.BOND                            | miio:basic       | [mrbond.airer.m1s](#mrbond-airer-m1s) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
@@ -671,6 +672,7 @@ Currently the miio binding supports more than 600 different models.
 | Viomi V3 Absolut                   | miio:basic       | [viomi.vacuum.v56](#viomi-vacuum-v56) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Viomi Master 10 Max                | miio:basic       | [viomi.vacuum.v60](#viomi-vacuum-v60) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | VIOMI Internet Electric Water Heater 1A (60L) | miio:basic       | [viomi.waterheater.e1](#viomi-waterheater-e1) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| VIOMI Internet electric water heater 50L(Premium Version) | miio:basic       | [viomi.waterheater.e4](#viomi-waterheater-e4) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Inverter Air Conditioner (1.5HP) | miio:basic       | [xiaomi.aircondition.ma1](#xiaomi-aircondition-ma1) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Inverter Air Conditioner (1.5HP, China Energy Label Level 1) | miio:basic       | [xiaomi.aircondition.ma2](#xiaomi-aircondition-ma2) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Vertical Air Conditioner (2HP)  | miio:basic       | [xiaomi.aircondition.ma4](#xiaomi-aircondition-ma4) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
@@ -712,6 +714,8 @@ Currently the miio binding supports more than 600 different models.
 | Xiaomi Smart Standing Air Circulation Fan | miio:basic       | [xiaomi.fan.p76](#xiaomi-fan-p76) | Experimental | Created from the MIoT spec; not checked against the Mi Home app.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mijia Smart Standing Fan Pro Slim  | miio:basic       | [xiaomi.fan.p85](#xiaomi-fan-p85) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mijia Smart Air Circulation Fan Pro | miio:basic       | [xiaomi.fan.p90](#xiaomi-fan-p90) | Experimental | The Mi Home app sets the oscillation angles and the symmetrical flag in one command; here each is sent on its own.<br />Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Pet Food Feeder 2     | miio:basic       | [xiaomi.feeder.iv2001](#xiaomi-feeder-iv2001) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Pet Food Feeder 2      | miio:basic       | [xiaomi.feeder.pi2001](#xiaomi-feeder-pi2001) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mijia Smart Dehumidifier 13L       | miio:basic       | [xiaomi.derh.13l](#xiaomi-derh-13l) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Xiaomi Smart Dehumidifier Lite     | miio:basic       | [xiaomi.derh.lite](#xiaomi-derh-lite) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Xiaomi Smart Evaporative Humidifier | miio:basic       | [xiaomi.humidifier.3lite](#xiaomi-humidifier-3lite) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
@@ -720,6 +724,11 @@ Currently the miio binding supports more than 600 different models.
 | Mijia Smart Anti-bacterial Humidifier 2 | miio:basic       | [xiaomi.humidifier.jsq2g](#xiaomi-humidifier-jsq2g) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Xiaomi Smart Humidifier 2          | miio:basic       | [xiaomi.humidifier.jsq2w](#xiaomi-humidifier-jsq2w) | Yes          |            |
 | Mijia Mist-Free Humidifier 3 (400) | miio:basic       | [xiaomi.humidifier.p3](#xiaomi-humidifier-p3) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Electric Hot Water Dispenser 5L | miio:basic       | [xiaomi.kettle.mek02](#xiaomi-kettle-mek02) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Kettle 2 Pro          | miio:basic       | [xiaomi.kettle.v20](#xiaomi-kettle-v20) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Kettle 2 Pro          | miio:basic       | [xiaomi.kettle.v21](#xiaomi-kettle-v21) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Pet Fountain 2         | miio:basic       | [xiaomi.pet_waterer.70m2](#xiaomi-pet_waterer-70m2) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Xiaomi Smart Pet Fountain 2        | miio:basic       | [xiaomi.pet_waterer.iv02](#xiaomi-pet_waterer-iv02) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Wi-Fi Repeater 2                | miio:unsupported | xiaomi.repeater.v2     | No           |            |
 | Xiaomi Robot Vacuum T12            | miio:basic       | [xiaomi.vacuum.b106bk](#xiaomi-vacuum-b106bk) | Yes          | Example command for room cleaning `xiaomi_robot_execute.sendCommand('action{"siid":7,"aiid":3,"in":[{"piid":24,"value":"11,12,etc room ids"},{"piid":25,"value":0},{"piid":26,"value":1}]}')` |
 | Xiaomi Robot Vacuum S12            | miio:basic       | [xiaomi.vacuum.b106eu](#xiaomi-vacuum-b106eu) | Yes          | Example command for room cleaning `xiaomi_robot_execute.sendCommand('action{"siid":7,"aiid":3,"in":[{"piid":24,"value":"11,12,etc room ids"},{"piid":25,"value":0},{"piid":26,"value":1}]}')` |
@@ -750,6 +759,7 @@ Currently the miio binding supports more than 600 different models.
 | Xiaomi Robot Vacuum 6              | miio:basic       | [xiaomi.vacuum.pv32gl](#xiaomi-vacuum-pv32gl) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Xiaomi Robot Vacuum S60+           | miio:basic       | [xiaomi.vacuum.pv51gl](#xiaomi-vacuum-pv51gl) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Xiaomi Robot Vacuum S60            | miio:basic       | [xiaomi.vacuum.pv81gl](#xiaomi-vacuum-pv81gl) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
+| Mijia Smart Water Purifier N800G   | miio:basic       | [xiaomi.waterpuri.cmn800](#xiaomi-waterpuri-cmn800) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Network Speaker                 | miio:unsupported | xiaomi.wifispeaker.v1  | No           |            |
 | Uclean Smart Toilet Seat           | miio:basic       | [xjx.toilet.pro](#xjx-toilet-pro) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Uclean Smart Toilet pure           | miio:basic       | [xjx.toilet.pure](#xjx-toilet-pure) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
@@ -836,6 +846,7 @@ Currently the miio binding supports more than 600 different models.
 | Yilai Ceiling Light Aiyue 480      | miio:basic       | [yilai.light.ceiling1](#yilai-light-ceiling1) | Yes          | The color temperature range differs per model: 2700-5700 K (ceiling5), 3000-5700 K (ceiling16, ceiling17), 2700-6300 K (ceiling21), 2700-6000 K (ceiling22, ceiling23), 2700-6500 K (others). Other scenes can be sent with the `commands` channel, for example `set_scene["ct",3000,50]` or `set_scene["auto_delay_off",50,10]` (brightness 50%, off after 10 minutes) |
 | Yilai Ceiling Lamp Hefeng 430      | miio:basic       | [yilai.light.ceiling2](#yilai-light-ceiling2) | Yes          | The color temperature range differs per model: 2700-5700 K (ceiling5), 3000-5700 K (ceiling16, ceiling17), 2700-6300 K (ceiling21), 2700-6000 K (ceiling22, ceiling23), 2700-6500 K (others). Other scenes can be sent with the `commands` channel, for example `set_scene["ct",3000,50]` or `set_scene["auto_delay_off",50,10]` (brightness 50%, off after 10 minutes) |
 | Yilai Ceiling Lamp Hefeng Pro      | miio:basic       | [yilai.light.ceiling3](#yilai-light-ceiling3) | Yes          | The color temperature range differs per model: 2700-5700 K (ceiling5), 3000-5700 K (ceiling16, ceiling17), 2700-6300 K (ceiling21), 2700-6000 K (ceiling22, ceiling23), 2700-6500 K (others). Other scenes can be sent with the `commands` channel, for example `set_scene["ct",3000,50]` or `set_scene["auto_delay_off",50,10]` (brightness 50%, off after 10 minutes) |
+| Xiaomi Smart Kettle 2 Pro          | miio:basic       | [yunmi.kettle.v19](#yunmi-kettle-v19) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Water Purifier lx2              | miio:basic       | [yunmi.waterpuri.lx2](#yunmi-waterpuri-lx2) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Water Purifier (Under Counter)  | miio:basic       | [yunmi.waterpuri.lx3](#yunmi-waterpuri-lx3) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
 | Mi Water Purifier lx4              | miio:basic       | [yunmi.waterpuri.lx4](#yunmi-waterpuri-lx4) | Experimental | Experimental support. Please report back if all channels are functional. Preferably share the debug log of property refresh and command responses |
@@ -5311,85 +5322,102 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 | not_disturb_switch         | Switch               | Voice - Do Not Disturb                   |            |
 | mop_status                 | Switch               | Other Status - Mop Installed             |            |
 
+### Xiaomi Smart Pet Food Feeder (<a name="mmgg-feeder-fi1">mmgg.feeder.fi1</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| food_level                 | Number               | Food Level                               | Value mapping `["0"="Normal","1"="Low","2"="Empty"]` |
+| dispense_food              | Number               | Dispense Food                            | Dispenses the given number of portions |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cover_open                 | Switch               | Food Compartment Cover Open              |            |
+| feeder_blocked             | Switch               | Feeder Blocked                           | On when the food outlet is blocked; dispensing then fails |
+| feeding_schedule           | Switch               | Feeding Schedule                         | Turns the feeding schedule set in the app on or off |
+| child_lock                 | Switch               | Child Lock                               | Disables the buttons of the feeder |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| desiccant_left_time        | Number:Time          | Desiccant Left Time                      |            |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the desiccant |
+
 ### Mijia Smart Pet Water Dispenser (<a name="mmgg-pet_waterer-s1">mmgg.pet_waterer.s1</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| fault                      | Number               | Pet Drinking Fountain - Device Fault     | Value mapping `["0"="No faults"]` |
-| on                         | Switch               | Power                                    |            |
-| mode                       | Number               | Mode                                     | Value mapping `["1"="Common","2"="Smart "]` |
-| filter-left-time           | Number:Time          | Filter - Filter Left Time                |            |
-| on1                        | Switch               | Indicator Light - Switch                 |            |
-| cotton-left-time           | Number:Time          | Filter Cotton - Cotton Left Time         |            |
-| remain-clean-time          | Number:Time          | Remain Clean Time - Remain Clean Time    |            |
-| no-water-flag              | Switch               | No Water Flag - No Water Flag            |            |
-| resetConsumable            | String               | Consumables Reset                        | Value mapping `["remain-clean-time-reset-clean-time"="Reset Clean Time","filter-cotton-reset-cotton-life"="Reset Cotton Time","filter-reset-filter-life"="Reset Filter Life"]` |
-| no-water-time              | Number:Time          | No Water Flag - No Water Time            |            |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| power                      | Switch               | Power                                    | Off stops the water flow |
+| mode                       | Number               | Mode                                     | Value mapping `["1"="Normal","2"="Smart"]` |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cotton_left_time           | Number:Time          | Cotton Filter Left Time                  |            |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| no_water_flag              | Switch               | Water Present                            | Off when the water tank is empty |
+| no_water_time              | Number:Time          | No Water Duration                        |            |
+| pump_block_flag            | Switch               | Pump Blocked                             | On when the pump is jammed and needs cleaning |
+| lid_up_flag                | Switch               | Lid Lifted                               |            |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the filter or cotton filter, or after cleaning |
 
 ### Mijia Smart Pet Water Dispenser (<a name="mmgg-pet_waterer-s2">mmgg.pet_waterer.s2</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| fault                      | Number               | Pet Drinking Fountain - Device Fault     | Value mapping `["0"="No faults"]` |
-| on                         | Switch               | Power                                    |            |
-| mode                       | Number               | Mode                                     | Value mapping `["1"="Common","2"="Smart "]` |
-| filter-left-time           | Number:Time          | Filter - Filter Left Time                |            |
-| on1                        | Switch               | Indicator Light - Switch                 |            |
-| cotton-left-time           | Number:Time          | Filter Cotton - Cotton Left Time         |            |
-| remain-clean-time          | Number:Time          | Remain Clean Time - Remain Clean Time    |            |
-| no-water-flag              | Switch               | No Water Flag - No Water Flag            |            |
-| resetConsumable            | String               | Consumables Reset                        | Value mapping `["remain-clean-time-reset-clean-time"="Reset Clean Time","filter-cotton-reset-cotton-life"="Reset Cotton Time","filter-reset-filter-life"="Reset Filter Life"]` |
-| no-water-time              | Number:Time          | No Water Flag - No Water Time            |            |
-| pump-block-flag            | Switch               | No Water Flag - Pump Block Flag          |            |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| power                      | Switch               | Power                                    | Off stops the water flow |
+| mode                       | Number               | Mode                                     | Value mapping `["1"="Normal","2"="Smart"]` |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cotton_left_time           | Number:Time          | Cotton Filter Left Time                  |            |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| no_water_flag              | Switch               | Water Present                            | Off when the water tank is empty |
+| no_water_time              | Number:Time          | No Water Duration                        |            |
+| pump_block_flag            | Switch               | Pump Blocked                             | On when the pump is jammed and needs cleaning |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the filter or cotton filter, or after cleaning |
 
 ### Mijia Smart Pet Water Dispenser (<a name="mmgg-pet_waterer-s3">mmgg.pet_waterer.s3</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| fault                      | Number               | Pet Drinking Fountain - Device Fault     | Value mapping `["0"="No faults"]` |
-| on                         | Switch               | Power                                    |            |
-| mode                       | Number               | Mode                                     | Value mapping `["1"="Common","2"="Smart "]` |
-| filter-left-time           | Number:Time          | Filter - Filter Left Time                |            |
-| on1                        | Switch               | Indicator Light - Switch                 |            |
-| cotton-left-time           | Number:Time          | Filter Cotton - Cotton Left Time         |            |
-| remain-clean-time          | Number:Time          | Remain Clean Time - Remain Clean Time    |            |
-| no-water-flag              | Switch               | No Water Flag - No Water Flag            |            |
-| resetConsumable            | String               | Consumables Reset                        | Value mapping `["remain-clean-time-reset-clean-time"="Reset Clean Time","filter-cotton-reset-cotton-life"="Reset Cotton Time","filter-reset-filter-life"="Reset Filter Life"]` |
-| no-water-time              | Number:Time          | No Water Flag - No Water Time            |            |
-| pump-block-flag            | Switch               | No Water Flag - Pump Block Flag          |            |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| power                      | Switch               | Power                                    | Off stops the water flow |
+| mode                       | Number               | Mode                                     | Value mapping `["1"="Normal","2"="Smart"]` |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cotton_left_time           | Number:Time          | Cotton Filter Left Time                  |            |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| no_water_flag              | Switch               | Water Present                            | Off when the water tank is empty |
+| no_water_time              | Number:Time          | No Water Duration                        |            |
+| pump_block_flag            | Switch               | Pump Blocked                             | On when the pump is jammed and needs cleaning |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the filter or cotton filter, or after cleaning |
 
 ### XIAOWAN Smart Pet Water Dispenser (<a name="mmgg-pet_waterer-s4">mmgg.pet_waterer.s4</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| fault                      | Number               | Pet Drinking Fountain - Device Fault     | Value mapping `["0"="No faults"]` |
-| on                         | Switch               | Power                                    |            |
-| mode                       | Number               | Mode                                     | Value mapping `["1"="Common","2"="Smart "]` |
-| filter-left-time           | Number:Time          | Filter - Filter Left Time                |            |
-| on1                        | Switch               | Indicator Light - Switch                 |            |
-| cotton-left-time           | Number:Time          | Filter Cotton - Cotton Left Time         |            |
-| remain-clean-time          | Number:Time          | Remain Clean Time - Remain Clean Time    |            |
-| no-water-flag              | Switch               | No Water Flag - No Water Flag            |            |
-| resetConsumable            | String               | Consumables Reset                        | Value mapping `["remain-clean-time-reset-clean-time"="Reset Clean Time","filter-cotton-reset-cotton-life"="Reset Cotton Time","filter-reset-filter-life"="Reset Filter Life"]` |
-| no-water-time              | Number:Time          | No Water Flag - No Water Time            |            |
-| pump-block-flag            | Switch               | No Water Flag - Pump Block Flag          |            |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| power                      | Switch               | Power                                    | Off stops the water flow |
+| mode                       | Number               | Mode                                     | Value mapping `["1"="Normal","2"="Smart"]` |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cotton_left_time           | Number:Time          | Cotton Filter Left Time                  |            |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| no_water_flag              | Switch               | Water Present                            | Off when the water tank is empty |
+| no_water_time              | Number:Time          | No Water Duration                        |            |
+| pump_block_flag            | Switch               | Pump Blocked                             | On when the pump is jammed and needs cleaning |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the filter or cotton filter, or after cleaning |
 
 ### Xiaomi Smart Pet Fountain (<a name="mmgg-pet_waterer-wi11">mmgg.pet_waterer.wi11</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| actions                    | String               | Actions                                  | Value mapping `["filter-reset-filter-life"="Reset Filter Life","filter-cotton-reset-cotton-life"="Reset Filter Cotton Life","remain-clean-time-reset-clean-time"="Reset Cleaning Reminder"]` |
-| on                         | Switch               | Pet Drinking Fountain - Power            |            |
-| fault                      | Number               | Pet Drinking Fountain - Device Fault     | Value mapping `["0"="No Faults"]` |
-| mode                       | Number               | Pet Drinking Fountain - Mode             | Value mapping `["1"="Common","2"="Smart"]` |
-| filter_left_time           | Number:Time          | Filter - Filter Left Time                |            |
-| on1                        | Switch               | Indicator Light - Power                  |            |
-| cotton_left_time           | Number:Time          | Filter Cotton - Cotton Left Time         |            |
-| remain_clean_time          | Number:Time          | Cleaning Reminder - Days Until Cleaning  |            |
-| no_water_flag              | Switch               | Status - Water Present                   |            |
-| no_water_time              | Number:Time          | Status - No Water Duration               |            |
-| pump_block_flag            | Switch               | Status - Pump Blocked                    |            |
-| lid_up_flag                | Switch               | Status - Lid Open                        |            |
+| power                      | Switch               | Power                                    | Off stops the water flow |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| mode                       | Number               | Mode                                     | Value mapping `["1"="Normal","2"="Smart"]` |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| indicator_light            | Switch               | Indicator Light                          |            |
+| cotton_left_time           | Number:Time          | Cotton Filter Left Time                  |            |
+| remain_clean_time          | Number:Time          | Time Until Cleaning                      |            |
+| no_water_flag              | Switch               | Water Present                            | Off when the water tank is empty |
+| no_water_time              | Number:Time          | No Water Duration                        |            |
+| pump_block_flag            | Switch               | Pump Blocked                             | On when the pump is jammed and needs cleaning |
+| lid_up_flag                | Switch               | Lid Lifted                               |            |
+| reset                      | String               | Reset                                    | Resets the remaining days after replacing the filter or cotton filter, or after cleaning |
 
 ### MR.BOND (<a name="mrbond-airer-m0">mrbond.airer.m0</a>) Channels
 
@@ -9148,16 +9176,33 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| washStatus                 | Number               | Wash Status                              |            |
-| velocity                   | Number               | Velocity                                 |            |
+| washStatus                 | Switch               | Power                                    |            |
+| velocity                   | Number               | Water Flow                               | Above 0 while hot water is used |
 | waterTemp                  | Number:Temperature   | Water Temperature                        |            |
 | targetTemp                 | Number:Temperature   | Target Temperature                       |            |
-| errStatus                  | Number               | Error Status                             |            |
-| hotWater                   | Number               | Hot Water                                |            |
-| needClean                  | Switch               | Need Clean                               |            |
-| modeType                   | Number               | Mode                                     |            |
-| appointStart               | Number               | Appoint Start                            |            |
-| appointEnd                 | Number               | Appoint End                              |            |
+| errStatus                  | Number               | Error Code                               | Bit field: 2 sensor open or short circuit, 3 inner tank over-temperature, 4 inner tank dry heating, 5 and 6 sensor fault, 7 dry heating fault, 9 over-temperature fault |
+| hotWater                   | Number:Dimensionless | Hot Water                                | Remaining hot water |
+| needClean                  | Switch               | Cleaning Needed                          | On after 180 days of use |
+| cleanReset                 | String               | Reset Cleaning Reminder                  | Send after cleaning the inner tank |
+| modeType                   | Number               | Mode                                     | Value mapping `["0"="Thermostatic","1"="Heating","2"="Booking"]` |
+| appointStart               | Number               | Booking Start Hour                       | Booking mode heats between the start and end hour; setting it switches to booking mode |
+| appointEnd                 | Number               | Booking End Hour                         | Booking mode heats between the start and end hour; setting it switches to booking mode |
+
+### VIOMI Internet electric water heater 50L(Premium Version) (<a name="viomi-waterheater-e4">viomi.waterheater.e4</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| washStatus                 | Switch               | Power                                    |            |
+| velocity                   | Number               | Water Flow                               | Above 0 while hot water is used |
+| waterTemp                  | Number:Temperature   | Water Temperature                        |            |
+| targetTemp                 | Number:Temperature   | Target Temperature                       |            |
+| errStatus                  | Number               | Error Code                               | Bit field: 2 sensor open or short circuit, 3 inner tank over-temperature, 4 inner tank dry heating, 5 and 6 sensor fault, 7 dry heating fault, 9 over-temperature fault |
+| hotWater                   | Number:Dimensionless | Hot Water                                | Remaining hot water |
+| needClean                  | Switch               | Cleaning Needed                          | On after 180 days of use |
+| cleanReset                 | String               | Reset Cleaning Reminder                  | Send after cleaning the inner tank |
+| modeType                   | Number               | Mode                                     | Value mapping `["0"="Thermostatic","1"="Heating","2"="Booking"]` |
+| appointStart               | Number               | Booking Start Hour                       | Booking mode heats between the start and end hour; setting it switches to booking mode |
+| appointEnd                 | Number               | Booking End Hour                         | Booking mode heats between the start and end hour; setting it switches to booking mode |
 
 ### Mi Inverter Air Conditioner (1.5HP) (<a name="xiaomi-aircondition-ma1">xiaomi.aircondition.ma1</a>) Channels
 
@@ -10091,6 +10136,52 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 | child_lock                 | Switch               | Child Lock                               |            |
 | fault                      | Number               | Device Fault                             | Value mapping `["0"="No Faults","1"="Motor Stuck","2"="Insufficient Power"]` |
 
+### Xiaomi Smart Pet Food Feeder 2 (<a name="xiaomi-feeder-iv2001">xiaomi.feeder.iv2001</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults","1"="Fault"]` |
+| food_level                 | Number               | Food Level                               | Value mapping `["0"="Normal","1"="Low"]` |
+| dispense_food              | Number               | Dispense Food                            | Dispenses the given number of portions of about 10 g (pi2001 with older firmware: grams) |
+| food_jammed                | Switch               | Food Jammed                              |            |
+| bowl_error                 | Switch               | Food Bowl Error                          | On when the food bowl was removed or is not placed correctly |
+| bowl_empty                 | Switch               | Food Bowl Empty                          | Refill reminder: on when the food bowl was empty for the set time |
+| bowl_full                  | Switch               | Food Bowl Full                           |            |
+| food_eaten_today           | Number               | Food Eaten Today                         |            |
+| dispensing                 | Number               | Dispensing                               | Value mapping `["0"="Idle","1"="Busy"]` |
+| child_lock                 | Switch               | Child Lock                               | Disables the dispense buttons of the feeder |
+| auto_screen_off            | Switch               | Auto Screen Off                          |            |
+| schedule                   | String               | Feeding Schedule                         | Format `[A,HHMMPPEE,...]`: A 1 when automatic feeding is on, then per meal the time, the portions (two digits) and 01 when enabled or 00 when disabled |
+| schedule_progress_display  | Switch               | Display Schedule Progress                | Shows the progress of the feeding schedule as a percentage on the feeder |
+| dispensing_correction      | Switch               | Dispensing Error Correction              | Dispenses extra food to keep the error within 5 g |
+| spillage_prevention        | Switch               | Food Bowl Spillage Prevention            | Stops automatic dispensing when the food bowl is full |
+| schedule_progress          | Number:Dimensionless | Schedule Progress                        |            |
+| screen_display             | Number               | Screen Display                           | Value mapping `["0"="Food Left (g)","1"="Food Eaten (g)","2"="Percentage"]` |
+| desiccant_left_level       | Number:Dimensionless | Desiccant Left Level                     |            |
+
+### Mijia Smart Pet Food Feeder 2 (<a name="xiaomi-feeder-pi2001">xiaomi.feeder.pi2001</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults","1"="Fault"]` |
+| food_level                 | Number               | Food Level                               | Value mapping `["0"="Normal","1"="Low"]` |
+| dispense_food              | Number               | Dispense Food                            | Dispenses the given number of portions of about 10 g (pi2001 with older firmware: grams) |
+| food_jammed                | Switch               | Food Jammed                              |            |
+| bowl_error                 | Switch               | Food Bowl Error                          | On when the food bowl was removed or is not placed correctly |
+| bowl_empty                 | Switch               | Food Bowl Empty                          | Refill reminder: on when the food bowl was empty for the set time |
+| bowl_full                  | Switch               | Food Bowl Full                           |            |
+| food_eaten_today           | Number               | Food Eaten Today                         |            |
+| dispensing                 | Number               | Dispensing                               | Value mapping `["0"="Idle","1"="Busy"]` |
+| child_lock                 | Switch               | Child Lock                               | Disables the dispense buttons of the feeder |
+| auto_screen_off            | Switch               | Auto Screen Off                          |            |
+| schedule                   | String               | Feeding Schedule                         | Format `[A,HHMMPPEE,...]`: A 1 when automatic feeding is on, then per meal the time, the portions (two digits) and 01 when enabled or 00 when disabled |
+| schedule_progress_display  | Switch               | Display Schedule Progress                | Shows the progress of the feeding schedule as a percentage on the feeder |
+| dispensing_correction      | Switch               | Dispensing Error Correction              | Dispenses extra food to keep the error within 5 g |
+| spillage_prevention        | Switch               | Food Bowl Spillage Prevention            | Stops automatic dispensing when the food bowl is full |
+| schedule_progress          | Number:Dimensionless | Schedule Progress                        |            |
+| screen_display             | Number               | Screen Display                           | Value mapping `["0"="Food Left (g)","1"="Food Eaten (g)","2"="Percentage"]` |
+| desiccant_left_level       | Number:Dimensionless | Desiccant Left Level                     |            |
+
 ### Mijia Smart Dehumidifier 13L (<a name="xiaomi-derh-13l">xiaomi.derh.13l</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
@@ -10271,6 +10362,115 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 | led_brightness             | Number               | Display Brightness                       | Value mapping `["0"="Dim","1"="Bright"]` |
 | filter_life_level          | Number:Dimensionless | Filter Life                              |            |
 | actions                    | String               | Actions                                  | The filter reset is not yet confirmed on a device; Value mapping `["reset-filter-life"="Reset Filter Life"]` |
+
+### Xiaomi Smart Electric Hot Water Dispenser 5L (<a name="xiaomi-kettle-mek02">xiaomi.kettle.mek02</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| status                     | Number               | Status                                   | Value mapping `["0"="Power Off","1"="Standby","2"="Heating","3"="Heating Finished","4"="Dechlorination","5"="Keep Warm","6"="Keep Warm Finished","7"="Cooling Down","8"="Delayed Start"]` |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Fault","1"="Temperature Sensor Open Circuit","2"="Temperature Sensor Short Circuit","3"="Heating Without Water"]` |
+| temperature                | Number:Temperature   | Water Temperature                        |            |
+| heating                    | String               | Heating                                  | Heat Water heats to the boiling point, Keep Warm to the keep warm temperature, with the settings below; link those channels |
+| target_temperature         | Number:Temperature   | Target Temperature                       |            |
+| boiling_point              | Number:Temperature   | Boiling Point                            |            |
+| auto_keep_warm             | Switch               | Keep Warm After Heating                  |            |
+| keep_warm_temperature      | Number:Temperature   | Keep Warm Temperature                    |            |
+| dechlorination             | Switch               | Dechlorination                           |            |
+| pure_water_keep_warm       | Switch               | Pure Water Keep Warm                     |            |
+| pure_water_keep_warm_temperature | Number:Temperature   | Pure Water Keep Warm Temperature         |            |
+| dechlorination_progress    | Number:Dimensionless | Dechlorination Progress                  |            |
+| out_water_time             | Number               | Dispense Amount                          | Value mapping `["1"="Capacity 1","2"="Capacity 2","3"="Capacity 3","4"="Unlimited"]` |
+| mode_id                    | String               | Recipe                                   | M0 heat water, M1 keep warm, A<n> / C<n> custom recipes |
+| reservation_left_time      | Number:Time          | Delayed Start Time Left                  |            |
+| child_lock                 | Switch               | Child Lock                               |            |
+| current_physical_control_lock | Switch               | Child Lock Active                        |            |
+| alarm                      | Switch               | Sound                                    |            |
+| auto_screen_off            | Number               | Screen Off After                         | Value mapping `["0"="1 Minute","1"="3 Minutes","2"="5 Minutes"]` |
+
+### Xiaomi Smart Kettle 2 Pro (<a name="xiaomi-kettle-v20">xiaomi.kettle.v20</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| status                     | Number               | Status                                   | Value mapping `["0"="Standby","1"="Heating","2"="Boiling","3"="Cooling","4"="Keep Warm"]` |
+| fault                      | Number               | Fault                                    |            |
+| temperature                | Number:Temperature   | Water Temperature                        |            |
+| heating                    | String               | Heating                                  | Start sends the target temperature, mode and keep warm settings together, as the app does; link those channels |
+| target_temperature         | Number:Temperature   | Target Temperature                       |            |
+| target_mode                | Number               | Mode                                     | Value mapping `["0"="Heat","1"="Boil"]` |
+| auto_keep_warm             | Switch               | Keep Warm                                |            |
+| keep_warm_temperature      | Number:Temperature   | Keep Warm Temperature                    |            |
+| keep_warm_time             | Number:Time          | Keep Warm Time                           |            |
+| warming_time               | Number:Time          | Keep Warm Elapsed Time                   |            |
+| kettle_lifting             | Switch               | Kettle Lifted                            |            |
+| no_disturb                 | Switch               | Do Not Disturb                           |            |
+| custom_knob_temp           | Switch               | Custom Knob Temperature                  |            |
+| lift_remember_temp         | Switch               | Remember Temperature After Lifting       |            |
+| boiling_reminder           | Switch               | Boiling Reminder                         |            |
+| keep_warm_reminder         | Switch               | Keep Warm Reminder                       |            |
+
+### Xiaomi Smart Kettle 2 Pro (<a name="xiaomi-kettle-v21">xiaomi.kettle.v21</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| status                     | Number               | Status                                   | Value mapping `["0"="Standby","1"="Heating","2"="Boiling","3"="Cooling","4"="Keep Warm"]` |
+| fault                      | Number               | Fault                                    |            |
+| temperature                | Number:Temperature   | Water Temperature                        |            |
+| heating                    | String               | Heating                                  | Start sends the target temperature, mode and keep warm settings together, as the app does; link those channels |
+| target_temperature         | Number:Temperature   | Target Temperature                       |            |
+| target_mode                | Number               | Mode                                     | Value mapping `["0"="Heat","1"="Boil"]` |
+| auto_keep_warm             | Switch               | Keep Warm                                |            |
+| keep_warm_temperature      | Number:Temperature   | Keep Warm Temperature                    |            |
+| keep_warm_time             | Number:Time          | Keep Warm Time                           |            |
+| warming_time               | Number:Time          | Keep Warm Elapsed Time                   |            |
+| kettle_lifting             | Switch               | Kettle Lifted                            |            |
+| no_disturb                 | Switch               | Do Not Disturb                           |            |
+| custom_knob_temp           | Switch               | Custom Knob Temperature                  |            |
+| lift_remember_temp         | Switch               | Remember Temperature After Lifting       |            |
+| boiling_reminder           | Switch               | Boiling Reminder                         |            |
+| keep_warm_reminder         | Switch               | Keep Warm Reminder                       |            |
+
+### Mijia Smart Pet Fountain 2 (<a name="xiaomi-pet_waterer-70m2">xiaomi.pet_waterer.70m2</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Faults"]` |
+| status                     | Number               | Status                                   | Value mapping `["1"="On Standby","2"="Water Dispensing"]` |
+| mode                       | Number               | Mode                                     | Continuous mode is only available while charging. Value mapping `["0"="Sensing","1"="Intermittent","2"="Continuous"]` |
+| water_interval             | Number:Time          | Dispense Interval                        | Interval of the intermittent mode |
+| water_shortage             | Switch               | Water Shortage                           |            |
+| filter_life_level          | Number:Dimensionless | Filter Life Level                        |            |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| child_lock                 | Switch               | Child Lock                               | All buttons except the power button are disabled |
+| battery_level              | Number:Dimensionless | Battery Level                            |            |
+| charging_state             | Number               | Charging State                           | Value mapping `["0"="Not Charging","1"="Charging","2"="Fully Charged"]` |
+| dnd                        | Switch               | Do Not Disturb                           | The indicators are off during the DND period |
+| low_battery                | Switch               | Low Battery                              |            |
+| charger_connected          | Switch               | Charger Connected                        |            |
+| dnd_start                  | Number:Time          | Do Not Disturb Start                     | Seconds after midnight |
+| dnd_end                    | Number:Time          | Do Not Disturb End                       | Seconds after midnight |
+| pump_block_flag            | Switch               | Pump Blocked                             |            |
+
+### Xiaomi Smart Pet Fountain 2 (<a name="xiaomi-pet_waterer-iv02">xiaomi.pet_waterer.iv02</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| power                      | Switch               | Power                                    |            |
+| status                     | Number               | Status                                   | Value mapping `["1"="On Standby","2"="Water Dispensing"]` |
+| mode                       | Number               | Mode                                     | Continuous mode is only available while charging. Value mapping `["0"="Sensing","1"="Intermittent","2"="Continuous"]` |
+| water_interval             | Number:Time          | Dispense Interval                        | Interval of the intermittent mode (older firmware) |
+| water_interval_new         | Number:Time          | Dispense Interval (New Firmware)         | Interval of the intermittent mode, used by newer firmware |
+| water_shortage             | Switch               | Water Shortage                           |            |
+| filter_life_level          | Number:Dimensionless | Filter Life Level                        |            |
+| filter_left_time           | Number:Time          | Filter Left Time                         |            |
+| child_lock                 | Switch               | Child Lock                               | All buttons except the power button are disabled |
+| battery_level              | Number:Dimensionless | Battery Level                            |            |
+| charging_state             | Number               | Charging State                           | Value mapping `["0"="Not Charging","1"="Charging","2"="Fully Charged"]` |
+| dnd                        | Switch               | Do Not Disturb                           | The indicators are off during the DND period |
+| low_battery                | Switch               | Low Battery                              |            |
+| charger_connected          | Switch               | Charger Connected                        |            |
+| dnd_start                  | Number:Time          | Do Not Disturb Start                     | Seconds after midnight |
+| dnd_end                    | Number:Time          | Do Not Disturb End                       | Seconds after midnight |
+| pump_block_flag            | Switch               | Pump Blocked                             |            |
 
 ### Xiaomi Robot Vacuum T12 (<a name="xiaomi-vacuum-b106bk">xiaomi.vacuum.b106bk</a>) Channels
 
@@ -11846,6 +12046,25 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 | filter_life_level          | Number:Dimensionless | Filter - Filter Life Level               |            |
 | filter_left_time           | Number:Time          | Filter - Filter Left Time                |            |
 
+### Mijia Smart Water Purifier N800G (<a name="xiaomi-waterpuri-cmn800">xiaomi.waterpuri.cmn800</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| status                     | Number               | Status                                   | Value mapping `["0"="Idle","1"="Purifying","2"="Cleaning","3"="Error","4"="Holiday Cleaning"]` |
+| fault                      | Number               | Fault                                    | Value mapping `["0"="No Fault","1"="Water Running Too Long","2"="Power Fault","3"="Water Shortage","4"="Sensor Fault"]` |
+| temperature                | Number:Temperature   | Water Temperature                        |            |
+| tds_out                    | Number:Dimensionless | TDS Out                                  |            |
+| filter_life_ppc            | Number:Dimensionless | PPC Filter Life                          |            |
+| filter_life_ro             | Number:Dimensionless | RO Filter Life                           |            |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
+| pipeline_connection        | Switch               | Dispenser Mode                           | For a connected water dispenser |
+| holiday_mode               | Switch               | Holiday Mode                             |            |
+| anti_icing_remind          | Switch               | Low Temperature Notification             |            |
+| no_production_water_time   | Switch               | Long Idle                                | On when no water was produced for a long time |
+| no_disturb                 | Switch               | Do Not Disturb                           |            |
+| no_disturb_period          | String               | Do Not Disturb Period                    | Start and end time as HHMMHHMM, for example 22000700 |
+| reset_status               | Number               | Reset Status                             | Value mapping `["0"="Reset Completed","1"="Device Needs Reset","2"="App Needs Reset"]` |
+
 ### Uclean Smart Toilet Seat (<a name="xjx-toilet-pro">xjx.toilet.pro</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
@@ -12956,468 +13175,395 @@ Note, not all the values need to be in the json file, e.g. a subset of the param
 | nightlightBrightness       | Dimmer               | Nightlight Brightness                    | Setting a value switches the light to night light mode |
 | nightlightMode             | Switch               | Night Light Mode                         | Switching off returns the light to CT mode |
 
+### Xiaomi Smart Kettle 2 Pro (<a name="yunmi-kettle-v19">yunmi.kettle.v19</a>) Channels
+
+| Channel                    | Type                 | Description                              | Comment    |
+|----------------------------|----------------------|------------------------------------------|------------|
+| status                     | Number               | Status                                   | Value mapping `["0"="Standby","1"="Heating","2"="Boiling","3"="Cooling","4"="Keep Warm"]` |
+| fault                      | Number               | Fault                                    |            |
+| temperature                | Number:Temperature   | Water Temperature                        |            |
+| heating                    | String               | Heating                                  | Start sends the target temperature, mode and keep warm settings together, as the app does; link those channels |
+| target_temperature         | Number:Temperature   | Target Temperature                       |            |
+| target_mode                | Number               | Mode                                     | Value mapping `["0"="Heat","1"="Boil"]` |
+| auto_keep_warm             | Switch               | Keep Warm                                |            |
+| keep_warm_temperature      | Number:Temperature   | Keep Warm Temperature                    |            |
+| keep_warm_time             | Number:Time          | Keep Warm Time                           |            |
+| warming_time               | Number:Time          | Keep Warm Elapsed Time                   |            |
+| kettle_lifting             | Switch               | Kettle Lifted                            |            |
+| no_disturb                 | Switch               | Do Not Disturb                           |            |
+| custom_knob_temp           | Switch               | Custom Knob Temperature                  |            |
+| lift_remember_temp         | Switch               | Remember Temperature After Lifting       |            |
+| boiling_reminder           | Switch               | Boiling Reminder                         |            |
+| keep_warm_reminder         | Switch               | Keep Warm Reminder                       |            |
+
 ### Mi Water Purifier lx2 (<a name="yunmi-waterpuri-lx2">yunmi.waterpuri.lx2</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier (Under Counter) (<a name="yunmi-waterpuri-lx3">yunmi.waterpuri.lx3</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier lx4 (<a name="yunmi-waterpuri-lx4">yunmi.waterpuri.lx4</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier 1A/400G Pro (<a name="yunmi-waterpuri-lx5">yunmi.waterpuri.lx5</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | Notice when TDS Out is above this value |
 | lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier (Under Counter) (<a name="yunmi-waterpuri-lx6">yunmi.waterpuri.lx6</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier 500G/500G Pro (<a name="yunmi-waterpuri-lx7">yunmi.waterpuri.lx7</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | Notice when TDS Out is above this value |
 | lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier 600G (<a name="yunmi-waterpuri-lx8">yunmi.waterpuri.lx8</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
 | lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier D1 (<a name="yunmi-waterpuri-lx9">yunmi.waterpuri.lx9</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
-| f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
-| f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
-| f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
-| f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | The app does not use it for these models |
+| uv_working                 | Switch               | UV Sterilization                         | Only yunmi.waterpuri.lx10 |
+| plmachine                  | Switch               | Pipeline Machine Support                 | Only yunmi.waterpuri.lx12 |
 
 ### Mi Water Purifier lx10 (<a name="yunmi-waterpuri-lx10">yunmi.waterpuri.lx10</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
-| f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
-| f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
-| f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
-| f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | The app does not use it for these models |
+| uv_working                 | Switch               | UV Sterilization                         | Only yunmi.waterpuri.lx10 |
+| plmachine                  | Switch               | Pipeline Machine Support                 | Only yunmi.waterpuri.lx12 |
 
 ### Mi Water Purifier C1 (Triple Setting) (<a name="yunmi-waterpuri-lx11">yunmi.waterpuri.lx11</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
-| f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
-| f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
-| f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
-| f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | The app does not use it for these models |
+| uv_working                 | Switch               | UV Sterilization                         | Only yunmi.waterpuri.lx10 |
+| plmachine                  | Switch               | Pipeline Machine Support                 | Only yunmi.waterpuri.lx12 |
 
 ### Mi Water Purifier S1 (<a name="yunmi-waterpuri-lx12">yunmi.waterpuri.lx12</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
-| f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
-| f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
-| f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
-| f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
-| f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
-| f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
-| f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
-| f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| run_status                 | Number               | Error Code                               | Bit field: 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
+| temperature                | Number:Temperature   | Inlet Water Temperature                  |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
+| tds_warn_thd               | Number:Dimensionless | TDS Warning Threshold                    | The app does not use it for these models |
+| uv_working                 | Switch               | UV Sterilization                         | Only yunmi.waterpuri.lx10 |
+| plmachine                  | Switch               | Pipeline Machine Support                 | Only yunmi.waterpuri.lx12 |
 
 ### Mi Water Purifier v1 (<a name="yunmi-waterpurifier-v1">yunmi.waterpurifier.v1</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier v2 (<a name="yunmi-waterpurifier-v2">yunmi.waterpurifier.v2</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier (Under sink) v3 (<a name="yunmi-waterpurifier-v3">yunmi.waterpurifier.v3</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Mi Water Purifier v4 (<a name="yunmi-waterpurifier-v4">yunmi.waterpurifier.v4</a>) Channels
 
 | Channel                    | Type                 | Description                              | Comment    |
 |----------------------------|----------------------|------------------------------------------|------------|
-| run_status                 | Number               | Run Status                               |            |
-| temperature                | Number:Temperature   | Temperature                              |            |
-| rinse                      | Number               | Rinse                                    |            |
-| tds_in                     | Number               | TDS in                                   |            |
-| tds_out                    | Number               | TDS out                                  |            |
+| run_status                 | Number               | Error Code                               | Bit field: 0 temperature anomaly, 1 meter damaged, 2 flow sensor anomaly, 3 filter life expired, 4 network connection error, 5 EEPROM communication error, 6 RFID communication error, 7 faucet communication error, 8 purified water flow error, 9 water leak, 10 floater error, 11 TDS error, 12 water temperature too high, 13 recovery rate error, 14 water quality anomaly, 15 pump thermal protection |
+| rinse                      | Switch               | Rinsing                                  |            |
+| tds_in                     | Number:Dimensionless | TDS In                                   | Shown in the app as mg/L, which equals ppm for water |
+| tds_out                    | Number:Dimensionless | TDS Out                                  | Shown in the app as mg/L, which equals ppm for water |
 | f1_totalflow               | Number               | Filter 1 Total Flow                      |            |
-| f1_totaltime               | Number               | Filter 1 Total Time                      |            |
+| f1_totaltime               | Number:Time          | Filter 1 Total Time                      |            |
 | f1_usedflow                | Number               | Filter 1 Used Flow                       |            |
-| f1_usedtime                | Number               | Filter 1 Used Time                       |            |
+| f1_usedtime                | Number:Time          | Filter 1 Used Time                       | Remaining filter life is (total time - used time) / total time |
 | f2_totalflow               | Number               | Filter 2 Total Flow                      |            |
-| f2_totaltime               | Number               | Filter 2 Total Time                      |            |
+| f2_totaltime               | Number:Time          | Filter 2 Total Time                      |            |
 | f2_usedflow                | Number               | Filter 2 Used Flow                       |            |
-| f2_usedtime                | Number               | Filter 2 Used Time                       |            |
+| f2_usedtime                | Number:Time          | Filter 2 Used Time                       |            |
 | f3_totalflow               | Number               | Filter 3 Total Flow                      |            |
-| f3_totaltime               | Number               | Filter 3 Total Time                      |            |
+| f3_totaltime               | Number:Time          | Filter 3 Total Time                      |            |
 | f3_usedflow                | Number               | Filter 3 Used Flow                       |            |
-| f3_usedtime                | Number               | Filter 3 Used Time                       |            |
+| f3_usedtime                | Number:Time          | Filter 3 Used Time                       |            |
 | f4_totalflow               | Number               | Filter 4 Total Flow                      |            |
-| f4_totaltime               | Number               | Filter 4 Total Time                      |            |
+| f4_totaltime               | Number:Time          | Filter 4 Total Time                      |            |
 | f4_usedflow                | Number               | Filter 4 Used Flow                       |            |
-| f4_usedtime                | Number               | Filter 4 Used Time                       |            |
-| maintenance_state          | Number               | Maintenance State                        |            |
-| maintenance_interval       | Number               | Maintenance Interval                     |            |
-| tds_warn_thd               | Number               | TDS Warn Threshold                       |            |
-| tds_out_avg                | Number               | Average TDS out                          |            |
-| lightMode                  | Number               | Light Mode                               | Value mapping `["0"="Simple Mode","1"="Special Mode"]` |
+| f4_usedtime                | Number:Time          | Filter 4 Used Time                       |            |
+| maintenance_state          | Number               | Maintenance State                        | Only yunmi.waterpuri.lx4 |
+| maintenance_interval       | Number:Time          | Unused Time                              | Only yunmi.waterpuri.lx4 |
+| filter_reset               | String               | Reset Filter                             | Resets the remaining life of the selected filter, only after replacing it |
 
 ### Smartmi Ventilation System (<a name="zhimi-airfresh-va2">zhimi.airfresh.va2</a>) Channels
 
@@ -19528,22 +19674,42 @@ Switch not_disturb_switch "Voice - Do Not Disturb" (G_vacuum) {channel="miio:bas
 Switch mop_status "Other Status - Mop Installed" (G_vacuum) {channel="miio:basic:vacuum:mop_status"}
 ```
 
+### Xiaomi Smart Pet Food Feeder (mmgg.feeder.fi1) item file lines
+
+note: Autogenerated example. Replace the id (feeder) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_feeder "Xiaomi Smart Pet Food Feeder" <status>
+Number food_level "Food Level" (G_feeder) {channel="miio:basic:feeder:food_level"}
+Number dispense_food "Dispense Food" (G_feeder) {channel="miio:basic:feeder:dispense_food"}
+Switch indicator_light "Indicator Light" (G_feeder) {channel="miio:basic:feeder:indicator_light"}
+Switch cover_open "Food Compartment Cover Open" (G_feeder) {channel="miio:basic:feeder:cover_open"}
+Switch feeder_blocked "Feeder Blocked" (G_feeder) {channel="miio:basic:feeder:feeder_blocked"}
+Switch feeding_schedule "Feeding Schedule" (G_feeder) {channel="miio:basic:feeder:feeding_schedule"}
+Switch child_lock "Child Lock" (G_feeder) {channel="miio:basic:feeder:child_lock"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_feeder) {channel="miio:basic:feeder:remain_clean_time"}
+Number:Time desiccant_left_time "Desiccant Left Time" (G_feeder) {channel="miio:basic:feeder:desiccant_left_time"}
+String reset "Reset" (G_feeder) {channel="miio:basic:feeder:reset"}
+```
+
 ### Mijia Smart Pet Water Dispenser (mmgg.pet_waterer.s1) item file lines
 
 note: Autogenerated example. Replace the id (pet_waterer) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
 
 ```java
 Group G_pet_waterer "Mijia Smart Pet Water Dispenser" <status>
-Number fault "Pet Drinking Fountain - Device Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
-Switch on "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on"}
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
 Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
-Number:Time filter_left_time "Filter - Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter-left-time"}
-Switch on1 "Indicator Light - Switch" (G_pet_waterer) {channel="miio:basic:pet_waterer:on1"}
-Number:Time cotton_left_time "Filter Cotton - Cotton Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton-left-time"}
-Number:Time remain_clean_time "Remain Clean Time - Remain Clean Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain-clean-time"}
-Switch no_water_flag "No Water Flag - No Water Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-flag"}
-String resetConsumable "Consumables Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:resetConsumable"}
-Number:Time no_water_time "No Water Flag - No Water Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-time"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch indicator_light "Indicator Light" (G_pet_waterer) {channel="miio:basic:pet_waterer:indicator_light"}
+Number:Time cotton_left_time "Cotton Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
+Switch no_water_flag "Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
+Number:Time no_water_time "No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+Switch lid_up_flag "Lid Lifted" (G_pet_waterer) {channel="miio:basic:pet_waterer:lid_up_flag"}
+String reset "Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:reset"}
 ```
 
 ### Mijia Smart Pet Water Dispenser (mmgg.pet_waterer.s2) item file lines
@@ -19552,17 +19718,17 @@ note: Autogenerated example. Replace the id (pet_waterer) in the channel with yo
 
 ```java
 Group G_pet_waterer "Mijia Smart Pet Water Dispenser" <status>
-Number fault "Pet Drinking Fountain - Device Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
-Switch on "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on"}
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
 Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
-Number:Time filter_left_time "Filter - Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter-left-time"}
-Switch on1 "Indicator Light - Switch" (G_pet_waterer) {channel="miio:basic:pet_waterer:on1"}
-Number:Time cotton_left_time "Filter Cotton - Cotton Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton-left-time"}
-Number:Time remain_clean_time "Remain Clean Time - Remain Clean Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain-clean-time"}
-Switch no_water_flag "No Water Flag - No Water Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-flag"}
-String resetConsumable "Consumables Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:resetConsumable"}
-Number:Time no_water_time "No Water Flag - No Water Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-time"}
-Switch pump_block_flag "No Water Flag - Pump Block Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump-block-flag"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch indicator_light "Indicator Light" (G_pet_waterer) {channel="miio:basic:pet_waterer:indicator_light"}
+Number:Time cotton_left_time "Cotton Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
+Switch no_water_flag "Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
+Number:Time no_water_time "No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+String reset "Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:reset"}
 ```
 
 ### Mijia Smart Pet Water Dispenser (mmgg.pet_waterer.s3) item file lines
@@ -19571,17 +19737,17 @@ note: Autogenerated example. Replace the id (pet_waterer) in the channel with yo
 
 ```java
 Group G_pet_waterer "Mijia Smart Pet Water Dispenser" <status>
-Number fault "Pet Drinking Fountain - Device Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
-Switch on "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on"}
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
 Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
-Number:Time filter_left_time "Filter - Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter-left-time"}
-Switch on1 "Indicator Light - Switch" (G_pet_waterer) {channel="miio:basic:pet_waterer:on1"}
-Number:Time cotton_left_time "Filter Cotton - Cotton Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton-left-time"}
-Number:Time remain_clean_time "Remain Clean Time - Remain Clean Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain-clean-time"}
-Switch no_water_flag "No Water Flag - No Water Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-flag"}
-String resetConsumable "Consumables Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:resetConsumable"}
-Number:Time no_water_time "No Water Flag - No Water Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-time"}
-Switch pump_block_flag "No Water Flag - Pump Block Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump-block-flag"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch indicator_light "Indicator Light" (G_pet_waterer) {channel="miio:basic:pet_waterer:indicator_light"}
+Number:Time cotton_left_time "Cotton Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
+Switch no_water_flag "Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
+Number:Time no_water_time "No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+String reset "Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:reset"}
 ```
 
 ### XIAOWAN Smart Pet Water Dispenser (mmgg.pet_waterer.s4) item file lines
@@ -19590,17 +19756,17 @@ note: Autogenerated example. Replace the id (pet_waterer) in the channel with yo
 
 ```java
 Group G_pet_waterer "XIAOWAN Smart Pet Water Dispenser" <status>
-Number fault "Pet Drinking Fountain - Device Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
-Switch on "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on"}
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
 Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
-Number:Time filter_left_time "Filter - Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter-left-time"}
-Switch on1 "Indicator Light - Switch" (G_pet_waterer) {channel="miio:basic:pet_waterer:on1"}
-Number:Time cotton_left_time "Filter Cotton - Cotton Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton-left-time"}
-Number:Time remain_clean_time "Remain Clean Time - Remain Clean Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain-clean-time"}
-Switch no_water_flag "No Water Flag - No Water Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-flag"}
-String resetConsumable "Consumables Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:resetConsumable"}
-Number:Time no_water_time "No Water Flag - No Water Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:no-water-time"}
-Switch pump_block_flag "No Water Flag - Pump Block Flag" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump-block-flag"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch indicator_light "Indicator Light" (G_pet_waterer) {channel="miio:basic:pet_waterer:indicator_light"}
+Number:Time cotton_left_time "Cotton Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
+Switch no_water_flag "Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
+Number:Time no_water_time "No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+String reset "Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:reset"}
 ```
 
 ### Xiaomi Smart Pet Fountain (mmgg.pet_waterer.wi11) item file lines
@@ -19609,18 +19775,18 @@ note: Autogenerated example. Replace the id (pet_waterer) in the channel with yo
 
 ```java
 Group G_pet_waterer "Xiaomi Smart Pet Fountain" <status>
-String actions "Actions" (G_pet_waterer) {channel="miio:basic:pet_waterer:actions"}
-Switch on "Pet Drinking Fountain - Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on"}
-Number fault "Pet Drinking Fountain - Device Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
-Number mode "Pet Drinking Fountain - Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
-Number:Time filter_left_time "Filter - Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
-Switch on1 "Indicator Light - Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:on1"}
-Number:Time cotton_left_time "Filter Cotton - Cotton Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
-Number:Time remain_clean_time "Cleaning Reminder - Days Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
-Switch no_water_flag "Status - Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
-Number:Time no_water_time "Status - No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
-Switch pump_block_flag "Status - Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
-Switch lid_up_flag "Status - Lid Open" (G_pet_waterer) {channel="miio:basic:pet_waterer:lid_up_flag"}
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch indicator_light "Indicator Light" (G_pet_waterer) {channel="miio:basic:pet_waterer:indicator_light"}
+Number:Time cotton_left_time "Cotton Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:cotton_left_time"}
+Number:Time remain_clean_time "Time Until Cleaning" (G_pet_waterer) {channel="miio:basic:pet_waterer:remain_clean_time"}
+Switch no_water_flag "Water Present" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_flag"}
+Number:Time no_water_time "No Water Duration" (G_pet_waterer) {channel="miio:basic:pet_waterer:no_water_time"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+Switch lid_up_flag "Lid Lifted" (G_pet_waterer) {channel="miio:basic:pet_waterer:lid_up_flag"}
+String reset "Reset" (G_pet_waterer) {channel="miio:basic:pet_waterer:reset"}
 ```
 
 ### MR.BOND (mrbond.airer.m0) item file lines
@@ -23850,16 +24016,36 @@ note: Autogenerated example. Replace the id (waterheater) in the channel with yo
 
 ```java
 Group G_waterheater "VIOMI Internet Electric Water Heater 1A (60L)" <status>
-Number washStatus "Wash Status" (G_waterheater) {channel="miio:basic:waterheater:washStatus"}
-Number velocity "Velocity" (G_waterheater) {channel="miio:basic:waterheater:velocity"}
+Switch washStatus "Power" (G_waterheater) {channel="miio:basic:waterheater:washStatus"}
+Number velocity "Water Flow" (G_waterheater) {channel="miio:basic:waterheater:velocity"}
 Number:Temperature waterTemp "Water Temperature" (G_waterheater) {channel="miio:basic:waterheater:waterTemp"}
 Number:Temperature targetTemp "Target Temperature" (G_waterheater) {channel="miio:basic:waterheater:targetTemp"}
-Number errStatus "Error Status" (G_waterheater) {channel="miio:basic:waterheater:errStatus"}
-Number hotWater "Hot Water" (G_waterheater) {channel="miio:basic:waterheater:hotWater"}
-Switch needClean "Need Clean" (G_waterheater) {channel="miio:basic:waterheater:needClean"}
+Number errStatus "Error Code" (G_waterheater) {channel="miio:basic:waterheater:errStatus"}
+Number:Dimensionless hotWater "Hot Water" (G_waterheater) {channel="miio:basic:waterheater:hotWater"}
+Switch needClean "Cleaning Needed" (G_waterheater) {channel="miio:basic:waterheater:needClean"}
+String cleanReset "Reset Cleaning Reminder" (G_waterheater) {channel="miio:basic:waterheater:cleanReset"}
 Number modeType "Mode" (G_waterheater) {channel="miio:basic:waterheater:modeType"}
-Number appointStart "Appoint Start" (G_waterheater) {channel="miio:basic:waterheater:appointStart"}
-Number appointEnd "Appoint End" (G_waterheater) {channel="miio:basic:waterheater:appointEnd"}
+Number appointStart "Booking Start Hour" (G_waterheater) {channel="miio:basic:waterheater:appointStart"}
+Number appointEnd "Booking End Hour" (G_waterheater) {channel="miio:basic:waterheater:appointEnd"}
+```
+
+### VIOMI Internet electric water heater 50L(Premium Version) (viomi.waterheater.e4) item file lines
+
+note: Autogenerated example. Replace the id (waterheater) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_waterheater "VIOMI Internet electric water heater 50L(Premium Version)" <status>
+Switch washStatus "Power" (G_waterheater) {channel="miio:basic:waterheater:washStatus"}
+Number velocity "Water Flow" (G_waterheater) {channel="miio:basic:waterheater:velocity"}
+Number:Temperature waterTemp "Water Temperature" (G_waterheater) {channel="miio:basic:waterheater:waterTemp"}
+Number:Temperature targetTemp "Target Temperature" (G_waterheater) {channel="miio:basic:waterheater:targetTemp"}
+Number errStatus "Error Code" (G_waterheater) {channel="miio:basic:waterheater:errStatus"}
+Number:Dimensionless hotWater "Hot Water" (G_waterheater) {channel="miio:basic:waterheater:hotWater"}
+Switch needClean "Cleaning Needed" (G_waterheater) {channel="miio:basic:waterheater:needClean"}
+String cleanReset "Reset Cleaning Reminder" (G_waterheater) {channel="miio:basic:waterheater:cleanReset"}
+Number modeType "Mode" (G_waterheater) {channel="miio:basic:waterheater:modeType"}
+Number appointStart "Booking Start Hour" (G_waterheater) {channel="miio:basic:waterheater:appointStart"}
+Number appointEnd "Booking End Hour" (G_waterheater) {channel="miio:basic:waterheater:appointEnd"}
 ```
 
 ### Mi Inverter Air Conditioner (1.5HP) (xiaomi.aircondition.ma1) item file lines
@@ -24917,6 +25103,58 @@ Switch child_lock "Child Lock" (G_fan) {channel="miio:basic:fan:child_lock"}
 Number fault "Device Fault" (G_fan) {channel="miio:basic:fan:fault"}
 ```
 
+### Xiaomi Smart Pet Food Feeder 2 (xiaomi.feeder.iv2001) item file lines
+
+note: Autogenerated example. Replace the id (feeder) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_feeder "Xiaomi Smart Pet Food Feeder 2" <status>
+Number fault "Fault" (G_feeder) {channel="miio:basic:feeder:fault"}
+Number food_level "Food Level" (G_feeder) {channel="miio:basic:feeder:food_level"}
+Number dispense_food "Dispense Food" (G_feeder) {channel="miio:basic:feeder:dispense_food"}
+Switch food_jammed "Food Jammed" (G_feeder) {channel="miio:basic:feeder:food_jammed"}
+Switch bowl_error "Food Bowl Error" (G_feeder) {channel="miio:basic:feeder:bowl_error"}
+Switch bowl_empty "Food Bowl Empty" (G_feeder) {channel="miio:basic:feeder:bowl_empty"}
+Switch bowl_full "Food Bowl Full" (G_feeder) {channel="miio:basic:feeder:bowl_full"}
+Number food_eaten_today "Food Eaten Today" (G_feeder) {channel="miio:basic:feeder:food_eaten_today"}
+Number dispensing "Dispensing" (G_feeder) {channel="miio:basic:feeder:dispensing"}
+Switch child_lock "Child Lock" (G_feeder) {channel="miio:basic:feeder:child_lock"}
+Switch auto_screen_off "Auto Screen Off" (G_feeder) {channel="miio:basic:feeder:auto_screen_off"}
+String schedule "Feeding Schedule" (G_feeder) {channel="miio:basic:feeder:schedule"}
+Switch schedule_progress_display "Display Schedule Progress" (G_feeder) {channel="miio:basic:feeder:schedule_progress_display"}
+Switch dispensing_correction "Dispensing Error Correction" (G_feeder) {channel="miio:basic:feeder:dispensing_correction"}
+Switch spillage_prevention "Food Bowl Spillage Prevention" (G_feeder) {channel="miio:basic:feeder:spillage_prevention"}
+Number:Dimensionless schedule_progress "Schedule Progress" (G_feeder) {channel="miio:basic:feeder:schedule_progress"}
+Number screen_display "Screen Display" (G_feeder) {channel="miio:basic:feeder:screen_display"}
+Number:Dimensionless desiccant_left_level "Desiccant Left Level" (G_feeder) {channel="miio:basic:feeder:desiccant_left_level"}
+```
+
+### Mijia Smart Pet Food Feeder 2 (xiaomi.feeder.pi2001) item file lines
+
+note: Autogenerated example. Replace the id (feeder) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_feeder "Mijia Smart Pet Food Feeder 2" <status>
+Number fault "Fault" (G_feeder) {channel="miio:basic:feeder:fault"}
+Number food_level "Food Level" (G_feeder) {channel="miio:basic:feeder:food_level"}
+Number dispense_food "Dispense Food" (G_feeder) {channel="miio:basic:feeder:dispense_food"}
+Switch food_jammed "Food Jammed" (G_feeder) {channel="miio:basic:feeder:food_jammed"}
+Switch bowl_error "Food Bowl Error" (G_feeder) {channel="miio:basic:feeder:bowl_error"}
+Switch bowl_empty "Food Bowl Empty" (G_feeder) {channel="miio:basic:feeder:bowl_empty"}
+Switch bowl_full "Food Bowl Full" (G_feeder) {channel="miio:basic:feeder:bowl_full"}
+Number food_eaten_today "Food Eaten Today" (G_feeder) {channel="miio:basic:feeder:food_eaten_today"}
+Number dispensing "Dispensing" (G_feeder) {channel="miio:basic:feeder:dispensing"}
+Switch child_lock "Child Lock" (G_feeder) {channel="miio:basic:feeder:child_lock"}
+Switch auto_screen_off "Auto Screen Off" (G_feeder) {channel="miio:basic:feeder:auto_screen_off"}
+String schedule "Feeding Schedule" (G_feeder) {channel="miio:basic:feeder:schedule"}
+Switch schedule_progress_display "Display Schedule Progress" (G_feeder) {channel="miio:basic:feeder:schedule_progress_display"}
+Switch dispensing_correction "Dispensing Error Correction" (G_feeder) {channel="miio:basic:feeder:dispensing_correction"}
+Switch spillage_prevention "Food Bowl Spillage Prevention" (G_feeder) {channel="miio:basic:feeder:spillage_prevention"}
+Number:Dimensionless schedule_progress "Schedule Progress" (G_feeder) {channel="miio:basic:feeder:schedule_progress"}
+Number screen_display "Screen Display" (G_feeder) {channel="miio:basic:feeder:screen_display"}
+Number:Dimensionless desiccant_left_level "Desiccant Left Level" (G_feeder) {channel="miio:basic:feeder:desiccant_left_level"}
+```
+
 ### Mijia Smart Dehumidifier 13L (xiaomi.derh.13l) item file lines
 
 note: Autogenerated example. Replace the id (derh) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
@@ -25120,6 +25358,130 @@ Switch led "Display" (G_humidifier) {channel="miio:basic:humidifier:led"}
 Number led_brightness "Display Brightness" (G_humidifier) {channel="miio:basic:humidifier:led_brightness"}
 Number:Dimensionless filter_life_level "Filter Life" (G_humidifier) {channel="miio:basic:humidifier:filter_life_level"}
 String actions "Actions" (G_humidifier) {channel="miio:basic:humidifier:actions"}
+```
+
+### Xiaomi Smart Electric Hot Water Dispenser 5L (xiaomi.kettle.mek02) item file lines
+
+note: Autogenerated example. Replace the id (kettle) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_kettle "Xiaomi Smart Electric Hot Water Dispenser 5L" <status>
+Number status "Status" (G_kettle) {channel="miio:basic:kettle:status"}
+Number fault "Fault" (G_kettle) {channel="miio:basic:kettle:fault"}
+Number:Temperature temperature "Water Temperature" (G_kettle) {channel="miio:basic:kettle:temperature"}
+String heating "Heating" (G_kettle) {channel="miio:basic:kettle:heating"}
+Number:Temperature target_temperature "Target Temperature" (G_kettle) {channel="miio:basic:kettle:target_temperature"}
+Number:Temperature boiling_point "Boiling Point" (G_kettle) {channel="miio:basic:kettle:boiling_point"}
+Switch auto_keep_warm "Keep Warm After Heating" (G_kettle) {channel="miio:basic:kettle:auto_keep_warm"}
+Number:Temperature keep_warm_temperature "Keep Warm Temperature" (G_kettle) {channel="miio:basic:kettle:keep_warm_temperature"}
+Switch dechlorination "Dechlorination" (G_kettle) {channel="miio:basic:kettle:dechlorination"}
+Switch pure_water_keep_warm "Pure Water Keep Warm" (G_kettle) {channel="miio:basic:kettle:pure_water_keep_warm"}
+Number:Temperature pure_water_keep_warm_temperature "Pure Water Keep Warm Temperature" (G_kettle) {channel="miio:basic:kettle:pure_water_keep_warm_temperature"}
+Number:Dimensionless dechlorination_progress "Dechlorination Progress" (G_kettle) {channel="miio:basic:kettle:dechlorination_progress"}
+Number out_water_time "Dispense Amount" (G_kettle) {channel="miio:basic:kettle:out_water_time"}
+String mode_id "Recipe" (G_kettle) {channel="miio:basic:kettle:mode_id"}
+Number:Time reservation_left_time "Delayed Start Time Left" (G_kettle) {channel="miio:basic:kettle:reservation_left_time"}
+Switch child_lock "Child Lock" (G_kettle) {channel="miio:basic:kettle:child_lock"}
+Switch current_physical_control_lock "Child Lock Active" (G_kettle) {channel="miio:basic:kettle:current_physical_control_lock"}
+Switch alarm "Sound" (G_kettle) {channel="miio:basic:kettle:alarm"}
+Number auto_screen_off "Screen Off After" (G_kettle) {channel="miio:basic:kettle:auto_screen_off"}
+```
+
+### Xiaomi Smart Kettle 2 Pro (xiaomi.kettle.v20) item file lines
+
+note: Autogenerated example. Replace the id (kettle) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_kettle "Xiaomi Smart Kettle 2 Pro" <status>
+Number status "Status" (G_kettle) {channel="miio:basic:kettle:status"}
+Number fault "Fault" (G_kettle) {channel="miio:basic:kettle:fault"}
+Number:Temperature temperature "Water Temperature" (G_kettle) {channel="miio:basic:kettle:temperature"}
+String heating "Heating" (G_kettle) {channel="miio:basic:kettle:heating"}
+Number:Temperature target_temperature "Target Temperature" (G_kettle) {channel="miio:basic:kettle:target_temperature"}
+Number target_mode "Mode" (G_kettle) {channel="miio:basic:kettle:target_mode"}
+Switch auto_keep_warm "Keep Warm" (G_kettle) {channel="miio:basic:kettle:auto_keep_warm"}
+Number:Temperature keep_warm_temperature "Keep Warm Temperature" (G_kettle) {channel="miio:basic:kettle:keep_warm_temperature"}
+Number:Time keep_warm_time "Keep Warm Time" (G_kettle) {channel="miio:basic:kettle:keep_warm_time"}
+Number:Time warming_time "Keep Warm Elapsed Time" (G_kettle) {channel="miio:basic:kettle:warming_time"}
+Switch kettle_lifting "Kettle Lifted" (G_kettle) {channel="miio:basic:kettle:kettle_lifting"}
+Switch no_disturb "Do Not Disturb" (G_kettle) {channel="miio:basic:kettle:no_disturb"}
+Switch custom_knob_temp "Custom Knob Temperature" (G_kettle) {channel="miio:basic:kettle:custom_knob_temp"}
+Switch lift_remember_temp "Remember Temperature After Lifting" (G_kettle) {channel="miio:basic:kettle:lift_remember_temp"}
+Switch boiling_reminder "Boiling Reminder" (G_kettle) {channel="miio:basic:kettle:boiling_reminder"}
+Switch keep_warm_reminder "Keep Warm Reminder" (G_kettle) {channel="miio:basic:kettle:keep_warm_reminder"}
+```
+
+### Xiaomi Smart Kettle 2 Pro (xiaomi.kettle.v21) item file lines
+
+note: Autogenerated example. Replace the id (kettle) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_kettle "Xiaomi Smart Kettle 2 Pro" <status>
+Number status "Status" (G_kettle) {channel="miio:basic:kettle:status"}
+Number fault "Fault" (G_kettle) {channel="miio:basic:kettle:fault"}
+Number:Temperature temperature "Water Temperature" (G_kettle) {channel="miio:basic:kettle:temperature"}
+String heating "Heating" (G_kettle) {channel="miio:basic:kettle:heating"}
+Number:Temperature target_temperature "Target Temperature" (G_kettle) {channel="miio:basic:kettle:target_temperature"}
+Number target_mode "Mode" (G_kettle) {channel="miio:basic:kettle:target_mode"}
+Switch auto_keep_warm "Keep Warm" (G_kettle) {channel="miio:basic:kettle:auto_keep_warm"}
+Number:Temperature keep_warm_temperature "Keep Warm Temperature" (G_kettle) {channel="miio:basic:kettle:keep_warm_temperature"}
+Number:Time keep_warm_time "Keep Warm Time" (G_kettle) {channel="miio:basic:kettle:keep_warm_time"}
+Number:Time warming_time "Keep Warm Elapsed Time" (G_kettle) {channel="miio:basic:kettle:warming_time"}
+Switch kettle_lifting "Kettle Lifted" (G_kettle) {channel="miio:basic:kettle:kettle_lifting"}
+Switch no_disturb "Do Not Disturb" (G_kettle) {channel="miio:basic:kettle:no_disturb"}
+Switch custom_knob_temp "Custom Knob Temperature" (G_kettle) {channel="miio:basic:kettle:custom_knob_temp"}
+Switch lift_remember_temp "Remember Temperature After Lifting" (G_kettle) {channel="miio:basic:kettle:lift_remember_temp"}
+Switch boiling_reminder "Boiling Reminder" (G_kettle) {channel="miio:basic:kettle:boiling_reminder"}
+Switch keep_warm_reminder "Keep Warm Reminder" (G_kettle) {channel="miio:basic:kettle:keep_warm_reminder"}
+```
+
+### Mijia Smart Pet Fountain 2 (xiaomi.pet_waterer.70m2) item file lines
+
+note: Autogenerated example. Replace the id (pet_waterer) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_pet_waterer "Mijia Smart Pet Fountain 2" <status>
+Number fault "Fault" (G_pet_waterer) {channel="miio:basic:pet_waterer:fault"}
+Number status "Status" (G_pet_waterer) {channel="miio:basic:pet_waterer:status"}
+Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
+Number:Time water_interval "Dispense Interval" (G_pet_waterer) {channel="miio:basic:pet_waterer:water_interval"}
+Switch water_shortage "Water Shortage" (G_pet_waterer) {channel="miio:basic:pet_waterer:water_shortage"}
+Number:Dimensionless filter_life_level "Filter Life Level" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_life_level"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch child_lock "Child Lock" (G_pet_waterer) {channel="miio:basic:pet_waterer:child_lock"}
+Number:Dimensionless battery_level "Battery Level" (G_pet_waterer) {channel="miio:basic:pet_waterer:battery_level"}
+Number charging_state "Charging State" (G_pet_waterer) {channel="miio:basic:pet_waterer:charging_state"}
+Switch dnd "Do Not Disturb" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd"}
+Switch low_battery "Low Battery" (G_pet_waterer) {channel="miio:basic:pet_waterer:low_battery"}
+Switch charger_connected "Charger Connected" (G_pet_waterer) {channel="miio:basic:pet_waterer:charger_connected"}
+Number:Time dnd_start "Do Not Disturb Start" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd_start"}
+Number:Time dnd_end "Do Not Disturb End" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd_end"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
+```
+
+### Xiaomi Smart Pet Fountain 2 (xiaomi.pet_waterer.iv02) item file lines
+
+note: Autogenerated example. Replace the id (pet_waterer) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_pet_waterer "Xiaomi Smart Pet Fountain 2" <status>
+Switch power "Power" (G_pet_waterer) {channel="miio:basic:pet_waterer:power"}
+Number status "Status" (G_pet_waterer) {channel="miio:basic:pet_waterer:status"}
+Number mode "Mode" (G_pet_waterer) {channel="miio:basic:pet_waterer:mode"}
+Number:Time water_interval "Dispense Interval" (G_pet_waterer) {channel="miio:basic:pet_waterer:water_interval"}
+Number:Time water_interval_new "Dispense Interval (New Firmware)" (G_pet_waterer) {channel="miio:basic:pet_waterer:water_interval_new"}
+Switch water_shortage "Water Shortage" (G_pet_waterer) {channel="miio:basic:pet_waterer:water_shortage"}
+Number:Dimensionless filter_life_level "Filter Life Level" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_life_level"}
+Number:Time filter_left_time "Filter Left Time" (G_pet_waterer) {channel="miio:basic:pet_waterer:filter_left_time"}
+Switch child_lock "Child Lock" (G_pet_waterer) {channel="miio:basic:pet_waterer:child_lock"}
+Number:Dimensionless battery_level "Battery Level" (G_pet_waterer) {channel="miio:basic:pet_waterer:battery_level"}
+Number charging_state "Charging State" (G_pet_waterer) {channel="miio:basic:pet_waterer:charging_state"}
+Switch dnd "Do Not Disturb" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd"}
+Switch low_battery "Low Battery" (G_pet_waterer) {channel="miio:basic:pet_waterer:low_battery"}
+Switch charger_connected "Charger Connected" (G_pet_waterer) {channel="miio:basic:pet_waterer:charger_connected"}
+Number:Time dnd_start "Do Not Disturb Start" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd_start"}
+Number:Time dnd_end "Do Not Disturb End" (G_pet_waterer) {channel="miio:basic:pet_waterer:dnd_end"}
+Switch pump_block_flag "Pump Blocked" (G_pet_waterer) {channel="miio:basic:pet_waterer:pump_block_flag"}
 ```
 
 ### Xiaomi Robot Vacuum T12 (xiaomi.vacuum.b106bk) item file lines
@@ -26783,6 +27145,28 @@ Number:Dimensionless filter_life_level "Filter - Filter Life Level" (G_vacuum) {
 Number:Time filter_left_time "Filter - Filter Left Time" (G_vacuum) {channel="miio:basic:vacuum:filter_left_time"}
 ```
 
+### Mijia Smart Water Purifier N800G (xiaomi.waterpuri.cmn800) item file lines
+
+note: Autogenerated example. Replace the id (waterpuri) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_waterpuri "Mijia Smart Water Purifier N800G" <status>
+Number status "Status" (G_waterpuri) {channel="miio:basic:waterpuri:status"}
+Number fault "Fault" (G_waterpuri) {channel="miio:basic:waterpuri:fault"}
+Number:Temperature temperature "Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Dimensionless filter_life_ppc "PPC Filter Life" (G_waterpuri) {channel="miio:basic:waterpuri:filter_life_ppc"}
+Number:Dimensionless filter_life_ro "RO Filter Life" (G_waterpuri) {channel="miio:basic:waterpuri:filter_life_ro"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
+Switch pipeline_connection "Dispenser Mode" (G_waterpuri) {channel="miio:basic:waterpuri:pipeline_connection"}
+Switch holiday_mode "Holiday Mode" (G_waterpuri) {channel="miio:basic:waterpuri:holiday_mode"}
+Switch anti_icing_remind "Low Temperature Notification" (G_waterpuri) {channel="miio:basic:waterpuri:anti_icing_remind"}
+Switch no_production_water_time "Long Idle" (G_waterpuri) {channel="miio:basic:waterpuri:no_production_water_time"}
+Switch no_disturb "Do Not Disturb" (G_waterpuri) {channel="miio:basic:waterpuri:no_disturb"}
+String no_disturb_period "Do Not Disturb Period" (G_waterpuri) {channel="miio:basic:waterpuri:no_disturb_period"}
+Number reset_status "Reset Status" (G_waterpuri) {channel="miio:basic:waterpuri:reset_status"}
+```
+
 ### Uclean Smart Toilet Seat (xjx.toilet.pro) item file lines
 
 note: Autogenerated example. Replace the id (toilet) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
@@ -28142,38 +28526,59 @@ Dimmer nightlightBrightness "Nightlight Brightness" (G_light) {channel="miio:bas
 Switch nightlightMode "Night Light Mode" (G_light) {channel="miio:basic:light:nightlightMode"}
 ```
 
+### Xiaomi Smart Kettle 2 Pro (yunmi.kettle.v19) item file lines
+
+note: Autogenerated example. Replace the id (kettle) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
+
+```java
+Group G_kettle "Xiaomi Smart Kettle 2 Pro" <status>
+Number status "Status" (G_kettle) {channel="miio:basic:kettle:status"}
+Number fault "Fault" (G_kettle) {channel="miio:basic:kettle:fault"}
+Number:Temperature temperature "Water Temperature" (G_kettle) {channel="miio:basic:kettle:temperature"}
+String heating "Heating" (G_kettle) {channel="miio:basic:kettle:heating"}
+Number:Temperature target_temperature "Target Temperature" (G_kettle) {channel="miio:basic:kettle:target_temperature"}
+Number target_mode "Mode" (G_kettle) {channel="miio:basic:kettle:target_mode"}
+Switch auto_keep_warm "Keep Warm" (G_kettle) {channel="miio:basic:kettle:auto_keep_warm"}
+Number:Temperature keep_warm_temperature "Keep Warm Temperature" (G_kettle) {channel="miio:basic:kettle:keep_warm_temperature"}
+Number:Time keep_warm_time "Keep Warm Time" (G_kettle) {channel="miio:basic:kettle:keep_warm_time"}
+Number:Time warming_time "Keep Warm Elapsed Time" (G_kettle) {channel="miio:basic:kettle:warming_time"}
+Switch kettle_lifting "Kettle Lifted" (G_kettle) {channel="miio:basic:kettle:kettle_lifting"}
+Switch no_disturb "Do Not Disturb" (G_kettle) {channel="miio:basic:kettle:no_disturb"}
+Switch custom_knob_temp "Custom Knob Temperature" (G_kettle) {channel="miio:basic:kettle:custom_knob_temp"}
+Switch lift_remember_temp "Remember Temperature After Lifting" (G_kettle) {channel="miio:basic:kettle:lift_remember_temp"}
+Switch boiling_reminder "Boiling Reminder" (G_kettle) {channel="miio:basic:kettle:boiling_reminder"}
+Switch keep_warm_reminder "Keep Warm Reminder" (G_kettle) {channel="miio:basic:kettle:keep_warm_reminder"}
+```
+
 ### Mi Water Purifier lx2 (yunmi.waterpuri.lx2) item file lines
 
 note: Autogenerated example. Replace the id (waterpuri) in the channel with your own. Replace `basic` with `generic` in the Thing UID depending on how your Thing was discovered.
 
 ```java
 Group G_waterpuri "Mi Water Purifier lx2" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier (Under Counter) (yunmi.waterpuri.lx3) item file lines
@@ -28182,32 +28587,29 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier (Under Counter)" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier lx4 (yunmi.waterpuri.lx4) item file lines
@@ -28216,32 +28618,29 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier lx4" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier 1A/400G Pro (yunmi.waterpuri.lx5) item file lines
@@ -28250,32 +28649,22 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier 1A/400G Pro" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
 Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier (Under Counter) (yunmi.waterpuri.lx6) item file lines
@@ -28284,32 +28673,29 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier (Under Counter)" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier 500G/500G Pro (yunmi.waterpuri.lx7) item file lines
@@ -28318,32 +28704,22 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier 500G/500G Pro" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
 Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier 600G (yunmi.waterpuri.lx8) item file lines
@@ -28352,30 +28728,28 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier 600G" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
 Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+String filter_reset "Reset Filter" (G_waterpuri) {channel="miio:basic:waterpuri:filter_reset"}
 ```
 
 ### Mi Water Purifier D1 (yunmi.waterpuri.lx9) item file lines
@@ -28384,32 +28758,20 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier D1" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
-Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
-Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
-Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
-Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
+Switch uv_working "UV Sterilization" (G_waterpuri) {channel="miio:basic:waterpuri:uv_working"}
+Switch plmachine "Pipeline Machine Support" (G_waterpuri) {channel="miio:basic:waterpuri:plmachine"}
 ```
 
 ### Mi Water Purifier lx10 (yunmi.waterpuri.lx10) item file lines
@@ -28418,32 +28780,20 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier lx10" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
-Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
-Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
-Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
-Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
+Switch uv_working "UV Sterilization" (G_waterpuri) {channel="miio:basic:waterpuri:uv_working"}
+Switch plmachine "Pipeline Machine Support" (G_waterpuri) {channel="miio:basic:waterpuri:plmachine"}
 ```
 
 ### Mi Water Purifier C1 (Triple Setting) (yunmi.waterpuri.lx11) item file lines
@@ -28452,32 +28802,20 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier C1 (Triple Setting)" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
-Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
-Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
-Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
-Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
+Switch uv_working "UV Sterilization" (G_waterpuri) {channel="miio:basic:waterpuri:uv_working"}
+Switch plmachine "Pipeline Machine Support" (G_waterpuri) {channel="miio:basic:waterpuri:plmachine"}
 ```
 
 ### Mi Water Purifier S1 (yunmi.waterpuri.lx12) item file lines
@@ -28486,32 +28824,20 @@ note: Autogenerated example. Replace the id (waterpuri) in the channel with your
 
 ```java
 Group G_waterpuri "Mi Water Purifier S1" <status>
-Number run_status "Run Status" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
-Number rinse "Rinse" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
-Number tds_in "TDS in" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
-Number tds_out "TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
-Number f1_totalflow "Filter 1 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
-Number f1_usedflow "Filter 1 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
-Number f2_totalflow "Filter 2 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
-Number f2_usedflow "Filter 2 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
-Number f3_totalflow "Filter 3 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
-Number f3_usedflow "Filter 3 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
-Number f4_totalflow "Filter 4 Total Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_totaltime"}
-Number f4_usedflow "Filter 4 Used Flow" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f4_usedtime"}
-Number maintenance_state "Maintenance State" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpuri) {channel="miio:basic:waterpuri:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpuri) {channel="miio:basic:waterpuri:lightMode"}
+Number run_status "Error Code" (G_waterpuri) {channel="miio:basic:waterpuri:run_status"}
+Switch rinse "Rinsing" (G_waterpuri) {channel="miio:basic:waterpuri:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpuri) {channel="miio:basic:waterpuri:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpuri) {channel="miio:basic:waterpuri:tds_out"}
+Number:Temperature temperature "Inlet Water Temperature" (G_waterpuri) {channel="miio:basic:waterpuri:temperature"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_totaltime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f1_usedtime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_totaltime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f2_usedtime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_totaltime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpuri) {channel="miio:basic:waterpuri:f3_usedtime"}
+Number:Dimensionless tds_warn_thd "TDS Warning Threshold" (G_waterpuri) {channel="miio:basic:waterpuri:tds_warn_thd"}
+Switch uv_working "UV Sterilization" (G_waterpuri) {channel="miio:basic:waterpuri:uv_working"}
+Switch plmachine "Pipeline Machine Support" (G_waterpuri) {channel="miio:basic:waterpuri:plmachine"}
 ```
 
 ### Mi Water Purifier v1 (yunmi.waterpurifier.v1) item file lines
@@ -28520,32 +28846,29 @@ note: Autogenerated example. Replace the id (waterpurifier) in the channel with 
 
 ```java
 Group G_waterpurifier "Mi Water Purifier v1" <status>
-Number run_status "Run Status" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpurifier) {channel="miio:basic:waterpurifier:temperature"}
-Number rinse "Rinse" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
-Number tds_in "TDS in" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
-Number tds_out "TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
+Number run_status "Error Code" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
+Switch rinse "Rinsing" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpurifier) {channel="miio:basic:waterpurifier:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpurifier) {channel="miio:basic:waterpurifier:filter_reset"}
 ```
 
 ### Mi Water Purifier v2 (yunmi.waterpurifier.v2) item file lines
@@ -28554,32 +28877,29 @@ note: Autogenerated example. Replace the id (waterpurifier) in the channel with 
 
 ```java
 Group G_waterpurifier "Mi Water Purifier v2" <status>
-Number run_status "Run Status" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpurifier) {channel="miio:basic:waterpurifier:temperature"}
-Number rinse "Rinse" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
-Number tds_in "TDS in" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
-Number tds_out "TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
+Number run_status "Error Code" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
+Switch rinse "Rinsing" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpurifier) {channel="miio:basic:waterpurifier:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpurifier) {channel="miio:basic:waterpurifier:filter_reset"}
 ```
 
 ### Mi Water Purifier (Under sink) v3 (yunmi.waterpurifier.v3) item file lines
@@ -28588,32 +28908,29 @@ note: Autogenerated example. Replace the id (waterpurifier) in the channel with 
 
 ```java
 Group G_waterpurifier "Mi Water Purifier (Under sink) v3" <status>
-Number run_status "Run Status" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpurifier) {channel="miio:basic:waterpurifier:temperature"}
-Number rinse "Rinse" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
-Number tds_in "TDS in" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
-Number tds_out "TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
+Number run_status "Error Code" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
+Switch rinse "Rinsing" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpurifier) {channel="miio:basic:waterpurifier:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpurifier) {channel="miio:basic:waterpurifier:filter_reset"}
 ```
 
 ### Mi Water Purifier v4 (yunmi.waterpurifier.v4) item file lines
@@ -28622,32 +28939,29 @@ note: Autogenerated example. Replace the id (waterpurifier) in the channel with 
 
 ```java
 Group G_waterpurifier "Mi Water Purifier v4" <status>
-Number run_status "Run Status" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
-Number:Temperature temperature "Temperature" (G_waterpurifier) {channel="miio:basic:waterpurifier:temperature"}
-Number rinse "Rinse" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
-Number tds_in "TDS in" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
-Number tds_out "TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
+Number run_status "Error Code" (G_waterpurifier) {channel="miio:basic:waterpurifier:run_status"}
+Switch rinse "Rinsing" (G_waterpurifier) {channel="miio:basic:waterpurifier:rinse"}
+Number:Dimensionless tds_in "TDS In" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_in"}
+Number:Dimensionless tds_out "TDS Out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out"}
 Number f1_totalflow "Filter 1 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totalflow"}
-Number f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
+Number:Time f1_totaltime "Filter 1 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_totaltime"}
 Number f1_usedflow "Filter 1 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedflow"}
-Number f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
+Number:Time f1_usedtime "Filter 1 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f1_usedtime"}
 Number f2_totalflow "Filter 2 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totalflow"}
-Number f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
+Number:Time f2_totaltime "Filter 2 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_totaltime"}
 Number f2_usedflow "Filter 2 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedflow"}
-Number f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
+Number:Time f2_usedtime "Filter 2 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f2_usedtime"}
 Number f3_totalflow "Filter 3 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totalflow"}
-Number f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
+Number:Time f3_totaltime "Filter 3 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_totaltime"}
 Number f3_usedflow "Filter 3 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedflow"}
-Number f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
+Number:Time f3_usedtime "Filter 3 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f3_usedtime"}
 Number f4_totalflow "Filter 4 Total Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totalflow"}
-Number f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
+Number:Time f4_totaltime "Filter 4 Total Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_totaltime"}
 Number f4_usedflow "Filter 4 Used Flow" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedflow"}
-Number f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
+Number:Time f4_usedtime "Filter 4 Used Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:f4_usedtime"}
 Number maintenance_state "Maintenance State" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_state"}
-Number maintenance_interval "Maintenance Interval" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
-Number tds_warn_thd "TDS Warn Threshold" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_warn_thd"}
-Number tds_out_avg "Average TDS out" (G_waterpurifier) {channel="miio:basic:waterpurifier:tds_out_avg"}
-Number lightMode "Light Mode" (G_waterpurifier) {channel="miio:basic:waterpurifier:lightMode"}
+Number:Time maintenance_interval "Unused Time" (G_waterpurifier) {channel="miio:basic:waterpurifier:maintenance_interval"}
+String filter_reset "Reset Filter" (G_waterpurifier) {channel="miio:basic:waterpurifier:filter_reset"}
 ```
 
 ### Smartmi Ventilation System (zhimi.airfresh.va2) item file lines

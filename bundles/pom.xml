@@ -98,6 +98,7 @@
     <module>org.openhab.binding.bluetooth.radoneye</module>
     <module>org.openhab.binding.bluetooth.roaming</module>
     <module>org.openhab.binding.bluetooth.ruuvitag</module>
+    <module>org.openhab.binding.bmwcardata</module>
     <module>org.openhab.binding.bondhome</module>
     <module>org.openhab.binding.boschindego</module>
     <module>org.openhab.binding.boschshc</module>
@@ -302,6 +303,7 @@
     <module>org.openhab.binding.modbus.ankersolix</module>
     <module>org.openhab.binding.modbus.e3dc</module>
     <module>org.openhab.binding.modbus.foxinverter</module>
+    <module>org.openhab.binding.modbus.hager</module>
     <module>org.openhab.binding.modbus.kermi</module>
     <module>org.openhab.binding.modbus.lambda</module>
     <module>org.openhab.binding.modbus.sbc</module>
@@ -502,7 +504,6 @@
     <module>org.openhab.binding.vitotronic</module>
     <module>org.openhab.binding.vizio</module>
     <module>org.openhab.binding.volvocars</module>
-    <module>org.openhab.binding.volvooncall</module>
     <module>org.openhab.binding.volumio</module>
     <module>org.openhab.binding.warmup</module>
     <module>org.openhab.binding.weathercompany</module>

@@ -57,30 +57,38 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private final Path sdpFile;
     private final Process process;
     private volatile boolean closed;
+    private boolean firstPacketSent;
 
     /**
      * Starts ffmpeg and the thread that forwards its output.
      *
      * @param ffmpeg the ffmpeg executable
      * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from
+     * @param inputArgs the decoder arguments applied to the input, see {@link #aacEldDecoderArgs}
      * @param encoderArgs the ffmpeg arguments that select the output codec
      * @param payloadType the RTP payload type of the input and output streams
      * @param sink receives each RTP packet produced by ffmpeg
      * @throws IOException if the sockets, SDP file or process cannot be created
      */
-    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> encoderArgs, int payloadType,
-            PacketSink sink) throws IOException {
+    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> inputArgs,
+            List<String> encoderArgs, int payloadType, PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
-        inputPort = freeLoopbackPort();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
+        try {
+            inputPort = freeRtpPortPair();
+        } catch (IOException e) {
+            inputSocket.close();
+            outputSocket.close();
+            throw e;
+        }
 
         sdpFile = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
         try {
             Files.writeString(sdpFile, inputSdp.apply(inputPort));
             process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), encoderArgs, payloadType))
-                    .redirectErrorStream(true).start();
+                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType)).redirectErrorStream(true)
+                    .start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
@@ -109,7 +117,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     public static FfmpegRtpTranscoder aacEldToOpus(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
             throws IOException {
         return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.aacEldInputSdp(port, codec, payloadType),
-                FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
+                FfmpegHelpers.aacEldDecoderArgs(), FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
     }
 
     /**
@@ -123,7 +131,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      */
     public static FfmpegRtpTranscoder opusToAacEld(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
             throws IOException {
-        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType),
+        return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType), List.of(),
                 FfmpegHelpers.aacEldEncoderArgs(codec), payloadType, sink);
     }
 
@@ -135,6 +143,10 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @throws IOException if the packet cannot be sent
      */
     public void send(byte[] data, int length) throws IOException {
+        if (!firstPacketSent) {
+            firstPacketSent = true;
+            LOGGER.debug("ffmpeg input: first RTP packet forwarded, {} bytes to port {}", length, inputPort);
+        }
         inputSocket.send(new DatagramPacket(data, length, loopback, inputPort));
     }
 
@@ -142,10 +154,17 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         try (BufferedReader reader = p.inputReader()) {
             String line;
             while ((line = reader.readLine()) != null) {
-                LOGGER.debug("ffmpeg: {}", line);
+                if (!line.isBlank()) {
+                    LOGGER.debug("ffmpeg: {}", line);
+                }
             }
         } catch (IOException e) {
             LOGGER.debug("ffmpeg output closed", e);
+        }
+        try {
+            LOGGER.debug("ffmpeg exited with code {}", p.waitFor());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -180,12 +199,24 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     }
 
     /**
-     * Returns a loopback UDP port that is free at the time of the call. ffmpeg binds this port itself, so another
-     * process could take it first; the caller accepts that small risk.
+     * Returns a UDP port whose successor is also free, so that ffmpeg can bind both its RTP port and its RTCP port
+     * (port + 1) on the wildcard address. ffmpeg binds these itself, so another process could take them first; the
+     * caller accepts that small risk.
      */
-    private static int freeLoopbackPort() throws IOException {
-        try (DatagramSocket probe = new DatagramSocket(0, InetAddress.getLoopbackAddress())) {
-            return probe.getLocalPort();
+    private static int freeRtpPortPair() throws IOException {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int port;
+            try (DatagramSocket probe = new DatagramSocket(0)) {
+                port = probe.getLocalPort();
+            }
+            if (port < 65535) {
+                try (DatagramSocket rtcpProbe = new DatagramSocket(port + 1)) {
+                    return port;
+                } catch (IOException e) {
+                    // RTCP port taken, try another pair
+                }
+            }
         }
+        throw new IOException("No free RTP/RTCP UDP port pair available");
     }
 }
