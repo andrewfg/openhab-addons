@@ -171,7 +171,8 @@ public class Go2RtcDataPump implements AutoCloseable {
                 Session::talkSession));
         startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, videoReport, Session::videoSession,
                 Session::videoControlSession));
-        startThread("rtcp-rr", this::sendReceiverReports);
+        // EXPERIMENT: RR sender disabled
+        // startThread("rtcp-rr", this::sendReceiverReports);
     }
 
     /**
