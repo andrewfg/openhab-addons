@@ -34,6 +34,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
+import javax.security.auth.x500.X500Principal;
+
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
@@ -127,6 +129,7 @@ public final class Go2RtcTls {
             X509Certificate cert = (X509Certificate) CertificateFactory.getInstance("X.509")
                     .generateCertificate(stream);
             return cert.getNotAfter().after(new Date(System.currentTimeMillis() + RENEWAL_MARGIN_MILLIS))
+                    && cert.getSubjectX500Principal().equals(new X500Principal("O=openHAB, CN=" + host))
                     && hasIpAddress(cert, host);
         } catch (IOException | GeneralSecurityException | ClassCastException e) {
             return false;
@@ -148,7 +151,7 @@ public final class Go2RtcTls {
 
     private static byte[] buildCertificate(KeyPair keyPair, String host, Date notBefore, Date notAfter)
             throws IOException, GeneralSecurityException {
-        X500Name subject = new X500Name("CN=" + host);
+        X500Name name = new X500Name("O=openHAB, CN=" + host);
         GeneralNames sans = new GeneralNames(
                 new GeneralName(GeneralName.iPAddress, new DEROctetString(InetAddress.getByName(host).getAddress())));
         Extension[] extensions = {
@@ -167,9 +170,9 @@ public final class Go2RtcTls {
         tbs.add(new DERTaggedObject(true, 0, new ASN1Integer(2)));
         tbs.add(new ASN1Integer(new BigInteger(63, RANDOM).add(BigInteger.ONE)));
         tbs.add(new AlgorithmIdentifier(ECDSA_WITH_SHA256));
-        tbs.add(subject);
+        tbs.add(name);
         tbs.add(new DERSequence(new ASN1Encodable[] { new Time(notBefore), new Time(notAfter) }));
-        tbs.add(subject);
+        tbs.add(name);
         tbs.add(SubjectPublicKeyInfo.getInstance(ASN1Primitive.fromByteArray(keyPair.getPublic().getEncoded())));
         tbs.add(new DERTaggedObject(true, 3, new Extensions(extensions)));
         byte[] tbsDer = new DERSequence(tbs).getEncoded(ASN1Encoding.DER);
