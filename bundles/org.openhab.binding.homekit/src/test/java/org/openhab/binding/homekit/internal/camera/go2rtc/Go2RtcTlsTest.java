@@ -44,6 +44,8 @@ class Go2RtcTlsTest {
         assertFalse(hasIpAddress(cert, "192.168.1.233"));
         assertTrue(cert.getNotAfter().after(cert.getNotBefore()));
         assertEquals(cert.getSubjectX500Principal(), cert.getIssuerX500Principal());
+        assertTrue(cert.getSubjectX500Principal().getName().contains("CN=192.168.1.232"));
+        assertTrue(cert.getIssuerX500Principal().getName().contains("O=openHAB"));
     }
 
     @Test
