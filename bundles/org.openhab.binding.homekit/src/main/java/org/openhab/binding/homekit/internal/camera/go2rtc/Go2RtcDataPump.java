@@ -125,6 +125,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable String publishUrl = null;
     private volatile @Nullable RtspConnection talkReader = null;
     private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
+    private boolean audioTranscoderAttempted = false;
 
     private int debugAudioPackets = 0;
     private volatile boolean closed;
@@ -235,26 +236,32 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     /**
      * Starts the AAC-ELD to Opus transcoder when the camera's audio needs one, forwarding its output to the publisher.
-     * It runs only while a camera session is active, because ffmpeg exits if no input arrives for a while.
+     * It is started by the first camera audio packet of a session, because ffmpeg exits if no input arrives for a
+     * while. A failed start is not retried until the next session.
+     *
+     * @return the running transcoder, or null if there is none
      */
-    private synchronized void startAudioTranscoder() {
+    private synchronized @Nullable FfmpegRtpTranscoder startAudioTranscoder() {
         RtspConnection connection = publisher;
         String ffmpeg = ffmpegBinary;
-        if (audioTranscoder != null || connection == null || ffmpeg == null
+        if (audioTranscoder != null || audioTranscoderAttempted || connection == null || ffmpeg == null
                 || audioCodec.codecType() != AudioCodecType.AAC_ELD) {
-            return;
+            return audioTranscoder;
         }
+        audioTranscoderAttempted = true;
         try {
             audioTranscoder = FfmpegRtpTranscoder.aacEldToOpus(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE,
                     (data, length) -> connection.sendFrame(AUDIO_CHANNEL, data, length));
         } catch (IOException e) {
             LOGGER.debug("Audio transcoder failed to start: {}", e.getMessage());
         }
+        return audioTranscoder;
     }
 
     private synchronized void stopAudioTranscoder() {
         FfmpegRtpTranscoder transcoder = audioTranscoder;
         audioTranscoder = null;
+        audioTranscoderAttempted = false;
         if (transcoder != null) {
             transcoder.close();
         }
@@ -282,7 +289,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         audioReport.reset();
         videoReport.reset();
         session = newSession;
-        startAudioTranscoder();
         return newSession;
     }
 
@@ -375,7 +381,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                     if (rtpLength >= 0) {
                         report.setPeer(receivePacket.getSocketAddress());
                         report.onRtp(rtpBuffer, rtpLength, nowMicros());
-                        FfmpegRtpTranscoder transcoder = audioTranscoder;
+                        FfmpegRtpTranscoder transcoder = channel == AUDIO_CHANNEL ? startAudioTranscoder() : null;
                         if (channel == AUDIO_CHANNEL && debugAudioPackets < 20) {
                             debugAudioPackets++;
                             LOGGER.debug("DEBUG audio RTP #{} srtpLen={} rtpLen={} pt={} seq={} ts={} ssrc={} hex={}",
