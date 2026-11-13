@@ -191,11 +191,14 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         inputSocket.close();
         outputSocket.close();
         process.destroy();
-        try {
-            Files.deleteIfExists(sdpFile);
-        } catch (IOException e) {
-            LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
-        }
+        // destroy() is asynchronous; on Windows the SDP file stays locked until ffmpeg has exited
+        process.onExit().thenRun(() -> {
+            try {
+                Files.deleteIfExists(sdpFile);
+            } catch (IOException e) {
+                LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
+            }
+        });
     }
 
     /**
