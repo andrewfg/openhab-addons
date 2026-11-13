@@ -17,6 +17,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.function.Function;
 
@@ -124,6 +125,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable String publishUrl = null;
     private volatile @Nullable RtspConnection talkReader = null;
     private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
+
+    private int debugAudioPackets = 0;
     private volatile boolean closed;
     private final Object talkMonitor = new Object();
     private boolean talkActive; // guarded by talkMonitor
@@ -360,6 +363,19 @@ public class Go2RtcDataPump implements AutoCloseable {
                         report.setPeer(receivePacket.getSocketAddress());
                         report.onRtp(rtpBuffer, rtpLength, nowMicros());
                         FfmpegRtpTranscoder transcoder = audioTranscoder;
+                        if (channel == AUDIO_CHANNEL && debugAudioPackets < 20) {
+                            debugAudioPackets++;
+                            LOGGER.debug("DEBUG audio RTP #{} srtpLen={} rtpLen={} pt={} seq={} ts={} ssrc={} hex={}",
+                                    debugAudioPackets, length, rtpLength, rtpBuffer[1] & 0x7F,
+                                    ((rtpBuffer[2] & 0xFF) << 8) | (rtpBuffer[3] & 0xFF),
+                                    Long.toUnsignedString(((long) rtpBuffer[4] & 0xFF) << 24
+                                            | ((rtpBuffer[5] & 0xFF) << 16) | ((rtpBuffer[6] & 0xFF) << 8)
+                                            | (rtpBuffer[7] & 0xFF)),
+                                    Long.toUnsignedString(((long) rtpBuffer[8] & 0xFF) << 24
+                                            | ((rtpBuffer[9] & 0xFF) << 16) | ((rtpBuffer[10] & 0xFF) << 8)
+                                            | (rtpBuffer[11] & 0xFF)),
+                                    HexFormat.of().formatHex(rtpBuffer, 0, Math.min(rtpLength, 40)));
+                        }
                         if (channel == AUDIO_CHANNEL && transcoder != null) {
                             transcoder.send(rtpBuffer, rtpLength);
                         } else {
