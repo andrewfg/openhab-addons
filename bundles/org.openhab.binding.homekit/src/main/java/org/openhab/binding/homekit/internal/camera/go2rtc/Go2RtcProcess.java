@@ -129,6 +129,35 @@ public class Go2RtcProcess {
         return producers != null && producers.isJsonArray() && !producers.getAsJsonArray().isEmpty();
     }
 
+    /**
+     * Exchanges a WebRTC SDP offer for an answer with go2rtc, for the named stream.
+     *
+     * @param host the API address from the configuration
+     * @param port the API port from the configuration
+     * @param stream the stream name to view
+     * @param offer the browser's SDP offer
+     * @return the go2rtc SDP answer
+     * @throws IOException if go2rtc cannot be reached or rejects the offer
+     */
+    public String answerWebRtc(String host, int port, String stream, String offer) throws IOException {
+        String query = URLEncoder.encode(stream, StandardCharsets.UTF_8);
+        HttpRequest request = HttpRequest.newBuilder(
+                URI.create("http://" + host + ":" + port + "/api/webrtc?src=" + query))
+                .timeout(Duration.ofSeconds(10)).header("Content-Type", "application/sdp")
+                .POST(HttpRequest.BodyPublishers.ofString(offer)).build();
+        HttpResponse<String> response;
+        try {
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while requesting WebRTC answer from go2rtc", e);
+        }
+        if (response.statusCode() != 200) {
+            throw new IOException("go2rtc WebRTC request failed with HTTP " + response.statusCode());
+        }
+        return response.body();
+    }
+
     private String fetchStreams(String host, int port) throws IOException {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + host + ":" + port + "/api/streams"))
                 .timeout(Duration.ofSeconds(2)).GET().build();

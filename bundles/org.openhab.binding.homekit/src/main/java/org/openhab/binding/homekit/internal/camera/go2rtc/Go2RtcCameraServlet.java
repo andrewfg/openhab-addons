@@ -13,6 +13,7 @@
 package org.openhab.binding.homekit.internal.camera.go2rtc;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,8 +33,9 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.http.whiteboard.HttpWhiteboardConstants;
 
 /**
- * Serves the browser viewer URL of a HomeKit camera. A request opens the camera stream on demand and, once go2rtc
- * has a producer, redirects the browser to the go2rtc viewer page.
+ * Serves the browser viewer of a HomeKit camera on openHAB's own origin. A GET opens the camera stream on demand and
+ * returns a viewer page; the page posts its WebRTC offer back to this servlet, which relays it to go2rtc. The browser
+ * therefore never contacts go2rtc directly, so its certificate and scheme do not matter to the browser.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -44,21 +46,75 @@ import org.osgi.service.http.whiteboard.HttpWhiteboardConstants;
 public class Go2RtcCameraServlet extends HttpServlet {
 
     /**
-     * Provides the go2rtc viewer page for one camera, starting the camera stream if necessary.
+     * Provides the viewer of one camera, starting the camera stream if necessary.
      */
     public interface BrowserStreamProvider {
 
         /**
          * Opens the camera stream for a browser and waits until it is available.
          *
-         * @return the go2rtc viewer URL, or null if the stream could not be opened in time
+         * @return true if the stream is available, false if it could not be opened in time
          * @throws InterruptedException if the waiting thread is interrupted
          */
+        boolean openBrowserStream() throws InterruptedException;
+
+        /**
+         * Exchanges the browser's WebRTC offer for an answer from go2rtc.
+         *
+         * @param offer the browser's SDP offer
+         * @return the SDP answer, or null if the stream is not open
+         * @throws IOException if go2rtc cannot be reached or rejects the offer
+         */
         @Nullable
-        String openBrowserStream() throws InterruptedException;
+        String answerBrowserOffer(String offer) throws IOException;
     }
 
     public static final String PATH = "/homekit/camera";
+
+    private static final String WEBRTC_SUFFIX = "/webrtc";
+
+    private static final String VIEWER_PAGE = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <title>Camera</title>
+            <style>html, body { margin: 0; height: 100%; background: #000; } video { width: 100%; height: 100%; }</style>
+            </head>
+            <body>
+            <video id="video" autoplay playsinline controls></video>
+            <script>
+            (async () => {
+              const video = document.getElementById('video');
+              const pc = new RTCPeerConnection({});
+              const media = new MediaStream();
+              pc.ontrack = (event) => media.addTrack(event.track);
+              video.srcObject = media;
+              pc.addTransceiver('video', { direction: 'recvonly' });
+              pc.addTransceiver('audio', { direction: 'recvonly' });
+              await pc.setLocalDescription(await pc.createOffer());
+              await new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') { resolve(); return; }
+                const timer = setTimeout(resolve, 3000);
+                pc.addEventListener('icegatheringstatechange', () => {
+                  if (pc.iceGatheringState === 'complete') { clearTimeout(timer); resolve(); }
+                });
+              });
+              const base = location.pathname.endsWith('/') ? location.pathname.slice(0, -1) : location.pathname;
+              const response = await fetch(base + '/webrtc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/sdp' },
+                body: pc.localDescription.sdp
+              });
+              if (!response.ok) { throw new Error('HTTP ' + response.status); }
+              await pc.setRemoteDescription({ type: 'answer', sdp: await response.text() });
+            })().catch((e) => {
+              document.body.insertAdjacentText('beforeend', ' Camera stream unavailable: ' + e.message);
+            });
+            </script>
+            </body>
+            </html>
+            """;
 
     private static final long serialVersionUID = 1L;
 
@@ -104,29 +160,64 @@ public class Go2RtcCameraServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String pathInfo = request.getPathInfo();
-        if (pathInfo == null || pathInfo.length() < 2) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
-            return;
-        }
-        @Nullable
-        BrowserStreamProvider provider = providers.get(pathInfo.substring(1));
+        BrowserStreamProvider provider = providerFor(request.getPathInfo());
         if (provider == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-        String url;
+        boolean available;
         try {
-            url = provider.openBrowserStream();
+            available = provider.openBrowserStream();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
-        if (url == null) {
+        if (!available) {
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "camera stream not available");
             return;
         }
-        response.sendRedirect(url);
+        response.setContentType("text/html;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write(VIEWER_PAGE);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String pathInfo = request.getPathInfo();
+        if (pathInfo == null || !pathInfo.endsWith(WEBRTC_SUFFIX)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        BrowserStreamProvider provider = providerFor(pathInfo.substring(0, pathInfo.length() - WEBRTC_SUFFIX.length()));
+        if (provider == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        String offer = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String answer;
+        try {
+            answer = provider.answerBrowserOffer(offer);
+        } catch (IOException e) {
+            response.sendError(HttpServletResponse.SC_BAD_GATEWAY, "camera stream not reachable");
+            return;
+        }
+        if (answer == null) {
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "camera stream not available");
+            return;
+        }
+        response.setContentType("application/sdp");
+        response.setHeader("Cache-Control", "no-store");
+        response.getWriter().write(answer);
+    }
+
+    /**
+     * Returns the provider for the thing ID in the given path info, which has the form {@code /<thingId>}.
+     */
+    private @Nullable BrowserStreamProvider providerFor(@Nullable String pathInfo) {
+        if (pathInfo == null || pathInfo.length() < 2 || pathInfo.indexOf('/', 1) != -1) {
+            return null;
+        }
+        return providers.get(pathInfo.substring(1));
     }
 }

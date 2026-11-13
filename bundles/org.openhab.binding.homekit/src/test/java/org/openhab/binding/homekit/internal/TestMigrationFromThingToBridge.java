@@ -47,7 +47,6 @@ import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
 import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
-import org.openhab.core.storage.Storage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ManagedThingProvider;
@@ -1776,11 +1775,9 @@ class TestMigrationFromThingToBridge {
                 ChannelTypeRegistry channelTypeRegistry, ChannelGroupTypeRegistry channelGroupTypeRegistry,
                 HomekitKeyStore keyStore, TranslationProvider i18nProvider, Bundle bundle,
                 ScheduledExecutorService scheduler, ManagedThingProvider thingProvider,
-                HomekitMdnsDiscoveryParticipant discoveryParticipant, MacResolver macResolver,
-                Storage<String> go2rtcPortStorage) {
+                HomekitMdnsDiscoveryParticipant discoveryParticipant, MacResolver macResolver) {
             super(thing, typeProvider, channelTypeRegistry, channelGroupTypeRegistry, keyStore, i18nProvider, bundle,
-                    thingProvider, discoveryParticipant, macResolver, mock(Go2RtcCameraServlet.class),
-                    go2rtcPortStorage);
+                    thingProvider, discoveryParticipant, macResolver, mock(Go2RtcCameraServlet.class));
             this.injectedTestScheduler = scheduler;
         }
 
@@ -1852,8 +1849,6 @@ class TestMigrationFromThingToBridge {
         Thing thing = mock(Thing.class);
         ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
         ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
-        @SuppressWarnings("unchecked")
-        Storage<String> go2rtcPortStorage = mock(Storage.class);
         HomekitTypeProvider typeProvider = mock(HomekitTypeProvider.class);
         ChannelTypeRegistry channelTypeRegistry = mock(ChannelTypeRegistry.class);
         ChannelGroupTypeRegistry channelGroupTypeRegistry = mock(ChannelGroupTypeRegistry.class);
@@ -1895,7 +1890,7 @@ class TestMigrationFromThingToBridge {
 
         HomekitAccessoryHandler handler = new TestHomekitAccessoryHandler(thing, typeProvider, channelTypeRegistry,
                 channelGroupTypeRegistry, keyStore, translationProvider, bundle, scheduler, thingProvider,
-                discoveryParticipant, macResolver, go2rtcPortStorage);
+                discoveryParticipant, macResolver);
 
         // Inject accessories map
         injectField(handler, "accessories", accessories);
