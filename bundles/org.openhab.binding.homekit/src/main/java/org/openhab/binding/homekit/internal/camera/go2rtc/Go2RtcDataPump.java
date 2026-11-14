@@ -119,10 +119,10 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable RtspConnection publisher = null;
     private volatile @Nullable String publishUrl = null;
     private volatile @Nullable RtspConnection talkReader = null;
-    private volatile @Nullable Thread talkThread = null;
     private volatile long talkLastReadMs;
     private volatile long talkLastSentMs;
     private boolean talkStallReported;
+    private long talkStallStartMs;
     private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
     private volatile boolean closed;
     private final Object talkMonitor = new Object();
@@ -227,7 +227,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         }
         publishUrl = url;
         publisher = connection;
-        talkThread = startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
+        startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
     }
 
     /**
@@ -700,8 +700,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     /**
      * While talk is active, logs a heartbeat every few seconds with the frame and packet counters and their ages, so
      * the flow state is visible even when no stall occurs. Logs once per stall: go2rtc has delivered no frame, or the
-     * camera has received no packet while a session is open, for longer than the threshold. The talk thread's stack
-     * is included so the stall location is captured automatically.
+     * camera has received no packet while a session is open, for longer than the threshold. A dump of all binding
+     * threads is included so the stall location is captured automatically, and a clear message reports its duration.
      */
     private void watchTalkStalls() {
         long lastHeartbeatMs = 0;
@@ -729,28 +729,34 @@ public class Go2RtcDataPump implements AutoCloseable {
             boolean inputStalled = readAge > TALK_STALL_THRESHOLD_MS;
             boolean outputStalled = session != null && sentAge > TALK_STALL_THRESHOLD_MS;
             if (!inputStalled && !outputStalled) {
-                talkStallReported = false;
+                if (talkStallReported) {
+                    talkStallReported = false;
+                    LOGGER.info("DEBUG talk stall cleared after {} ms, frames read={}, encoded={}, srtp sent={}",
+                            now - talkStallStartMs, debugFramesRead, debugEncodedPackets, debugSrtpSent);
+                }
                 continue;
             }
             if (!talkStallReported) {
                 talkStallReported = true;
+                talkStallStartMs = now;
                 LOGGER.info(
-                        "DEBUG talk stall: no go2rtc frame for {} ms, no camera packet for {} ms, frames read={}, encoded={}, srtp sent={}, talk thread stack:{}",
-                        readAge, sentAge, debugFramesRead, debugEncodedPackets, debugSrtpSent,
-                        stackOf(talkThread));
+                        "DEBUG talk stall: no go2rtc frame for {} ms, no camera packet for {} ms, frames read={}, encoded={}, srtp sent={}, binding thread dump:{}",
+                        readAge, sentAge, debugFramesRead, debugEncodedPackets, debugSrtpSent, bindingThreadDump());
             }
         }
     }
 
-    private static String stackOf(@Nullable Thread thread) {
-        if (thread == null) {
-            return " unavailable";
-        }
-        StringBuilder stack = new StringBuilder();
-        for (StackTraceElement element : thread.getStackTrace()) {
-            stack.append("\n\tat ").append(element);
-        }
-        return stack.toString();
+    private static String bindingThreadDump() {
+        StringBuilder dump = new StringBuilder();
+        Thread.getAllStackTraces().forEach((thread, stack) -> {
+            if (thread.getName().startsWith("OH-binding-homekit-")) {
+                dump.append("\n\"").append(thread.getName()).append("\" ").append(thread.getState());
+                for (StackTraceElement element : stack) {
+                    dump.append("\n\tat ").append(element);
+                }
+            }
+        });
+        return dump.toString();
     }
 
     /**
