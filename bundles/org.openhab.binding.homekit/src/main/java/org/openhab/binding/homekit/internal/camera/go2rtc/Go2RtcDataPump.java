@@ -493,6 +493,10 @@ public class Go2RtcDataPump implements AutoCloseable {
             throw new IOException("No ffmpeg binary available for AAC-ELD talk-back");
         }
         return FfmpegRtpTranscoder.opusToAacEld(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE, (data, length) -> {
+            debugEncodedPackets++;
+            if (debugEncodedPackets % 100 == 0) {
+                LOGGER.info("DEBUG ffmpeg output {} encoded packets", debugEncodedPackets);
+            }
             Session current = session;
             if (current != null) {
                 sendTalk(current, data, length, srtpBuffer);
@@ -550,7 +554,14 @@ public class Go2RtcDataPump implements AutoCloseable {
         rtpBuffer[11] = (byte) AUDIO_SYNC_SOURCE;
         int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
         talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
+        debugSrtpSent++;
+        if (debugSrtpSent % 100 == 0) {
+            LOGGER.info("DEBUG camera talk SRTP sent {} packets to {}", debugSrtpSent, current.talkAddress());
+        }
     }
+
+    private long debugEncodedPackets;
+    private long debugSrtpSent;
 
     private static void setPayloadType(byte[] rtpBuffer) {
         // keep marker bit (bit 7) and replace payload type
