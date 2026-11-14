@@ -446,7 +446,8 @@ public class Go2RtcDataPump implements AutoCloseable {
 
     private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
             throws IOException {
-        FfmpegRtpTranscoder encoder = openTalkEncoder(srtpBuffer);
+        DataOutputStream outDump = openTalkOutputDump();
+        FfmpegRtpTranscoder encoder = openTalkEncoder(srtpBuffer, outDump);
         DataOutputStream dump = openTalkDump();
         try {
             while (!closed && isTalkActive()) {
@@ -509,6 +510,9 @@ public class Go2RtcDataPump implements AutoCloseable {
             if (dump != null) {
                 dump.close();
             }
+            if (outDump != null) {
+                outDump.close();
+            }
         }
     }
 
@@ -526,10 +530,25 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
+     * Debug aid: when the {@code HOMEKIT_TALK_OUT_DUMP} environment variable names a file, the AAC-ELD packets produced
+     * by the talk encoder are appended to it as a 4-byte big-endian length, an 8-byte wall-clock time in milliseconds,
+     * and the packet bytes as produced by the encoder (before SRTP).
+     */
+    private static @Nullable DataOutputStream openTalkOutputDump() throws IOException {
+        String path = System.getenv("HOMEKIT_TALK_OUT_DUMP");
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        LOGGER.info("DEBUG talk encoder output dumped to {}", path);
+        return new DataOutputStream(new FileOutputStream(path, true));
+    }
+
+    /**
      * Creates the Opus to AAC-ELD transcoder for a talk session. Returns null when the camera takes Opus directly.
      * Encoded packets are encrypted and sent to the camera while the session is active.
      */
-    private @Nullable FfmpegRtpTranscoder openTalkEncoder(byte[] srtpBuffer) throws IOException {
+    private @Nullable FfmpegRtpTranscoder openTalkEncoder(byte[] srtpBuffer, @Nullable DataOutputStream outDump)
+            throws IOException {
         if (audioCodec.codecType() != AudioCodecType.AAC_ELD) {
             return null;
         }
@@ -541,6 +560,14 @@ public class Go2RtcDataPump implements AutoCloseable {
             debugEncodedPackets++;
             if (debugEncodedPackets % 100 == 0) {
                 LOGGER.info("DEBUG ffmpeg output {} encoded packets", debugEncodedPackets);
+            }
+            if (outDump != null) {
+                synchronized (outDump) {
+                    outDump.writeInt(length);
+                    outDump.writeLong(System.currentTimeMillis());
+                    outDump.write(data, 0, length);
+                    outDump.flush();
+                }
             }
             Session current = session;
             if (current != null) {
