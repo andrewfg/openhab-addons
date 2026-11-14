@@ -17,9 +17,11 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -43,6 +45,11 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private static final int MAX_DATAGRAM_SIZE = 2048;
     private static final int SDP_DELETE_ATTEMPTS = 5;
     private static final long SDP_DELETE_RETRY_MS = 200;
+    private static final int MAX_START_ATTEMPTS = 3;
+    private static final long STARTUP_CHECK_MS = 2000;
+
+    private record Launch(int inputPort, Path sdpFile, Process process) {
+    }
 
     /**
      * Receives RTP packets produced by ffmpeg.
@@ -77,26 +84,17 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         loopback = InetAddress.getLoopbackAddress();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
+        Launch launch;
         try {
-            inputPort = freeRtpPortPair();
-        } catch (IOException e) {
-            inputSocket.close();
-            outputSocket.close();
-            throw e;
-        }
-
-        sdpFile = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
-        try {
-            Files.writeString(sdpFile, inputSdp.apply(inputPort));
-            process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType)).redirectErrorStream(true)
-                    .start();
+            launch = launch(ffmpeg, inputSdp, inputArgs, encoderArgs, payloadType, outputSocket.getLocalPort());
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
-            Files.deleteIfExists(sdpFile);
             throw e;
         }
+        inputPort = launch.inputPort();
+        sdpFile = launch.sdpFile();
+        process = launch.process();
 
         Thread logger = new Thread(() -> logOutput(process), "OH-binding-homekit-ffmpeg-log");
         logger.setDaemon(true);
@@ -213,6 +211,54 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
                 }
             }
         });
+    }
+
+    /**
+     * Starts ffmpeg, retrying with a fresh input port pair if ffmpeg exits during startup because it could not bind
+     * its ports. ffmpeg binds its RTP and RTCP input ports itself, so a port that was free when probed may already be
+     * in use by then.
+     */
+    private static Launch launch(String ffmpeg, IntFunction<String> inputSdp, List<String> inputArgs,
+            List<String> encoderArgs, int payloadType, int outputPort) throws IOException {
+        for (int attempt = 1;; attempt++) {
+            int inputPort = freeRtpPortPair();
+            Path sdp = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
+            boolean started = false;
+            String failure;
+            try {
+                Files.writeString(sdp, inputSdp.apply(inputPort));
+                Process process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdp.toString(),
+                        outputPort, inputArgs, encoderArgs, payloadType)).redirectErrorStream(true).start();
+                if (!exitedDuringStartup(process)) {
+                    started = true;
+                    return new Launch(inputPort, sdp, process);
+                }
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                failure = "exit code " + process.exitValue() + ": " + output.strip();
+            } finally {
+                if (!started) {
+                    Files.deleteIfExists(sdp);
+                }
+            }
+            if (attempt == MAX_START_ATTEMPTS) {
+                throw new IOException("ffmpeg failed to start after " + attempt + " attempts, " + failure);
+            }
+            LOGGER.debug("ffmpeg failed to start on RTP port {} (attempt {} of {}), retrying: {}", inputPort, attempt,
+                    MAX_START_ATTEMPTS, failure);
+        }
+    }
+
+    /**
+     * Waits up to {@link #STARTUP_CHECK_MS} for ffmpeg to exit, which only happens when it fails to start.
+     */
+    private static boolean exitedDuringStartup(Process process) throws IOException {
+        try {
+            return process.waitFor(STARTUP_CHECK_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+            throw new IOException("Interrupted while starting ffmpeg", e);
+        }
     }
 
     /**
