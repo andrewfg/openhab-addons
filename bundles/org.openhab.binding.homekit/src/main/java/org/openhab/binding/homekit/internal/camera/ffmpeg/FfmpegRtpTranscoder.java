@@ -193,7 +193,12 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
                 if (debugReceived % 100 == 0) {
                     LOGGER.info("DEBUG transcoder received {} ffmpeg output packets", debugReceived);
                 }
-                sink.accept(buffer, packet.getLength());
+                try {
+                    sink.accept(buffer, packet.getLength());
+                } catch (RuntimeException e) {
+                    LOGGER.info("DEBUG transcoder sink failed on packet {}: {}", debugReceived, e, e);
+                    return;
+                }
             } catch (IOException e) {
                 if (!closed) {
                     LOGGER.info("DEBUG transcoder output receive failed after {} packets: {}", debugReceived,
