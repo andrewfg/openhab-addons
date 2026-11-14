@@ -168,7 +168,7 @@ public final class FfmpegHelpers {
     public static List<String> transcodeCommandLine(String ffmpeg, String inputSdpFile, int outputPort,
             List<String> inputArgs, List<String> encoderArgs, int payloadType) {
         List<String> command = new ArrayList<>(
-                List.of(ffmpeg, "-hide_banner", "-loglevel", "warning", "-protocol_whitelist", "file,rtp,udp"));
+                List.of(ffmpeg, "-hide_banner", "-loglevel", "info", "-protocol_whitelist", "file,rtp,udp"));
         command.addAll(inputArgs);
         command.addAll(List.of("-i", inputSdpFile, "-vn"));
         command.addAll(encoderArgs);
