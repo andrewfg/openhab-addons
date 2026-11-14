@@ -146,8 +146,6 @@ public class Go2RtcCameraServlet extends HttpServlet {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     talk = { pc, stream };
                     stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
-                    // go2rtc treats an offer with no recvonly video as a viewer, so this makes it a producer
-                    pc.addTransceiver('video', { direction: 'recvonly' });
                     talkButton.textContent = 'Stop talk';
                     message.textContent = '';
                     await exchange(pc, '/talk');
