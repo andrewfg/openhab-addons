@@ -154,6 +154,25 @@ public final class FfmpegHelpers {
     }
 
     /**
+     * Builds the command line for a debug ffmpeg instance that encodes a 440 Hz test tone instead of reading RTP input.
+     *
+     * @param ffmpeg the ffmpeg executable, see {@link FfmpegInstaller}
+     * @param outputPort the loopback UDP port that receives the output RTP
+     * @param encoderArgs the encoder arguments, see {@link #aacEldEncoderArgs}
+     * @param payloadType the RTP payload type of the output
+     * @return the command
+     */
+    public static List<String> testToneCommandLine(String ffmpeg, int outputPort, List<String> encoderArgs,
+            int payloadType) {
+        List<String> command = new ArrayList<>(List.of(ffmpeg, "-hide_banner", "-loglevel", "info", "-re", "-f",
+                "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-vn"));
+        command.addAll(encoderArgs);
+        command.addAll(
+                List.of("-payload_type", String.valueOf(payloadType), "-f", "rtp", "rtp://127.0.0.1:" + outputPort));
+        return command;
+    }
+
+    /**
      * Builds the command line for an ffmpeg instance that reads RTP described by an SDP file, encodes it with the given
      * arguments and sends the result as RTP to a loopback UDP port.
      *

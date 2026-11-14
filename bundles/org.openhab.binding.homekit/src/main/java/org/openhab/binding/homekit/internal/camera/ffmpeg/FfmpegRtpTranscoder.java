@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private final DatagramSocket outputSocket;
     private final InetAddress loopback;
     private final int inputPort;
-    private final Path sdpFile;
+    private final @Nullable Path sdpFile;
     private final Process process;
     private volatile boolean closed;
     private boolean firstPacketSent;
@@ -65,14 +66,15 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * Starts ffmpeg and the thread that forwards its output.
      *
      * @param ffmpeg the ffmpeg executable
-     * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from
+     * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from, or null
+     *            for the debug test tone, which has no RTP input
      * @param inputArgs the decoder arguments applied to the input, see {@link #aacEldDecoderArgs}
      * @param encoderArgs the ffmpeg arguments that select the output codec
      * @param payloadType the RTP payload type of the input and output streams
      * @param sink receives each RTP packet produced by ffmpeg
      * @throws IOException if the sockets, SDP file or process cannot be created
      */
-    private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> inputArgs,
+    private FfmpegRtpTranscoder(String ffmpeg, @Nullable IntFunction<String> inputSdp, List<String> inputArgs,
             List<String> encoderArgs, int payloadType, PacketSink sink) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
         inputSocket = new DatagramSocket();
@@ -85,18 +87,29 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
             throw e;
         }
 
-        sdpFile = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
+        // a null inputSdp selects the debug test tone, which has no RTP input and therefore no SDP file
+        Path sdp = null;
         try {
-            Files.writeString(sdpFile, inputSdp.apply(inputPort));
-            process = new ProcessBuilder(FfmpegHelpers.transcodeCommandLine(ffmpeg, sdpFile.toString(),
-                    outputSocket.getLocalPort(), inputArgs, encoderArgs, payloadType)).redirectErrorStream(true)
-                    .start();
+            List<String> command;
+            if (inputSdp == null) {
+                command = FfmpegHelpers.testToneCommandLine(ffmpeg, outputSocket.getLocalPort(), encoderArgs,
+                        payloadType);
+            } else {
+                sdp = Files.createTempFile("homekit-rtp-transcoder-", ".sdp");
+                Files.writeString(sdp, inputSdp.apply(inputPort));
+                command = FfmpegHelpers.transcodeCommandLine(ffmpeg, sdp.toString(), outputSocket.getLocalPort(),
+                        inputArgs, encoderArgs, payloadType);
+            }
+            process = new ProcessBuilder(command).redirectErrorStream(true).start();
         } catch (IOException | RuntimeException e) {
             inputSocket.close();
             outputSocket.close();
-            Files.deleteIfExists(sdpFile);
+            if (sdp != null) {
+                Files.deleteIfExists(sdp);
+            }
             throw e;
         }
+        sdpFile = sdp;
 
         Thread logger = new Thread(() -> logOutput(process), "OH-binding-homekit-ffmpeg-log");
         logger.setDaemon(true);
@@ -135,6 +148,21 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
             throws IOException {
         return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType), List.of(),
                 FfmpegHelpers.aacEldEncoderArgs(codec), payloadType, sink);
+    }
+
+    /**
+     * Creates a debug transcoder that encodes a 440 Hz test tone to AAC-ELD RTP instead of reading Opus RTP input.
+     *
+     * @param ffmpeg the ffmpeg executable
+     * @param codec the camera's AAC-ELD audio codec
+     * @param payloadType the RTP payload type of the output
+     * @param sink receives each AAC-ELD RTP packet
+     * @throws IOException if the transcoder cannot be started
+     */
+    public static FfmpegRtpTranscoder testToneToAacEld(String ffmpeg, AudioCodec codec, int payloadType,
+            PacketSink sink) throws IOException {
+        return new FfmpegRtpTranscoder(ffmpeg, null, List.of(), FfmpegHelpers.aacEldEncoderArgs(codec), payloadType,
+                sink);
     }
 
     /**
@@ -235,14 +263,18 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         outputSocket.close();
         process.destroy();
         // destroy() is asynchronous and Windows may keep the SDP file locked briefly after ffmpeg exits, so retry
+        Path sdp = sdpFile;
+        if (sdp == null) {
+            return;
+        }
         process.onExit().thenRun(() -> {
             for (int attempt = 1; attempt <= SDP_DELETE_ATTEMPTS; attempt++) {
                 try {
-                    Files.deleteIfExists(sdpFile);
+                    Files.deleteIfExists(sdp);
                     return;
                 } catch (IOException e) {
                     if (attempt == SDP_DELETE_ATTEMPTS) {
-                        LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdpFile, e.getMessage());
+                        LOGGER.debug("Cannot delete transcoder SDP file {}: {}", sdp, e.getMessage());
                     } else {
                         try {
                             Thread.sleep(SDP_DELETE_RETRY_MS);

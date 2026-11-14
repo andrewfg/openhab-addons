@@ -474,8 +474,10 @@ public class Go2RtcDataPump implements AutoCloseable {
                             dump.flush();
                         }
                         if (encoder != null) {
-                            setPayloadType(rtpBuffer);
-                            encoder.send(rtpBuffer, frame.length());
+                            if (!talkTestToneEnabled()) {
+                                setPayloadType(rtpBuffer);
+                                encoder.send(rtpBuffer, frame.length());
+                            }
                         } else {
                             Session current = session;
                             if (current != null) {
@@ -535,7 +537,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         if (ffmpeg == null) {
             throw new IOException("No ffmpeg binary available for AAC-ELD talk-back");
         }
-        return FfmpegRtpTranscoder.opusToAacEld(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE, (data, length) -> {
+        FfmpegRtpTranscoder.PacketSink sink = (data, length) -> {
             debugEncodedPackets++;
             if (debugEncodedPackets % 100 == 0) {
                 LOGGER.info("DEBUG ffmpeg output {} encoded packets", debugEncodedPackets);
@@ -544,7 +546,20 @@ public class Go2RtcDataPump implements AutoCloseable {
             if (current != null) {
                 sendTalk(current, data, length, srtpBuffer);
             }
-        });
+        };
+        if (talkTestToneEnabled()) {
+            LOGGER.info("DEBUG talk test tone (440 Hz) replaces browser talk audio");
+            return FfmpegRtpTranscoder.testToneToAacEld(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE, sink);
+        }
+        return FfmpegRtpTranscoder.opusToAacEld(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE, sink);
+    }
+
+    /**
+     * Debug aid: when the {@code HOMEKIT_TALK_TEST_TONE} environment variable is set, the AAC-ELD talk encoder is fed
+     * a generated test tone and browser talk packets are discarded.
+     */
+    private static boolean talkTestToneEnabled() {
+        return System.getenv("HOMEKIT_TALK_TEST_TONE") != null;
     }
 
     /**
