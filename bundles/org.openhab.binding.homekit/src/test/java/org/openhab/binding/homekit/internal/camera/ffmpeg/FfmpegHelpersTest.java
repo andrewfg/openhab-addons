@@ -42,7 +42,7 @@ class FfmpegHelpersTest {
 
     @Test
     void testInputSdp() {
-        AudioCodec codec = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16);
+        AudioCodec codec = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 30);
         String sdp = FfmpegHelpers.aacEldInputSdp(5004, codec, 110);
         assertTrue(sdp.contains("m=audio 5004 RTP/AVP 110\n"));
         assertTrue(sdp.contains("a=rtpmap:110 mpeg4-generic/16000/1\n"));
@@ -63,26 +63,27 @@ class FfmpegHelpersTest {
 
     @Test
     void testAacEldEncoderArgs() {
-        List<String> args = FfmpegHelpers.aacEldEncoderArgs(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16));
+        List<String> args = FfmpegHelpers.aacEldEncoderArgs(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 30));
         assertEquals("libfdk_aac", args.get(args.indexOf("-c:a") + 1));
         assertEquals("aac_eld", args.get(args.indexOf("-profile:a") + 1));
         assertEquals("16000", args.get(args.indexOf("-ar") + 1));
         assertEquals("1", args.get(args.indexOf("-ac") + 1));
         assertEquals("480", args.get(args.indexOf("-frame_length") + 1));
-        assertEquals("0", args.get(args.indexOf("-max_delay") + 1));
+        assertEquals("30000", args.get(args.indexOf("-max_delay") + 1));
         assertEquals("+global_header", args.get(args.indexOf("-flags") + 1));
     }
 
     @Test
     void testAacEldEncoderArgsAt24kHz() {
-        List<String> args = FfmpegHelpers.aacEldEncoderArgs(new AudioCodec(AudioCodecType.AAC_ELD, 1, 24));
+        List<String> args = FfmpegHelpers.aacEldEncoderArgs(new AudioCodec(AudioCodecType.AAC_ELD, 1, 24, 20));
         assertEquals("24000", args.get(args.indexOf("-ar") + 1));
         assertEquals("480", args.get(args.indexOf("-frame_length") + 1));
+        assertEquals("20000", args.get(args.indexOf("-max_delay") + 1));
     }
 
     @Test
     void testAacEldInputSdpAt24kHz() {
-        String sdp = FfmpegHelpers.aacEldInputSdp(5004, new AudioCodec(AudioCodecType.AAC_ELD, 1, 24), 110);
+        String sdp = FfmpegHelpers.aacEldInputSdp(5004, new AudioCodec(AudioCodecType.AAC_ELD, 1, 24, 20), 110);
         assertTrue(sdp.contains("constantDuration=480"));
     }
 }

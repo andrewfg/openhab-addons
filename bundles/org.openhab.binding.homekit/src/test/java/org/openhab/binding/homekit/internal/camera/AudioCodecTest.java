@@ -34,8 +34,9 @@ class AudioCodecTest {
 
         List<AudioCodec> codecs = AudioCodec.decode(tlv);
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8), new AudioCodec(AudioCodecType.OPUS, 1, 16),
-                new AudioCodec(AudioCodecType.OPUS, 1, 24), new AudioCodec(AudioCodecType.PCMU, 1, 8)), codecs);
+        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8, 20),
+                new AudioCodec(AudioCodecType.OPUS, 1, 16, 20), new AudioCodec(AudioCodecType.OPUS, 1, 24, 20),
+                new AudioCodec(AudioCodecType.PCMU, 1, 8, 20)), codecs);
     }
 
     @Test
@@ -43,65 +44,86 @@ class AudioCodecTest {
         byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x00, 0x02), entry(AudioCodecType.MSBC, 1, 0x00),
                 entry(AudioCodecType.PCMA, 1, 0x01));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 24)), AudioCodec.decode(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 24, 20)), AudioCodec.decode(tlv));
     }
 
     @Test
     void testRejectsRatesThatCodecDoesNotAllow() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR_WB, 1, 0x00, 0x01), entry(AudioCodecType.PCMU, 1, 0x01));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR_WB, 1, 16)), AudioCodec.decode(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR_WB, 1, 16, 20)), AudioCodec.decode(tlv));
     }
 
     @Test
     void testReadsRepeatedCodecEntriesInSequence() {
         byte[] tlv = tlv(entry(AudioCodecType.AMR, 1, 0x00), entry(AudioCodecType.AMR, 1, 0x00));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR, 1, 8)), AudioCodec.decode(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AMR, 1, 8, 20)), AudioCodec.decode(tlv));
     }
 
     @Test
     void testIgnoresUnknownCodecType() {
         byte[] tlv = tlv(entry(0x7F, 1, 0x00), entry(AudioCodecType.PCMU, 1, 0x00));
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.PCMU, 1, 8)), AudioCodec.decode(tlv));
+        assertEquals(List.of(new AudioCodec(AudioCodecType.PCMU, 1, 8, 20)), AudioCodec.decode(tlv));
     }
 
     @Test
     void testRtpClockRateAndBitrate() {
-        assertEquals(16000, new AudioCodec(AudioCodecType.AMR_WB, 1, 16).rtpClockRate());
-        assertEquals(48000, new AudioCodec(AudioCodecType.OPUS, 1, 16).rtpClockRate());
-        assertEquals(24, new AudioCodec(AudioCodecType.OPUS, 1, 24).maxBitrateKbps());
+        assertEquals(16000, new AudioCodec(AudioCodecType.AMR_WB, 1, 16, 20).rtpClockRate());
+        assertEquals(48000, new AudioCodec(AudioCodecType.OPUS, 1, 16, 20).rtpClockRate());
+        assertEquals(24, new AudioCodec(AudioCodecType.OPUS, 1, 24, 20).maxBitrateKbps());
     }
 
     @Test
-    void testPacketTimeFollowsHomekitSpecTable() {
-        assertEquals(30, new AudioCodec(AudioCodecType.AAC_ELD, 1, 16).packetTimeMs());
-        assertEquals(20, new AudioCodec(AudioCodecType.AAC_ELD, 1, 24).packetTimeMs());
-        assertEquals(20, new AudioCodec(AudioCodecType.OPUS, 1, 16).packetTimeMs());
-        assertEquals(20, new AudioCodec(AudioCodecType.OPUS, 1, 24).packetTimeMs());
+    void testDecodesAdvertisedRtpTime() {
+        byte[] tlv = tlv(entryWithRtpTime(AudioCodecType.OPUS, 40, 0x02));
+
+        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 24, 40)), AudioCodec.decode(tlv));
+    }
+
+    @Test
+    void testKeepsAdvertisedRtpTimeAllowedForRate() {
+        byte[] tlv = tlv(entryWithRtpTime(AudioCodecType.AAC_ELD, 60, 0x01));
+
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 60)), AudioCodec.decode(tlv));
+    }
+
+    @Test
+    void testSkipsRtpTimeThatHomekitDoesNotAllow() {
+        byte[] tlv = tlv(entryWithRtpTime(AudioCodecType.AAC_ELD, 20, 0x01));
+
+        assertEquals(List.of(), AudioCodec.decode(tlv));
+    }
+
+    @Test
+    void testUsesSpecDefaultPacketTimeWhenNoRtpTimeAdvertised() {
+        byte[] tlv = tlv(entry(AudioCodecType.AAC_ELD, 1, 0x01, 0x02));
+
+        assertEquals(List.of(new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 30),
+                new AudioCodec(AudioCodecType.AAC_ELD, 1, 24, 20)), AudioCodec.decode(tlv));
     }
 
     @Test
     void testPreferredOpusRequires16Or24kHz() {
-        AudioCodec opus8 = new AudioCodec(AudioCodecType.OPUS, 1, 8);
-        AudioCodec opus24 = new AudioCodec(AudioCodecType.OPUS, 1, 24);
+        AudioCodec opus8 = new AudioCodec(AudioCodecType.OPUS, 1, 8, 20);
+        AudioCodec opus24 = new AudioCodec(AudioCodecType.OPUS, 1, 24, 20);
         assertEquals(opus24, AudioCodec.preferred(List.of(opus8, opus24)));
         assertThrows(IllegalArgumentException.class, () -> AudioCodec.preferred(List.of(opus8)));
     }
 
     @Test
     void testPreferredPrefersOpusOverAacEld() {
-        AudioCodec aac = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16);
-        AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 16);
+        AudioCodec aac = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 30);
+        AudioCodec opus = new AudioCodec(AudioCodecType.OPUS, 1, 16, 20);
         assertEquals(opus, AudioCodec.preferred(List.of(aac, opus)));
         assertEquals(aac, AudioCodec.preferred(List.of(aac)));
     }
 
     @Test
     void testPreferredAacEldRequires16Or24kHz() {
-        AudioCodec aac8 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 8);
-        AudioCodec aac24 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 24);
+        AudioCodec aac8 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 8, 20);
+        AudioCodec aac24 = new AudioCodec(AudioCodecType.AAC_ELD, 1, 24, 20);
         assertEquals(aac24, AudioCodec.preferred(List.of(aac8, aac24)));
         assertThrows(IllegalArgumentException.class, () -> AudioCodec.preferred(List.of(aac8)));
     }
@@ -111,14 +133,24 @@ class AudioCodecTest {
         return entry(codec.value, channels, sampleRateCodes);
     }
 
+    /** Builds one mono AUDIO_CODEC_CONFIGURATION entry that advertises a single RTP packet time in ms. */
+    private static byte[] entryWithRtpTime(AudioCodecType codec, int rtpTimeMs, int... sampleRateCodes) {
+        return entry(codec.value, 1, new byte[] { 0x04, 1, (byte) rtpTimeMs }, sampleRateCodes);
+    }
+
     private static byte[] entry(int codecType, int channels, int... sampleRateCodes) {
+        return entry(codecType, channels, new byte[0], sampleRateCodes);
+    }
+
+    private static byte[] entry(int codecType, int channels, byte[] extraParameters, int... sampleRateCodes) {
         ByteArrayOutputStream rates = new ByteArrayOutputStream();
         for (int code : sampleRateCodes) {
             rates.write(0x03);
             rates.write(1);
             rates.write(code);
         }
-        byte[] parameters = concat(new byte[] { 0x01, 1, (byte) channels }, rates.toByteArray());
+        byte[] parameters = concat(concat(new byte[] { 0x01, 1, (byte) channels }, extraParameters),
+                rates.toByteArray());
         byte[] body = concat(new byte[] { 0x01, 1, (byte) codecType },
                 concat(new byte[] { 0x02 }, concat(new byte[] { (byte) parameters.length }, parameters)));
         return concat(new byte[] { 0x01, (byte) body.length }, body);

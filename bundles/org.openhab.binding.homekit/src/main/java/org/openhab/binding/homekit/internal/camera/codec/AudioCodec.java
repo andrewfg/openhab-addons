@@ -28,10 +28,12 @@ import org.slf4j.LoggerFactory;
  * An audio codec configuration that a HomeKit camera declares it can send and receive,
  * as found in its SupportedAudioStreamConfiguration characteristic.
  *
+ * @param packetTimeMs the RTP packet time in ms, which the camera advertises and which HomeKit Table 9-20 allows
+ *
  * @author Andrew Fiddian-Green - Initial contribution
  */
 @NonNullByDefault
-public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateKhz) {
+public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateKhz, int packetTimeMs) {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AudioCodec.class);
 
@@ -40,6 +42,7 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
     private static final int TYPE_CODEC_PARAMETERS = 0x02;
     private static final int TYPE_CHANNEL = 0x01;
     private static final int TYPE_SAMPLE_RATE = 0x03;
+    private static final int TYPE_RTP_TIME = 0x04;
 
     /**
      * Returns the audio codec configurations declared by a TLV8 value.
@@ -83,14 +86,6 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
         };
     }
 
-    /**
-     * Returns the RTP packet time in milliseconds that the HomeKit specification (Table 9-20) mandates for this codec
-     * and sample rate. AAC-ELD at 16 kHz must use 30 ms; 20 ms is only permitted at 24 kHz. Opus permits 20 ms.
-     */
-    public int packetTimeMs() {
-        return codecType == AudioCodecType.AAC_ELD && sampleRateKhz == 16 ? 30 : 20;
-    }
-
     private static void decodeEntry(byte[] entry, List<AudioCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);
@@ -115,13 +110,54 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
         if (rateCodes == null) {
             return;
         }
+        byte[] rtpTimes = codecParameters.get(TYPE_RTP_TIME);
         for (byte rateCode : rateCodes) {
             int sampleRateKhz = sampleRateKhz(rateCode & 0xFF);
-            AudioCodec candidate = new AudioCodec(codecType, channels, sampleRateKhz);
-            if (Arrays.stream(allowedRates).anyMatch(rate -> rate == sampleRateKhz) && !result.contains(candidate)) {
-                result.add(candidate);
+            if (Arrays.stream(allowedRates).noneMatch(rate -> rate == sampleRateKhz)) {
+                continue;
+            }
+            int[] packetTimes = packetTimesMs(codecType, sampleRateKhz, rtpTimes);
+            if (packetTimes.length == 0) {
+                LOGGER.debug("Ignoring camera audio codec {} at {} kHz with no RTP time HomeKit allows", codecType,
+                        sampleRateKhz);
+            }
+            for (int packetTimeMs : packetTimes) {
+                AudioCodec candidate = new AudioCodec(codecType, channels, sampleRateKhz, packetTimeMs);
+                if (!result.contains(candidate)) {
+                    result.add(candidate);
+                }
             }
         }
+    }
+
+    /**
+     * Returns the RTP packet times in ms that the camera advertises for a codec and sample rate, restricted to those
+     * that HomeKit Table 9-20 allows. If the camera advertises none, the first value allowed by the table is used.
+     */
+    private static int[] packetTimesMs(AudioCodecType codecType, int sampleRateKhz, @Nullable byte[] rtpTimes) {
+        int[] allowed = allowedPacketTimesMs(codecType, sampleRateKhz);
+        if (rtpTimes == null || rtpTimes.length == 0) {
+            return new int[] { allowed[0] };
+        }
+        List<Integer> result = new ArrayList<>();
+        for (byte rtpTime : rtpTimes) {
+            int packetTimeMs = rtpTime & 0xFF;
+            if (Arrays.stream(allowed).anyMatch(ms -> ms == packetTimeMs) && !result.contains(packetTimeMs)) {
+                result.add(packetTimeMs);
+            }
+        }
+        return result.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    /**
+     * Returns the RTP packet times in ms that HomeKit Table 9-20 allows for a codec and sample rate. AAC-ELD at 16 kHz
+     * must use 30 or 60 ms, and the other codecs allow 20, 40 or 60 ms.
+     */
+    private static int[] allowedPacketTimesMs(AudioCodecType codecType, int sampleRateKhz) {
+        if (codecType == AudioCodecType.AAC_ELD && sampleRateKhz == 16) {
+            return new int[] { 30, 60 };
+        }
+        return new int[] { 20, 40, 60 };
     }
 
     private static @Nullable AudioCodecType codecTypeOf(int value) {

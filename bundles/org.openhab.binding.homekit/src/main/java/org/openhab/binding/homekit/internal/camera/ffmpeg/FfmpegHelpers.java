@@ -152,8 +152,8 @@ public final class FfmpegHelpers {
      * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD. The
      * global header flag is required: without it libfdk_aac fails to open the ELD encoder on Windows builds.
      * <p>
-     * The frame length is set explicitly so that each access unit matches the HomeKit packet time. {@code -max_delay 0}
-     * makes the RTP muxer flush after every access unit, so that each RTP packet carries exactly one.
+     * The frame length is the camera's RTP packet time. {@code -max_delay} is in microseconds and is set to the same
+     * packet time, so that the RTP muxer flushes one access unit per packet.
      *
      * @param codec the camera's AAC-ELD audio codec
      * @return the encoder arguments
@@ -162,8 +162,9 @@ public final class FfmpegHelpers {
         return List.of("-c:a", "libfdk_aac", "-profile:a", "aac_eld", "-ar",
                 String.valueOf(codec.sampleRateKhz() * 1000), "-ac", String.valueOf(codec.channels()), "-frame_length",
                 String.valueOf(aacEldSamplesPerPacket(codec)), "-b:a", codec.maxBitrateKbps() + "k", "-flags",
-                "+global_header", "-max_delay", "0");
+                "+global_header", "-max_delay", String.valueOf(codec.packetTimeMs() * 1000));
     }
+
 
     /**
      * Builds the command line for an ffmpeg instance that reads RTP described by an SDP file, encodes it with the given

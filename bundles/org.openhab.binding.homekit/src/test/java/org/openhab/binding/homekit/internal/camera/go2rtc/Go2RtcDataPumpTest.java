@@ -30,9 +30,9 @@ import org.openhab.binding.homekit.internal.enums.VideoCodecType;
  */
 class Go2RtcDataPumpTest {
 
-    private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 16);
-    private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8);
-    private static final AudioCodec AAC_ELD = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16);
+    private static final AudioCodec OPUS = new AudioCodec(AudioCodecType.OPUS, 1, 16, 20);
+    private static final AudioCodec PCMA = new AudioCodec(AudioCodecType.PCMA, 1, 8, 20);
+    private static final AudioCodec AAC_ELD = new AudioCodec(AudioCodecType.AAC_ELD, 1, 16, 30);
     private static final VideoCodec H264 = new VideoCodec(VideoCodecType.H_264, 0, 0, 640, 480, 30);
 
     @Test
