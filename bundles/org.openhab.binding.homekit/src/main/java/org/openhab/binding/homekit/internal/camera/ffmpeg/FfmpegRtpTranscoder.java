@@ -213,7 +213,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
                 }
                 try {
                     sink.accept(buffer, packet.getLength());
-                } catch (RuntimeException e) {
+                } catch (IOException | RuntimeException e) {
                     LOGGER.info("DEBUG transcoder[out={}] sink failed on packet {}: {}", outPort, debugReceived, e, e);
                     return;
                 }
