@@ -469,10 +469,12 @@ public class Go2RtcDataPump implements AutoCloseable {
                     }
                     // a reader closed by stopTalk() is expected and not a failure
                     if (isTalkActive()) {
+                        LOGGER.info("DEBUG talk reader closed after {} frames: {}", debugFramesRead, e.getMessage());
                         LOGGER.debug("go2rtc talk stream unavailable: {}", e.getMessage());
                         if (!pauseBeforeTalkRetry()) {
                             return;
                         }
+                        LOGGER.info("DEBUG talk reader retrying after {} frames", debugFramesRead);
                     }
                 } finally {
                     talkReader = null;

@@ -182,17 +182,34 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         int outPort = outputSocket.getLocalPort();
         LOGGER.info("DEBUG transcoder[out={}] listening for ffmpeg output", outPort);
         long debugReceived = 0;
+        long debugBytes = 0;
+        long debugSeqGaps = 0;
+        long debugMissing = 0;
+        int lastSeq = -1;
         while (!closed) {
             try {
                 packet.setLength(buffer.length);
                 outputSocket.receive(packet);
                 debugReceived++;
+                debugBytes += packet.getLength();
+                if (packet.getLength() >= 4) {
+                    int seq = ((buffer[2] & 0xFF) << 8) | (buffer[3] & 0xFF);
+                    if (lastSeq >= 0) {
+                        int gap = (seq - lastSeq - 1) & 0xFFFF;
+                        if (gap > 0 && gap < 0x8000) {
+                            debugSeqGaps++;
+                            debugMissing += gap;
+                        }
+                    }
+                    lastSeq = seq;
+                }
                 if (debugReceived == 1) {
                     LOGGER.info("DEBUG transcoder[out={}] first output packet, {} bytes from {}", outPort,
                             packet.getLength(), packet.getSocketAddress());
                 }
                 if (debugReceived % 100 == 0) {
-                    LOGGER.info("DEBUG transcoder[out={}] received {} output packets", outPort, debugReceived);
+                    LOGGER.info("DEBUG transcoder[out={}] received {} output packets, {} bytes, {} seq gaps, {} missing",
+                            outPort, debugReceived, debugBytes, debugSeqGaps, debugMissing);
                 }
                 try {
                     sink.accept(buffer, packet.getLength());
