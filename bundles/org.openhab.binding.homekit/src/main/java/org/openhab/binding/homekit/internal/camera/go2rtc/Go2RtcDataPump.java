@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.homekit.internal.camera.go2rtc;
 
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -445,6 +447,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
             throws IOException {
         FfmpegRtpTranscoder encoder = openTalkEncoder(srtpBuffer);
+        DataOutputStream dump = openTalkDump();
         try {
             while (!closed && isTalkActive()) {
                 try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
@@ -464,6 +467,11 @@ public class Go2RtcDataPump implements AutoCloseable {
                         }
                         if (frame.channel() != TALK_CHANNEL || frame.length() < RTP_HEADER_LENGTH) {
                             continue;
+                        }
+                        if (dump != null) {
+                            dump.writeInt(frame.length());
+                            dump.write(rtpBuffer, 0, frame.length());
+                            dump.flush();
                         }
                         if (encoder != null) {
                             setPayloadType(rtpBuffer);
@@ -496,7 +504,23 @@ public class Go2RtcDataPump implements AutoCloseable {
             if (encoder != null) {
                 encoder.close();
             }
+            if (dump != null) {
+                dump.close();
+            }
         }
+    }
+
+    /**
+     * Debug aid: when the {@code HOMEKIT_TALK_DUMP} environment variable names a file, the talk RTP packets received
+     * from go2rtc are appended to it as a 4-byte big-endian length followed by the packet bytes.
+     */
+    private static @Nullable DataOutputStream openTalkDump() throws IOException {
+        String path = System.getenv("HOMEKIT_TALK_DUMP");
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        LOGGER.info("DEBUG talk packets from go2rtc dumped to {}", path);
+        return new DataOutputStream(new FileOutputStream(path, true));
     }
 
     /**
