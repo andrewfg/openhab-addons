@@ -556,6 +556,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         if (ffmpeg == null) {
             throw new IOException("No ffmpeg binary available for AAC-ELD talk-back");
         }
+        AacEldRtpSplitter packetizer = new AacEldRtpSplitter();
         FfmpegRtpTranscoder.PacketSink sink = (data, length) -> {
             debugEncodedPackets++;
             if (debugEncodedPackets % 100 == 0) {
@@ -571,7 +572,9 @@ public class Go2RtcDataPump implements AutoCloseable {
             }
             Session current = session;
             if (current != null) {
-                sendTalk(current, data, length, srtpBuffer);
+                for (byte[] packet : packetizer.split(data, length)) {
+                    sendTalk(current, packet, packet.length, srtpBuffer);
+                }
             }
         };
         if (talkTestToneEnabled()) {
