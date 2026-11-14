@@ -134,7 +134,7 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
      * Returns the RTP packet times in ms that the camera advertises for a codec and sample rate, restricted to those
      * that HomeKit Table 9-20 allows. If the camera advertises none, the first value allowed by the table is used.
      */
-    private static int[] packetTimesMs(AudioCodecType codecType, int sampleRateKhz, @Nullable byte[] rtpTimes) {
+    private static int[] packetTimesMs(AudioCodecType codecType, int sampleRateKhz, byte @Nullable [] rtpTimes) {
         int[] allowed = allowedPacketTimesMs(codecType, sampleRateKhz);
         if (rtpTimes == null || rtpTimes.length == 0) {
             return new int[] { allowed[0] };
