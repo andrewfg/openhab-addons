@@ -75,6 +75,14 @@ class AudioCodecTest {
     }
 
     @Test
+    void testPacketTimeFollowsHomekitSpecTable() {
+        assertEquals(30, new AudioCodec(AudioCodecType.AAC_ELD, 1, 16).packetTimeMs());
+        assertEquals(20, new AudioCodec(AudioCodecType.AAC_ELD, 1, 24).packetTimeMs());
+        assertEquals(20, new AudioCodec(AudioCodecType.OPUS, 1, 16).packetTimeMs());
+        assertEquals(20, new AudioCodec(AudioCodecType.OPUS, 1, 24).packetTimeMs());
+    }
+
+    @Test
     void testPreferredOpusRequires16Or24kHz() {
         AudioCodec opus8 = new AudioCodec(AudioCodecType.OPUS, 1, 8);
         AudioCodec opus24 = new AudioCodec(AudioCodecType.OPUS, 1, 24);

@@ -83,6 +83,14 @@ public record AudioCodec(AudioCodecType codecType, int channels, int sampleRateK
         };
     }
 
+    /**
+     * Returns the RTP packet time in milliseconds that the HomeKit specification (Table 9-20) mandates for this codec
+     * and sample rate. AAC-ELD at 16 kHz must use 30 ms; 20 ms is only permitted at 24 kHz. Opus permits 20 ms.
+     */
+    public int packetTimeMs() {
+        return codecType == AudioCodecType.AAC_ELD && sampleRateKhz == 16 ? 30 : 20;
+    }
+
     private static void decodeEntry(byte[] entry, List<AudioCodec> result) {
         Map<Integer, byte[]> fields = Tlv8Codec.decode(entry);
         byte[] typeValue = fields.get(TYPE_CODEC_TYPE);

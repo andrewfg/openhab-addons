@@ -2001,7 +2001,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * Returns the selected audio parameters for the given codec, using the fixed SSRC and payload type.
      */
     private static AudioSelectedParameters selectedAudioParams(AudioCodec codec) {
-        return new AudioSelectedParameters(codec.codecType(), codec.channels(), false, codec.sampleRateKhz(), 20,
+        return new AudioSelectedParameters(codec.codecType(), codec.channels(), false, codec.sampleRateKhz(),
+                codec.packetTimeMs(),
                 Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, Go2RtcDataPump.AUDIO_SYNC_SOURCE, codec.maxBitrateKbps(), 0.5f,
                 false, 13);
     }

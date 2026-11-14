@@ -72,10 +72,18 @@ public final class FfmpegHelpers {
                 t=0 0
                 m=audio %d RTP/AVP %d
                 a=rtpmap:%d mpeg4-generic/%d/%d
-                a=fmtp:%d streamtype=5;profile-level-id=39;mode=AAC-hbr;config=%s;sizelength=13;indexlength=3;indexdeltalength=3;constantDuration=480
+                a=fmtp:%d streamtype=5;profile-level-id=39;mode=AAC-hbr;config=%s;sizelength=13;indexlength=3;indexdeltalength=3;constantDuration=%d
                 """
                 .formatted(port, payloadType, payloadType, codec.sampleRateKhz() * 1000, codec.channels(), payloadType,
-                        audioSpecificConfig(codec.sampleRateKhz(), codec.channels()));
+                        audioSpecificConfig(codec.sampleRateKhz(), codec.channels()), aacEldSamplesPerPacket(codec));
+    }
+
+    /**
+     * Returns the number of samples in one AAC-ELD access unit, which is the packet time of the codec in ms multiplied
+     * by its sample rate in kHz. This gives 480 samples for both 16 kHz at 30 ms and 24 kHz at 20 ms.
+     */
+    private static int aacEldSamplesPerPacket(AudioCodec codec) {
+        return codec.sampleRateKhz() * codec.packetTimeMs();
     }
 
     /**
@@ -143,14 +151,18 @@ public final class FfmpegHelpers {
      * Returns the ffmpeg arguments that encode to AAC-ELD at the camera's sample rate, channel count and bitrate.
      * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD. The
      * global header flag is required: without it libfdk_aac fails to open the ELD encoder on Windows builds.
+     * <p>
+     * The frame length is set explicitly so that each access unit matches the HomeKit packet time. {@code -max_delay 0}
+     * makes the RTP muxer flush after every access unit, so that each RTP packet carries exactly one.
      *
      * @param codec the camera's AAC-ELD audio codec
      * @return the encoder arguments
      */
     public static List<String> aacEldEncoderArgs(AudioCodec codec) {
         return List.of("-c:a", "libfdk_aac", "-profile:a", "aac_eld", "-ar",
-                String.valueOf(codec.sampleRateKhz() * 1000), "-ac", String.valueOf(codec.channels()), "-b:a",
-                codec.maxBitrateKbps() + "k", "-flags", "+global_header");
+                String.valueOf(codec.sampleRateKhz() * 1000), "-ac", String.valueOf(codec.channels()), "-frame_length",
+                String.valueOf(aacEldSamplesPerPacket(codec)), "-b:a", codec.maxBitrateKbps() + "k", "-flags",
+                "+global_header", "-max_delay", "0");
     }
 
     /**
