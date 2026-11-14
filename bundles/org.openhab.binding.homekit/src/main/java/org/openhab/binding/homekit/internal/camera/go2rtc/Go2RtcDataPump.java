@@ -440,8 +440,13 @@ public class Go2RtcDataPump implements AutoCloseable {
                     LOGGER.debug("Talk-back reading go2rtc stream {}", talkStream);
                     talkReader = reader;
                     while (!closed && isTalkActive()) {
+                        long beforeRead = System.currentTimeMillis();
                         RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
                         debugFramesRead++;
+                        long waited = System.currentTimeMillis() - beforeRead;
+                        if (waited > 1000) {
+                            LOGGER.info("DEBUG pump waited {} ms for go2rtc frame {}", waited, debugFramesRead);
+                        }
                         if (debugFramesRead % 100 == 0) {
                             LOGGER.info("DEBUG pump read {} frames from go2rtc", debugFramesRead);
                         }
