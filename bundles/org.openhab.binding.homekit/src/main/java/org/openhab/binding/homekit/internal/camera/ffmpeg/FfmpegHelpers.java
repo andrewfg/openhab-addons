@@ -141,7 +141,8 @@ public final class FfmpegHelpers {
 
     /**
      * Returns the ffmpeg arguments that encode to AAC-ELD at the camera's sample rate, channel count and bitrate.
-     * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD.
+     * Requires an ffmpeg build with libfdk_aac, because ffmpeg's native AAC encoder cannot produce AAC-ELD. The
+     * global header flag is required: without it libfdk_aac fails to open the ELD encoder on Windows builds.
      *
      * @param codec the camera's AAC-ELD audio codec
      * @return the encoder arguments
@@ -149,7 +150,7 @@ public final class FfmpegHelpers {
     public static List<String> aacEldEncoderArgs(AudioCodec codec) {
         return List.of("-c:a", "libfdk_aac", "-profile:a", "aac_eld", "-ar",
                 String.valueOf(codec.sampleRateKhz() * 1000), "-ac", String.valueOf(codec.channels()), "-b:a",
-                codec.maxBitrateKbps() + "k");
+                codec.maxBitrateKbps() + "k", "-flags", "+global_header");
     }
 
     /**
