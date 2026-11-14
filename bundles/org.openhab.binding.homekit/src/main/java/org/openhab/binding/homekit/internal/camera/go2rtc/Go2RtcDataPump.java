@@ -429,6 +429,8 @@ public class Go2RtcDataPump implements AutoCloseable {
      * lives
      * for the whole session.
      */
+    private long debugFramesRead;
+
     private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
             throws IOException {
         FfmpegRtpTranscoder encoder = openTalkEncoder(srtpBuffer);
@@ -439,6 +441,10 @@ public class Go2RtcDataPump implements AutoCloseable {
                     talkReader = reader;
                     while (!closed && isTalkActive()) {
                         RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
+                        debugFramesRead++;
+                        if (debugFramesRead % 100 == 0) {
+                            LOGGER.info("DEBUG pump read {} frames from go2rtc", debugFramesRead);
+                        }
                         if (frame.channel() != TALK_CHANNEL || frame.length() < RTP_HEADER_LENGTH) {
                             continue;
                         }

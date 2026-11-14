@@ -144,10 +144,16 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @param length the packet length
      * @throws IOException if the packet cannot be sent
      */
+    private long debugPacketsSent;
+
     public void send(byte[] data, int length) throws IOException {
         if (!firstPacketSent) {
             firstPacketSent = true;
             LOGGER.debug("ffmpeg input: first RTP packet forwarded, {} bytes to port {}", length, inputPort);
+        }
+        debugPacketsSent++;
+        if (debugPacketsSent % 100 == 0) {
+            LOGGER.info("DEBUG transcoder sent {} packets to ffmpeg input", debugPacketsSent);
         }
         inputSocket.send(new DatagramPacket(data, length, loopback, inputPort));
     }
