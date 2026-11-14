@@ -153,7 +153,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         }
         debugPacketsSent++;
         if (debugPacketsSent % 100 == 0) {
-            LOGGER.info("DEBUG transcoder sent {} packets to ffmpeg input", debugPacketsSent);
+            LOGGER.info("DEBUG transcoder[in={}] sent {} packets", inputPort, debugPacketsSent);
         }
         inputSocket.send(new DatagramPacket(data, length, loopback, inputPort));
     }
@@ -179,7 +179,8 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private void forwardOutput(PacketSink sink) {
         byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-        LOGGER.info("DEBUG transcoder listening for ffmpeg output on port {}", outputSocket.getLocalPort());
+        int outPort = outputSocket.getLocalPort();
+        LOGGER.info("DEBUG transcoder[out={}] listening for ffmpeg output", outPort);
         long debugReceived = 0;
         while (!closed) {
             try {
@@ -187,22 +188,22 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
                 outputSocket.receive(packet);
                 debugReceived++;
                 if (debugReceived == 1) {
-                    LOGGER.info("DEBUG transcoder first ffmpeg output packet, {} bytes from {}", packet.getLength(),
-                            packet.getSocketAddress());
+                    LOGGER.info("DEBUG transcoder[out={}] first output packet, {} bytes from {}", outPort,
+                            packet.getLength(), packet.getSocketAddress());
                 }
                 if (debugReceived % 100 == 0) {
-                    LOGGER.info("DEBUG transcoder received {} ffmpeg output packets", debugReceived);
+                    LOGGER.info("DEBUG transcoder[out={}] received {} output packets", outPort, debugReceived);
                 }
                 try {
                     sink.accept(buffer, packet.getLength());
                 } catch (RuntimeException e) {
-                    LOGGER.info("DEBUG transcoder sink failed on packet {}: {}", debugReceived, e, e);
+                    LOGGER.info("DEBUG transcoder[out={}] sink failed on packet {}: {}", outPort, debugReceived, e, e);
                     return;
                 }
             } catch (IOException e) {
                 if (!closed) {
-                    LOGGER.info("DEBUG transcoder output receive failed after {} packets: {}", debugReceived,
-                            e.getMessage());
+                    LOGGER.info("DEBUG transcoder[out={}] receive failed after {} packets: {}", outPort,
+                            debugReceived, e.getMessage());
                     LOGGER.debug("RTP transcoding output failed: {}", e.getMessage());
                 }
                 return;
