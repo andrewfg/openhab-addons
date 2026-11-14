@@ -145,7 +145,8 @@ public class Go2RtcCameraServlet extends HttpServlet {
                   try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     talk = { pc, stream };
-                    stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
+                    // sendonly, because go2rtc treats a sendrecv audio offer as a viewer and rejects it when no producer exists
+                    stream.getAudioTracks().forEach((track) => pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] }));
                     talkButton.textContent = 'Stop talk';
                     message.textContent = '';
                     await exchange(pc, '/talk');
