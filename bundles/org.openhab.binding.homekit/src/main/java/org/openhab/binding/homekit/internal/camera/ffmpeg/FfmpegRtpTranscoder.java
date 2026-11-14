@@ -179,13 +179,25 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private void forwardOutput(PacketSink sink) {
         byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+        LOGGER.info("DEBUG transcoder listening for ffmpeg output on port {}", outputSocket.getLocalPort());
+        long debugReceived = 0;
         while (!closed) {
             try {
                 packet.setLength(buffer.length);
                 outputSocket.receive(packet);
+                debugReceived++;
+                if (debugReceived == 1) {
+                    LOGGER.info("DEBUG transcoder first ffmpeg output packet, {} bytes from {}", packet.getLength(),
+                            packet.getSocketAddress());
+                }
+                if (debugReceived % 100 == 0) {
+                    LOGGER.info("DEBUG transcoder received {} ffmpeg output packets", debugReceived);
+                }
                 sink.accept(buffer, packet.getLength());
             } catch (IOException e) {
                 if (!closed) {
+                    LOGGER.info("DEBUG transcoder output receive failed after {} packets: {}", debugReceived,
+                            e.getMessage());
                     LOGGER.debug("RTP transcoding output failed: {}", e.getMessage());
                 }
                 return;
