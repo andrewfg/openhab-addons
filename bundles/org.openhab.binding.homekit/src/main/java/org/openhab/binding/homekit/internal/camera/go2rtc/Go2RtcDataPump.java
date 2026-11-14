@@ -62,6 +62,8 @@ public class Go2RtcDataPump implements AutoCloseable {
     private static final long RTCP_REPORT_INTERVAL_MS = 1000L;
     private static final int VIDEO_CLOCK_RATE = 90000;
     private static final int TALK_RETRY_DELAY_MS = 2000;
+    private static final long TALK_STALL_THRESHOLD_MS = 2000;
+    private static final long TALK_STALL_CHECK_INTERVAL_MS = 500;
     private static final int PUBLISH_TIMEOUT_SECONDS = 60;
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
@@ -116,6 +118,10 @@ public class Go2RtcDataPump implements AutoCloseable {
     private volatile @Nullable RtspConnection publisher = null;
     private volatile @Nullable String publishUrl = null;
     private volatile @Nullable RtspConnection talkReader = null;
+    private volatile @Nullable Thread talkThread = null;
+    private volatile long talkLastReadMs;
+    private volatile long talkLastSentMs;
+    private boolean talkStallReported;
     private volatile @Nullable FfmpegRtpTranscoder audioTranscoder = null;
     private volatile boolean closed;
     private final Object talkMonitor = new Object();
@@ -165,6 +171,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, videoReport, Session::videoSession,
                 Session::videoControlSession));
         startThread("rtcp-rr", this::sendReceiverReports);
+        startThread("talk-watchdog", this::watchTalkStalls);
     }
 
     /**
@@ -219,7 +226,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         }
         publishUrl = url;
         publisher = connection;
-        startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
+        talkThread = startThread("talk-rtp", () -> relayTalk(rtspPort, talkStream));
     }
 
     /**
@@ -317,6 +324,9 @@ public class Go2RtcDataPump implements AutoCloseable {
             if (!talkActive) {
                 LOGGER.debug("Talk-back session started");
             }
+            long now = System.currentTimeMillis();
+            talkLastReadMs = now;
+            talkLastSentMs = now;
             talkActive = true;
             talkMonitor.notifyAll();
         }
@@ -442,6 +452,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                     while (!closed && isTalkActive()) {
                         long beforeRead = System.currentTimeMillis();
                         RtspConnection.Frame frame = reader.readFrame(rtpBuffer);
+                        talkLastReadMs = System.currentTimeMillis();
                         debugFramesRead++;
                         long waited = System.currentTimeMillis() - beforeRead;
                         if (waited > 1000) {
@@ -562,6 +573,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
         talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
         debugSrtpSent++;
+        talkLastSentMs = System.currentTimeMillis();
         if (debugSrtpSent % 100 == 0) {
             LOGGER.info("DEBUG camera talk SRTP sent {} packets to {}", debugSrtpSent, current.talkAddress());
         }
@@ -685,12 +697,60 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
+     * Logs once per stall while talk is active: go2rtc has delivered no frame, or the camera has received no packet
+     * while a session is open, for longer than the threshold. The talk thread's stack is included so the stall
+     * location is captured automatically.
+     */
+    private void watchTalkStalls() {
+        while (!closed) {
+            try {
+                Thread.sleep(TALK_STALL_CHECK_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (!isTalkActive()) {
+                talkStallReported = false;
+                continue;
+            }
+            long now = System.currentTimeMillis();
+            long readAge = now - talkLastReadMs;
+            long sentAge = now - talkLastSentMs;
+            boolean inputStalled = readAge > TALK_STALL_THRESHOLD_MS;
+            boolean outputStalled = session != null && sentAge > TALK_STALL_THRESHOLD_MS;
+            if (!inputStalled && !outputStalled) {
+                talkStallReported = false;
+                continue;
+            }
+            if (!talkStallReported) {
+                talkStallReported = true;
+                LOGGER.info(
+                        "DEBUG talk stall: no go2rtc frame for {} ms, no camera packet for {} ms, frames read={}, encoded={}, srtp sent={}, talk thread stack:{}",
+                        readAge, sentAge, debugFramesRead, debugEncodedPackets, debugSrtpSent,
+                        stackOf(talkThread));
+            }
+        }
+    }
+
+    private static String stackOf(@Nullable Thread thread) {
+        if (thread == null) {
+            return " unavailable";
+        }
+        StringBuilder stack = new StringBuilder();
+        for (StackTraceElement element : thread.getStackTrace()) {
+            stack.append("\n\tat ").append(element);
+        }
+        return stack.toString();
+    }
+
+    /**
      * Starts a daemon thread to run the given task.
      */
-    private void startThread(String name, Runnable task) {
+    private Thread startThread(String name, Runnable task) {
         Thread thread = new Thread(task, "OH-binding-homekit-go2rtc-" + name);
         thread.setDaemon(true);
         thread.start();
+        return thread;
     }
 
     /**
