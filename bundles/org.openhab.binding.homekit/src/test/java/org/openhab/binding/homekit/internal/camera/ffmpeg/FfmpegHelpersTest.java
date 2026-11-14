@@ -68,5 +68,6 @@ class FfmpegHelpersTest {
         assertEquals("aac_eld", args.get(args.indexOf("-profile:a") + 1));
         assertEquals("16000", args.get(args.indexOf("-ar") + 1));
         assertEquals("1", args.get(args.indexOf("-ac") + 1));
+        assertEquals("+global_header", args.get(args.indexOf("-flags") + 1));
     }
 }
