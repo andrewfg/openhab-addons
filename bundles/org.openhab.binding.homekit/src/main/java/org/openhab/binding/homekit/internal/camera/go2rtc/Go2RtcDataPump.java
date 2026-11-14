@@ -64,6 +64,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     private static final int TALK_RETRY_DELAY_MS = 2000;
     private static final long TALK_STALL_THRESHOLD_MS = 2000;
     private static final long TALK_STALL_CHECK_INTERVAL_MS = 500;
+    private static final long TALK_HEARTBEAT_INTERVAL_MS = 5000;
     private static final int PUBLISH_TIMEOUT_SECONDS = 60;
 
     public static final int AUDIO_PAYLOAD_TYPE = 110;
@@ -697,11 +698,13 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * Logs once per stall while talk is active: go2rtc has delivered no frame, or the camera has received no packet
-     * while a session is open, for longer than the threshold. The talk thread's stack is included so the stall
-     * location is captured automatically.
+     * While talk is active, logs a heartbeat every few seconds with the frame and packet counters and their ages, so
+     * the flow state is visible even when no stall occurs. Logs once per stall: go2rtc has delivered no frame, or the
+     * camera has received no packet while a session is open, for longer than the threshold. The talk thread's stack
+     * is included so the stall location is captured automatically.
      */
     private void watchTalkStalls() {
+        long lastHeartbeatMs = 0;
         while (!closed) {
             try {
                 Thread.sleep(TALK_STALL_CHECK_INTERVAL_MS);
@@ -711,11 +714,18 @@ public class Go2RtcDataPump implements AutoCloseable {
             }
             if (!isTalkActive()) {
                 talkStallReported = false;
+                lastHeartbeatMs = 0;
                 continue;
             }
             long now = System.currentTimeMillis();
             long readAge = now - talkLastReadMs;
             long sentAge = now - talkLastSentMs;
+            if (now - lastHeartbeatMs >= TALK_HEARTBEAT_INTERVAL_MS) {
+                lastHeartbeatMs = now;
+                LOGGER.info(
+                        "DEBUG talk heartbeat: last go2rtc frame {} ms ago, last camera packet {} ms ago, frames read={}, encoded={}, srtp sent={}",
+                        readAge, sentAge, debugFramesRead, debugEncodedPackets, debugSrtpSent);
+            }
             boolean inputStalled = readAge > TALK_STALL_THRESHOLD_MS;
             boolean outputStalled = session != null && sentAge > TALK_STALL_THRESHOLD_MS;
             if (!inputStalled && !outputStalled) {
