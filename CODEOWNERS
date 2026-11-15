@@ -89,6 +89,7 @@
 /bundles/org.openhab.binding.deconz/ @J-N-K
 /bundles/org.openhab.binding.denonmarantz/ @jwveldhuis
 /bundles/org.openhab.binding.deutschebahn/ @soenkekueper
+/bundles/org.openhab.binding.dreame/ @rogrun
 /bundles/org.openhab.binding.digiplex/ @rmichalak
 /bundles/org.openhab.binding.digitalstrom/ @openhab/add-ons-maintainers
 /bundles/org.openhab.binding.dirigera/ @weymann
@@ -394,7 +395,7 @@
 /bundles/org.openhab.binding.sleepiq/ @syphr42 @mhilbush
 /bundles/org.openhab.binding.smaenergymeter/ @monnimeter
 /bundles/org.openhab.binding.smartmeter/ @msteigenberger
-/bundles/org.openhab.binding.smartthings/ @BobRak
+/bundles/org.openhab.binding.smartthings/ @kaikreuzer
 /bundles/org.openhab.binding.smgw/ @J-N-K
 /bundles/org.openhab.binding.smhi/ @pacive
 /bundles/org.openhab.binding.smsmodem/ @dalgwen
@@ -456,6 +457,7 @@
 /bundles/org.openhab.binding.vektiva/ @octa22
 /bundles/org.openhab.binding.velbus/ @cedricboon
 /bundles/org.openhab.binding.velux/ @gs4711 @andrewfg
+/bundles/org.openhab.binding.veluxactive/ @jlaur
 /bundles/org.openhab.binding.venstarthermostat/ @hww3 @digitaldan
 /bundles/org.openhab.binding.ventaair/ @t2000
 /bundles/org.openhab.binding.verisure/ @jannegpriv
