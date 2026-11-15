@@ -2002,9 +2002,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      */
     private static AudioSelectedParameters selectedAudioParams(AudioCodec codec) {
         return new AudioSelectedParameters(codec.codecType(), codec.channels(), false, codec.sampleRateKhz(),
-                codec.packetTimeMs(),
-                Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, Go2RtcDataPump.AUDIO_SYNC_SOURCE, codec.maxBitrateKbps(), 0.5f,
-                false, 13);
+                codec.packetTimeMs(), Go2RtcDataPump.AUDIO_PAYLOAD_TYPE, Go2RtcDataPump.AUDIO_SYNC_SOURCE,
+                codec.maxBitrateKbps(), 0.5f, false, 13);
     }
 
     /**

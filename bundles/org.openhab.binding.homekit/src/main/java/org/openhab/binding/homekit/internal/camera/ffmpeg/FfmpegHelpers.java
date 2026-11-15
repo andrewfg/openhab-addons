@@ -165,7 +165,6 @@ public final class FfmpegHelpers {
                 "+global_header", "-max_delay", String.valueOf(codec.packetTimeMs() * 1000));
     }
 
-
     /**
      * Builds the command line for an ffmpeg instance that reads RTP described by an SDP file, encodes it with the given
      * arguments and sends the result as RTP to a loopback UDP port.

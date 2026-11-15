@@ -34,9 +34,10 @@ class AudioCodecTest {
 
         List<AudioCodec> codecs = AudioCodec.decode(tlv);
 
-        assertEquals(List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8, 20),
-                new AudioCodec(AudioCodecType.OPUS, 1, 16, 20), new AudioCodec(AudioCodecType.OPUS, 1, 24, 20),
-                new AudioCodec(AudioCodecType.PCMU, 1, 8, 20)), codecs);
+        assertEquals(
+                List.of(new AudioCodec(AudioCodecType.OPUS, 1, 8, 20), new AudioCodec(AudioCodecType.OPUS, 1, 16, 20),
+                        new AudioCodec(AudioCodecType.OPUS, 1, 24, 20), new AudioCodec(AudioCodecType.PCMU, 1, 8, 20)),
+                codecs);
     }
 
     @Test
