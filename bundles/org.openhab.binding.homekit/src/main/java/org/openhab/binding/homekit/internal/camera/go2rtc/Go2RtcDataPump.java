@@ -41,8 +41,9 @@ import org.slf4j.LoggerFactory;
  * Opus by ffmpeg, because go2rtc only accepts Opus.
  * <p>
  * The talk path is read as interleaved RTP from go2rtc's talk stream, re-labelled with the talk payload type and
- * sync source, encrypted and sent to the camera's talk port advertised in the SetupEndpoints response. When the
- * camera's audio codec is AAC-ELD, the talk audio is first transcoded from Opus to AAC-ELD by ffmpeg.
+ * sync source, encrypted and sent to the camera's audio port advertised in the SetupEndpoints response, using the
+ * same local socket that receives camera audio. Audio RTP and RTCP share this full-duplex endpoint. When the camera's
+ * audio codec is AAC-ELD, the talk audio is first transcoded from Opus to AAC-ELD by ffmpeg.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  */
@@ -108,7 +109,6 @@ public class Go2RtcDataPump implements AutoCloseable {
     private final @Nullable String ffmpegBinary;
     private final DatagramSocket audioSocket;
     private final DatagramSocket videoSocket;
-    private final DatagramSocket talkSocket;
     private final RtcpReceiverReport audioReport;
     private final RtcpReceiverReport videoReport;
 
@@ -142,21 +142,14 @@ public class Go2RtcDataPump implements AutoCloseable {
         }
         this.ffmpegBinary = ffmpegBinary;
 
-        DatagramSocket audio = new DatagramSocket(0);
-        DatagramSocket video = null;
-        DatagramSocket talk = null;
+        audioSocket = new DatagramSocket(0);
         try {
-            video = new DatagramSocket(0);
-            talk = new DatagramSocket(0);
+            videoSocket = new DatagramSocket(0);
         } catch (IOException | RuntimeException e) {
-            audio.close();
-            closeQuietly(video, talk);
+            audioSocket.close();
             throw e;
         }
 
-        audioSocket = audio;
-        videoSocket = video;
-        talkSocket = talk;
         audioReport = new RtcpReceiverReport(AUDIO_SYNC_SOURCE, audioCodec.rtpClockRate());
         videoReport = new RtcpReceiverReport(VIDEO_SYNC_SOURCE, VIDEO_CLOCK_RATE);
 
@@ -182,7 +175,7 @@ public class Go2RtcDataPump implements AutoCloseable {
     }
 
     /**
-     * @return the UDP port that receives the camera's audio SRTP
+     * @return the full-duplex UDP port used for camera audio SRTP and SRTCP in both directions
      */
     public int audioPort() {
         return audioSocket.getLocalPort();
@@ -345,7 +338,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         session = null;
         audioSocket.close();
         videoSocket.close();
-        talkSocket.close();
         FfmpegRtpTranscoder transcoder = audioTranscoder;
         if (transcoder != null) {
             transcoder.close();
@@ -543,7 +535,7 @@ public class Go2RtcDataPump implements AutoCloseable {
         rtpBuffer[10] = (byte) (AUDIO_SYNC_SOURCE >>> 8);
         rtpBuffer[11] = (byte) AUDIO_SYNC_SOURCE;
         int srtpLength = current.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
-        talkSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
+        audioSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.talkAddress()));
     }
 
     private static void setPayloadType(byte[] rtpBuffer) {
@@ -667,17 +659,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         Thread thread = new Thread(task, "OH-binding-homekit-go2rtc-" + name);
         thread.setDaemon(true);
         thread.start();
-    }
-
-    /**
-     * Closes the given sockets, ignoring any exception.
-     */
-    private static void closeQuietly(@Nullable DatagramSocket... sockets) {
-        for (DatagramSocket socket : sockets) {
-            if (socket != null) {
-                socket.close();
-            }
-        }
     }
 
     @Override

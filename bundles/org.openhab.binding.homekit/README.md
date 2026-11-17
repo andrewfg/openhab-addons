@@ -182,6 +182,7 @@ Cameras also expose a Camera URL Channel (`camera-url`).
 The binding downloads and runs a [go2rtc](https://github.com/AlexxIT/go2rtc) process (the same way the UniFi binding installs it) and serves a WebRTC viewer page from openHAB's own web server.
 Opening this URL in a browser lets you listen to the camera microphone and watch its video.
 The **Talk** button sends your browser microphone to the camera speaker.
+Listening and talk-back use one full-duplex audio UDP socket on the binding and the camera's negotiated audio port, with RTP and RTCP sharing these ports.
 
 - The page is served from openHAB's own HTTP or HTTPS port, and browser signalling is relayed through openHAB, so the browser never connects to go2rtc directly.
   When openHAB's HTTPS service is enabled, the viewer uses HTTPS with the openHAB certificate.
