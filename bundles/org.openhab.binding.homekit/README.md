@@ -183,6 +183,8 @@ The binding downloads and runs a [go2rtc](https://github.com/AlexxIT/go2rtc) pro
 Opening this URL in a browser lets you listen to the camera microphone and watch its video.
 The **Talk** button sends your browser microphone to the camera speaker.
 Listening and talk-back use one full-duplex audio UDP socket on the binding and the camera's negotiated audio port, with RTP and RTCP sharing these ports.
+H.264 video and Opus audio are relayed without transcoding.
+If the camera uses AAC-ELD audio, the binding inserts an FFmpeg stage in each audio path to convert between AAC-ELD and Opus.
 
 - The page is served from openHAB's own HTTP or HTTPS port, and browser signalling is relayed through openHAB, so the browser never connects to go2rtc directly.
   When openHAB's HTTPS service is enabled, the viewer uses HTTPS with the openHAB certificate.

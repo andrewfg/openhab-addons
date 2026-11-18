@@ -26,6 +26,8 @@ import java.util.function.IntFunction;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.homekit.internal.camera.codec.AudioCodec;
+import org.openhab.binding.homekit.internal.camera.session.RtpPacketSink;
+import org.openhab.binding.homekit.internal.camera.session.RtpPacketSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +35,13 @@ import org.slf4j.LoggerFactory;
  * Transcodes RTP audio between a camera's AAC-ELD and Opus using an ffmpeg child process.
  * <p>
  * RTP is sent to ffmpeg on a loopback port described by a temporary SDP file, and ffmpeg sends the transcoded RTP back
- * to a loopback port owned by this class. Each received packet is passed to the {@link PacketSink}.
+ * to a loopback port owned by this class. Each received packet is passed to the downstream {@link RtpPacketSink}.
  *
  * @author Andrew Fiddian-Green - Initial contribution
+ * @author Andrew Fiddian-Green - RTP packet interfaces
  */
 @NonNullByDefault
-public final class FfmpegRtpTranscoder implements AutoCloseable {
+public final class FfmpegRtpTranscoder implements RtpPacketSource, RtpPacketSink, AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FfmpegRtpTranscoder.class);
 
@@ -51,14 +54,6 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private record Launch(int inputPort, Path sdpFile, Process process) {
     }
 
-    /**
-     * Receives RTP packets produced by ffmpeg.
-     */
-    @FunctionalInterface
-    public interface PacketSink {
-        void accept(byte[] data, int length) throws IOException;
-    }
-
     private final DatagramSocket inputSocket;
     private final DatagramSocket outputSocket;
     private final InetAddress loopback;
@@ -66,21 +61,21 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
     private final Path sdpFile;
     private final Process process;
     private volatile boolean closed;
+    private boolean connected;
     private boolean firstPacketSent;
 
     /**
-     * Starts ffmpeg and the thread that forwards its output.
+     * Starts ffmpeg. Connecting the downstream sink starts the output relay.
      *
      * @param ffmpeg the ffmpeg executable
      * @param inputSdp builds the SDP describing the input RTP stream, given the loopback port ffmpeg reads from
-     * @param inputArgs the decoder arguments applied to the input, see {@link #aacEldDecoderArgs}
+     * @param inputArgs the decoder arguments applied to the input, see {@link FfmpegHelpers#aacEldDecoderArgs}
      * @param encoderArgs the ffmpeg arguments that select the output codec
      * @param payloadType the RTP payload type of the input and output streams
-     * @param sink receives each RTP packet produced by ffmpeg
      * @throws IOException if the sockets, SDP file or process cannot be created
      */
     private FfmpegRtpTranscoder(String ffmpeg, IntFunction<String> inputSdp, List<String> inputArgs,
-            List<String> encoderArgs, int payloadType, PacketSink sink) throws IOException {
+            List<String> encoderArgs, int payloadType) throws IOException {
         loopback = InetAddress.getLoopbackAddress();
         inputSocket = new DatagramSocket();
         outputSocket = new DatagramSocket(0, loopback);
@@ -99,8 +94,15 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         Thread logger = new Thread(() -> logOutput(process), "OH-binding-homekit-ffmpeg-log");
         logger.setDaemon(true);
         logger.start();
+    }
 
-        Thread reader = new Thread(() -> forwardOutput(sink), "OH-binding-homekit-ffmpeg-transcoder");
+    @Override
+    public synchronized void connectTo(RtpPacketSink downstream) {
+        if (connected || closed) {
+            throw new IllegalStateException("RTP transcoder is already connected or closed");
+        }
+        connected = true;
+        Thread reader = new Thread(() -> forwardOutput(downstream), "OH-binding-homekit-ffmpeg-transcoder");
         reader.setDaemon(true);
         reader.start();
     }
@@ -111,13 +113,12 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @param ffmpeg the ffmpeg executable
      * @param codec the camera's AAC-ELD audio codec
      * @param payloadType the RTP payload type used for both input and output
-     * @param sink receives each Opus RTP packet
      * @throws IOException if the transcoder cannot be started
      */
-    public static FfmpegRtpTranscoder aacEldToOpus(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
+    public static FfmpegRtpTranscoder aacEldToOpus(String ffmpeg, AudioCodec codec, int payloadType)
             throws IOException {
         return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.aacEldInputSdp(port, codec, payloadType),
-                FfmpegHelpers.aacEldDecoderArgs(), FfmpegHelpers.opusEncoderArgs(), payloadType, sink);
+                FfmpegHelpers.aacEldDecoderArgs(), FfmpegHelpers.opusEncoderArgs(), payloadType);
     }
 
     /**
@@ -126,13 +127,12 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @param ffmpeg the ffmpeg executable
      * @param codec the camera's AAC-ELD audio codec
      * @param payloadType the RTP payload type used for both input and output
-     * @param sink receives each AAC-ELD RTP packet
      * @throws IOException if the transcoder cannot be started
      */
-    public static FfmpegRtpTranscoder opusToAacEld(String ffmpeg, AudioCodec codec, int payloadType, PacketSink sink)
+    public static FfmpegRtpTranscoder opusToAacEld(String ffmpeg, AudioCodec codec, int payloadType)
             throws IOException {
         return new FfmpegRtpTranscoder(ffmpeg, port -> FfmpegHelpers.opusInputSdp(port, payloadType), List.of(),
-                FfmpegHelpers.aacEldEncoderArgs(codec), payloadType, sink);
+                FfmpegHelpers.aacEldEncoderArgs(codec), payloadType);
     }
 
     /**
@@ -142,7 +142,8 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
      * @param length the packet length
      * @throws IOException if the packet cannot be sent
      */
-    public void send(byte[] data, int length) throws IOException {
+    @Override
+    public void accept(byte[] data, int length) throws IOException {
         if (!firstPacketSent) {
             firstPacketSent = true;
             LOGGER.debug("ffmpeg input: first RTP packet forwarded, {} bytes to port {}", length, inputPort);
@@ -168,7 +169,7 @@ public final class FfmpegRtpTranscoder implements AutoCloseable {
         }
     }
 
-    private void forwardOutput(PacketSink sink) {
+    private void forwardOutput(RtpPacketSink sink) {
         byte[] buffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
         while (!closed) {
