@@ -46,12 +46,14 @@ import org.slf4j.LoggerFactory;
  * sync source, encrypted and sent to the camera's audio port advertised in the SetupEndpoints response, using the
  * same local socket that receives camera audio. Audio RTP and RTCP share this full-duplex endpoint. When the camera's
  * audio codec is AAC-ELD, the talk audio is first transcoded from Opus to AAC-ELD by ffmpeg.
- * Reception statistics, peer addresses and transcoder callbacks belong to one camera session and are not reused
- * when that session is replaced.
+ * The SRTP receivers and talk sender form the edges of the plain RTP callback chains. Receiver Reports are generated
+ * separately from statistics collected before any transcoding. The adapters, statistics and callbacks belong to one
+ * camera session and are not reused when that session is replaced.
  *
  * @author Andrew Fiddian-Green - Initial contribution
  * @author Andrew Fiddian-Green - Session transition isolation
  * @author Andrew Fiddian-Green - RTP packet pipelines
+ * @author Andrew Fiddian-Green - SRTP packet adapters
  */
 @NonNullByDefault
 public class Go2RtcDataPump implements AutoCloseable {
@@ -122,13 +124,66 @@ public class Go2RtcDataPump implements AutoCloseable {
             this.downstream = downstream;
         }
 
-        private void insert(FfmpegRtpTranscoder transcoder) {
-            transcoder.connectTo(downstream);
-            connectTo(transcoder);
-        }
-
         private void push(byte[] packet, int length) throws IOException {
             downstream.accept(packet, length);
+        }
+    }
+
+    private final class SrtpReceiver implements RtpPacketSource {
+        private final SessionState owner;
+        private final SrtpSession crypto;
+        private final RtcpReceiverReport report;
+        private RtpPacketSink downstream;
+
+        private SrtpReceiver(SessionState owner, SrtpSession crypto, RtcpReceiverReport report, int channel) {
+            this.owner = owner;
+            this.crypto = crypto;
+            this.report = report;
+            downstream = (data, length) -> publishPacket(owner, channel, data, length);
+        }
+
+        @Override
+        public void connectTo(RtpPacketSink downstream) {
+            this.downstream = downstream;
+        }
+
+        private void receive(DatagramPacket datagram, byte[] rtpBuffer) throws IOException {
+            byte[] data = datagram.getData();
+            int length = datagram.getLength();
+            if (isRtcp(data, length)) {
+                return;
+            }
+            int rtpLength = crypto.decrypt(data, length, rtpBuffer);
+            if (rtpLength >= 0 && session == owner) {
+                report.setPeer(datagram.getSocketAddress());
+                report.onRtp(rtpBuffer, rtpLength, nowMicros());
+                downstream.accept(rtpBuffer, rtpLength);
+            }
+        }
+    }
+
+    private final class SrtpSender implements RtpPacketSink {
+        private final SessionState owner;
+        private final byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + SRTP_AUTH_TAG_LENGTH];
+
+        private SrtpSender(SessionState owner) {
+            this.owner = owner;
+        }
+
+        @Override
+        public void accept(byte[] packet, int length) throws IOException {
+            setPayloadType(packet);
+            // Header bytes 8-11 hold the SSRC in network byte order.
+            packet[8] = (byte) (AUDIO_SYNC_SOURCE >>> 24);
+            packet[9] = (byte) (AUDIO_SYNC_SOURCE >>> 16);
+            packet[10] = (byte) (AUDIO_SYNC_SOURCE >>> 8);
+            packet[11] = (byte) AUDIO_SYNC_SOURCE;
+            int srtpLength = owner.crypto.talkSession().encrypt(packet, length, srtpBuffer);
+            synchronized (sessionMonitor) {
+                if (session == owner) {
+                    audioSocket.send(new DatagramPacket(srtpBuffer, srtpLength, owner.crypto.talkAddress()));
+                }
+            }
         }
     }
 
@@ -136,16 +191,16 @@ public class Go2RtcDataPump implements AutoCloseable {
         private final Session crypto;
         private final RtcpReceiverReport audioReport;
         private final RtcpReceiverReport videoReport;
-        private final RelaySource audioSource;
-        private final RelaySource videoSource;
+        private final SrtpReceiver audioSource;
+        private final SrtpReceiver videoSource;
         private @Nullable FfmpegRtpTranscoder audioTranscoder;
 
         private SessionState(Session crypto, int audioClockRate, Go2RtcDataPump pump) {
             this.crypto = crypto;
             audioReport = new RtcpReceiverReport(AUDIO_SYNC_SOURCE, audioClockRate);
             videoReport = new RtcpReceiverReport(VIDEO_SYNC_SOURCE, VIDEO_CLOCK_RATE);
-            audioSource = new RelaySource((data, length) -> pump.publishPacket(this, AUDIO_CHANNEL, data, length));
-            videoSource = new RelaySource((data, length) -> pump.publishPacket(this, VIDEO_CHANNEL, data, length));
+            audioSource = pump.new SrtpReceiver(this, crypto.audioSession(), audioReport, AUDIO_CHANNEL);
+            videoSource = pump.new SrtpReceiver(this, crypto.videoSession(), videoReport, VIDEO_CHANNEL);
         }
     }
 
@@ -194,10 +249,8 @@ public class Go2RtcDataPump implements AutoCloseable {
             throw e;
         }
 
-        startThread("audio-rtp", () -> relayListen(audioSocket, AUDIO_CHANNEL, state -> state.audioReport,
-                Session::audioSession, state -> state.audioSource));
-        startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, state -> state.videoReport,
-                Session::videoSession, state -> state.videoSource));
+        startThread("audio-rtp", () -> relayListen(audioSocket, AUDIO_CHANNEL, state -> state.audioSource));
+        startThread("video-rtp", () -> relayListen(videoSocket, VIDEO_CHANNEL, state -> state.videoSource));
         startThread("rtcp-rr", this::sendReceiverReports);
     }
 
@@ -325,7 +378,8 @@ public class Go2RtcDataPump implements AutoCloseable {
         }
         try {
             FfmpegRtpTranscoder transcoder = FfmpegRtpTranscoder.aacEldToOpus(ffmpeg, audioCodec, AUDIO_PAYLOAD_TYPE);
-            current.audioSource.insert(transcoder);
+            transcoder.connectTo(current.audioSource.downstream);
+            current.audioSource.connectTo(transcoder);
             current.audioTranscoder = transcoder;
         } catch (IOException e) {
             LOGGER.warn("Failed to start audio transcoder: {}", e.getMessage());
@@ -411,8 +465,7 @@ public class Go2RtcDataPump implements AutoCloseable {
      * transcoder instead, which publishes Opus. Camera SRTCP on the same socket is dropped and not decrypted. The
      * camera's address is learned from the first RTP packet that authenticates, and Receiver Reports are sent to it.
      */
-    private void relayListen(DatagramSocket socket, int channel, Function<SessionState, RtcpReceiverReport> reports,
-            Function<Session, SrtpSession> stream, Function<SessionState, RelaySource> source) {
+    private void relayListen(DatagramSocket socket, int channel, Function<SessionState, SrtpReceiver> source) {
         byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
         DatagramPacket receivePacket = new DatagramPacket(srtpBuffer, srtpBuffer.length);
@@ -422,17 +475,7 @@ public class Go2RtcDataPump implements AutoCloseable {
                 socket.receive(receivePacket);
                 SessionState current = session;
                 if (current != null && publisher != null) {
-                    int length = receivePacket.getLength();
-                    if (isRtcp(srtpBuffer, length)) {
-                        continue;
-                    }
-                    int rtpLength = stream.apply(current.crypto).decrypt(srtpBuffer, length, rtpBuffer);
-                    if (rtpLength >= 0 && session == current) {
-                        RtcpReceiverReport report = reports.apply(current);
-                        report.setPeer(receivePacket.getSocketAddress());
-                        report.onRtp(rtpBuffer, rtpLength, nowMicros());
-                        source.apply(current).push(rtpBuffer, rtpLength);
-                    }
+                    source.apply(current).receive(receivePacket, rtpBuffer);
                 }
             } catch (IOException e) {
                 if (closed) {
@@ -452,10 +495,9 @@ public class Go2RtcDataPump implements AutoCloseable {
      */
     private void relayTalk(int rtspPort, String talkStream) {
         byte[] rtpBuffer = new byte[MAX_DATAGRAM_SIZE];
-        byte[] srtpBuffer = new byte[MAX_DATAGRAM_SIZE + SRTP_AUTH_TAG_LENGTH];
         while (awaitTalkActive()) {
             try {
-                relayTalkSession(rtspPort, talkStream, rtpBuffer, srtpBuffer);
+                relayTalkSession(rtspPort, talkStream, rtpBuffer);
             } catch (IOException e) {
                 if (closed) {
                     return;
@@ -473,16 +515,17 @@ public class Go2RtcDataPump implements AutoCloseable {
      * lives
      * for the whole session.
      */
-    private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer, byte[] srtpBuffer)
-            throws IOException {
+    private void relayTalkSession(int rtspPort, String talkStream, byte[] rtpBuffer) throws IOException {
         SessionState current = session;
         if (current == null) {
             return;
         }
-        RelaySource source = new RelaySource((data, length) -> sendTalk(current, data, length, srtpBuffer));
+        SrtpSender sender = new SrtpSender(current);
+        RelaySource source = new RelaySource(sender);
         try (FfmpegRtpTranscoder encoder = openTalkEncoder()) {
             if (encoder != null) {
-                source.insert(encoder);
+                encoder.connectTo(sender);
+                source.connectTo(encoder);
             }
             while (!closed && session == current && isTalkActive()) {
                 try (RtspConnection reader = openTalkReader(rtspPort, talkStream)) {
@@ -569,24 +612,6 @@ public class Go2RtcDataPump implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
-        }
-    }
-
-    /**
-     * Re-labels a talk RTP packet with the talk payload type and sync source, then encrypts and sends it to the camera.
-     */
-    private void sendTalk(SessionState current, byte[] rtpBuffer, int length, byte[] srtpBuffer) throws IOException {
-        setPayloadType(rtpBuffer);
-        // header bytes 8-11 contain SSRC in network byte order
-        rtpBuffer[8] = (byte) (AUDIO_SYNC_SOURCE >>> 24);
-        rtpBuffer[9] = (byte) (AUDIO_SYNC_SOURCE >>> 16);
-        rtpBuffer[10] = (byte) (AUDIO_SYNC_SOURCE >>> 8);
-        rtpBuffer[11] = (byte) AUDIO_SYNC_SOURCE;
-        int srtpLength = current.crypto.talkSession().encrypt(rtpBuffer, length, srtpBuffer);
-        synchronized (sessionMonitor) {
-            if (session == current) {
-                audioSocket.send(new DatagramPacket(srtpBuffer, srtpLength, current.crypto.talkAddress()));
-            }
         }
     }
 
