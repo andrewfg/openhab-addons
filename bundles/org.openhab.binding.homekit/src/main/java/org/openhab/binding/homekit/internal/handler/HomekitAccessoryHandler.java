@@ -420,6 +420,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * Each service creates a channel group, and each characteristic creates a channel within it.
      */
     private void createChannels() {
+        logger.info("{} createChannels() channel-config-carry-over build, existing channels: {}", thing.getUID(),
+                thing.getChannels().size());
         Map<Long, Accessory> accessories = getAccessories();
         if (accessories.isEmpty()) {
             return;
