@@ -1983,9 +1983,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
     @Override
     public boolean requiresLogin() {
         Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
-        return channel != null
-                && Boolean.TRUE.equals(ConfigParser.valueAs(channel.getConfiguration().get(CONFIG_REQUIRE_LOGIN),
-                        Boolean.class));
+        return channel != null && Boolean.TRUE
+                .equals(ConfigParser.valueAs(channel.getConfiguration().get(CONFIG_REQUIRE_LOGIN), Boolean.class));
     }
 
     @Override

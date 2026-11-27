@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -124,8 +125,7 @@ class Go2RtcCameraServletTest {
         when(filter.getSecurityContext(any(HttpServletRequest.class), eq(false)))
                 .thenThrow(new AuthenticationException("bad"));
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
-        assertEquals(HttpServletResponse.SC_TOO_MANY_REQUESTS,
-                get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+        assertEquals(429, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
     }
 
     @Test
@@ -150,12 +150,12 @@ class Go2RtcCameraServletTest {
             }
 
             @Override
-            public String answerBrowserOffer(String offer) {
+            public String answerBrowserOffer(String offer) throws IOException {
                 return base.answerBrowserOffer(offer);
             }
 
             @Override
-            public String answerBrowserTalkOffer(String offer) {
+            public String answerBrowserTalkOffer(String offer) throws IOException {
                 return base.answerBrowserTalkOffer(offer);
             }
         };

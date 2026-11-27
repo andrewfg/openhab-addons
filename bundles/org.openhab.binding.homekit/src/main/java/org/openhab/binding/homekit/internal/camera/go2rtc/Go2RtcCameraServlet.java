@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -34,9 +35,9 @@ import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.servlet.whiteboard.HttpWhiteboardConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,7 +235,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
     }
 
     protected void unsetAuthFilter(AuthFilter authFilter) {
-        if (this.authFilter == authFilter) {
+        if (Objects.equals(this.authFilter, authFilter)) {
             this.authFilter = null;
         }
     }
@@ -344,6 +345,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
             return;
         }
         if (!authorized(request, response, provider)) {
+            logger.debug("doGet() not authorized");
             return;
         }
         boolean available;
@@ -386,6 +388,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
             return;
         }
         if (!authorized(request, response, provider)) {
+            logger.debug("doPost() not authorized");
             return;
         }
         final int maxOfferBytes = 64 * 1024;
@@ -424,8 +427,8 @@ public class Go2RtcCameraServlet extends HttpServlet {
      *
      * @return true if the request may proceed; otherwise the response has been completed
      */
-    private boolean authorized(HttpServletRequest request, HttpServletResponse response,
-            BrowserStreamProvider provider) throws IOException {
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, BrowserStreamProvider provider)
+            throws IOException {
         if (!provider.requiresLogin()) {
             return true;
         }
@@ -438,7 +441,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
         String client = request.getRemoteAddr();
         Instant lastFailure = client == null ? null : lastLoginFailures.get(client);
         if (lastFailure != null && lastFailure.plus(LOGIN_FAILURE_COOLDOWN).isAfter(Instant.now())) {
-            reject(response, HttpServletResponse.SC_TOO_MANY_REQUESTS);
+            reject(response, 429); // Too Many Requests
             return false;
         }
         boolean failed = false;
