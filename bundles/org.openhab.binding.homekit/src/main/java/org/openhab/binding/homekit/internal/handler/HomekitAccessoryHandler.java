@@ -532,20 +532,22 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             snapshotTriggersFinalize(accessory);
             findCameraCharacteristics(accessory);
             if (isCameraStreamAvailable()) {
-                ChannelBuilder cameraUrlBuilder = ChannelBuilder
+                Channel cameraUrlChannel = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
-                        .withType(CHANNEL_TYPE_CAMERA_URL);
-                Channel oldCameraUrlChannel = thing.getChannel(CHANNEL_CAMERA_URL);
-                if (oldCameraUrlChannel != null) {
-                    // keep the user's channel configuration, such as requireLogin, when channels are rebuilt
-                    cameraUrlBuilder.withConfiguration(oldCameraUrlChannel.getConfiguration());
-                }
-                Channel cameraUrlChannel = cameraUrlBuilder.build();
+                        .withType(CHANNEL_TYPE_CAMERA_URL).build();
                 uniqueChannelsMap.put(CHANNEL_CAMERA_URL, cameraUrlChannel);
                 logChannelInformation(cameraUrlChannel);
                 registerCamera();
             }
         }
+
+        // channels are rebuilt on every initialization, so carry over any configuration the user has set on them
+        uniqueChannelsMap.replaceAll((id, channel) -> {
+            Channel oldChannel = thing.getChannel(channel.getUID());
+            return oldChannel != null && !oldChannel.getConfiguration().getProperties().isEmpty()
+                    ? ChannelBuilder.create(channel).withConfiguration(oldChannel.getConfiguration()).build()
+                    : channel;
+        });
 
         String oldLabel = thing.getLabel();
         String newLabel = oldLabel == null || oldLabel.isEmpty() ? accessory.getAccessoryInstanceLabel() : null;
