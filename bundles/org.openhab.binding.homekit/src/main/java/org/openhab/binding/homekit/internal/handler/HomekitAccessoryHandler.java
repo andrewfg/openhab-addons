@@ -544,6 +544,10 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         // channels are rebuilt on every initialization, so carry over any configuration the user has set on them
         uniqueChannelsMap.replaceAll((id, channel) -> {
             Channel oldChannel = thing.getChannel(channel.getUID());
+            if (CHANNEL_CAMERA_URL.equals(id)) {
+                logger.debug("{} channel {} stored configuration {}", thing.getUID(), id,
+                        oldChannel == null ? "n/a (no stored channel)" : oldChannel.getConfiguration().getProperties());
+            }
             if (oldChannel == null || oldChannel.getConfiguration().getProperties().isEmpty()) {
                 return channel;
             }
@@ -1983,6 +1987,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         registerCamera();
         startGo2rtcIfAvailable();
         return true;
+    }
+
+    @Override
+    public void thingUpdated(Thing thing) {
+        Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
+        logger.debug("{} thingUpdated() camera-url configuration {}", thing.getUID(),
+                channel == null ? "n/a" : channel.getConfiguration().getProperties());
+        super.thingUpdated(thing);
     }
 
     @Override
