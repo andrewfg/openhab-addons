@@ -77,6 +77,7 @@ import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
 import org.openhab.core.OpenHAB;
 import org.openhab.core.common.ThreadPoolManager;
+import org.openhab.core.config.core.ConfigParser;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
@@ -531,9 +532,15 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
             snapshotTriggersFinalize(accessory);
             findCameraCharacteristics(accessory);
             if (isCameraStreamAvailable()) {
-                Channel cameraUrlChannel = ChannelBuilder
+                ChannelBuilder cameraUrlBuilder = ChannelBuilder
                         .create(new ChannelUID(thing.getUID(), CHANNEL_CAMERA_URL), CoreItemFactory.STRING)
-                        .withType(CHANNEL_TYPE_CAMERA_URL).build();
+                        .withType(CHANNEL_TYPE_CAMERA_URL);
+                Channel oldCameraUrlChannel = thing.getChannel(CHANNEL_CAMERA_URL);
+                if (oldCameraUrlChannel != null) {
+                    // keep the user's channel configuration, such as requireLogin, when channels are rebuilt
+                    cameraUrlBuilder.withConfiguration(oldCameraUrlChannel.getConfiguration());
+                }
+                Channel cameraUrlChannel = cameraUrlBuilder.build();
                 uniqueChannelsMap.put(CHANNEL_CAMERA_URL, cameraUrlChannel);
                 logChannelInformation(cameraUrlChannel);
                 registerCamera();
@@ -1971,6 +1978,14 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         registerCamera();
         startGo2rtcIfAvailable();
         return true;
+    }
+
+    @Override
+    public boolean requiresLogin() {
+        Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
+        return channel != null
+                && Boolean.TRUE.equals(ConfigParser.valueAs(channel.getConfiguration().get(CONFIG_REQUIRE_LOGIN),
+                        Boolean.class));
     }
 
     @Override
