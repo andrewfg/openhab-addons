@@ -420,6 +420,8 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
      * Each service creates a channel group, and each characteristic creates a channel within it.
      */
     private void createChannels() {
+        logger.info("{} createChannels() channel-config-carry-over build, existing channels: {}", thing.getUID(),
+                thing.getChannels().size());
         Map<Long, Accessory> accessories = getAccessories();
         if (accessories.isEmpty()) {
             return;
@@ -540,6 +542,16 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 registerCamera();
             }
         }
+
+        // channels are rebuilt on every initialization, so carry over any configuration the user has set on them
+        uniqueChannelsMap.replaceAll((id, channel) -> {
+            Channel oldChannel = thing.getChannel(channel.getUID());
+            logger.debug("{} channel {} existing configuration: {}", thing.getUID(), channel.getUID().getId(),
+                    oldChannel != null ? oldChannel.getConfiguration().getProperties() : "channel not found");
+            return oldChannel != null && !oldChannel.getConfiguration().getProperties().isEmpty()
+                    ? ChannelBuilder.create(channel).withConfiguration(oldChannel.getConfiguration()).build()
+                    : channel;
+        });
 
         String oldLabel = thing.getLabel();
         String newLabel = oldLabel == null || oldLabel.isEmpty() ? accessory.getAccessoryInstanceLabel() : null;
@@ -1976,7 +1988,11 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
 
     @Override
     public boolean requiresLogin() {
-        return Boolean.TRUE.equals(ConfigParser.valueAs(getConfig().get(CONFIG_REQUIRE_LOGIN), Boolean.class));
+        Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
+        logger.debug("{} requiresLogin configuration: {}", thing.getUID(),
+                channel != null ? channel.getConfiguration().getProperties() : "channel not found");
+        return channel != null && Boolean.TRUE
+                .equals(ConfigParser.valueAs(channel.getConfiguration().get(CONFIG_REQUIRE_LOGIN), Boolean.class));
     }
 
     @Override

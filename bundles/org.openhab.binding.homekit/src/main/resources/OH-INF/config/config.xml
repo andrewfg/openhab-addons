@@ -27,12 +27,6 @@
 			<default>60</default>
 			<advanced>true</advanced>
 		</parameter>
-		<parameter name="requireLogin" type="boolean" required="false">
-			<label>Require Login</label>
-			<description>Require an openHAB user name and password, or an API token, to open the camera page. Use only over HTTPS.</description>
-			<default>false</default>
-			<advanced>true</advanced>
-		</parameter>
 	</config-description>
 
 </config-description:config-descriptions>
