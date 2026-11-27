@@ -190,7 +190,7 @@ The **Talk** button sends your browser microphone to the camera speaker.
   Otherwise, the viewer uses plain HTTP.
 - Browsers only allow microphone access on HTTPS, so **Talk** is available only when the viewer is opened over HTTPS and the browser trusts the certificate.
 - By default the viewer has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
-  Set the Camera URL channel's `requireLogin` parameter to make the browser ask for an openHAB user name and password (HTTP Basic authentication).
+  Enable the Thing's advanced `requireLogin` configuration parameter to make the browser ask for an openHAB user name and password (HTTP Basic authentication).
   Alternatively enter an openHAB API token as the user name with an empty password.
   Anonymous access that openHAB itself allows does not satisfy this requirement.
   Password login requires openHAB's _Allow Basic Authentication_ setting to be enabled, and Basic credentials are only protected when the viewer is opened over HTTPS.
