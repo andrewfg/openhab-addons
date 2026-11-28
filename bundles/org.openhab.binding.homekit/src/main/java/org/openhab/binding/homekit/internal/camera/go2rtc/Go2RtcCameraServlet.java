@@ -76,7 +76,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
         /**
          * Whether the viewer requires an authenticated openHAB user.
          */
-        default boolean requiresLogin() {
+        default boolean requiresCredentials() {
             return false;
         }
 
@@ -429,7 +429,7 @@ public class Go2RtcCameraServlet extends HttpServlet {
      */
     private boolean authorized(HttpServletRequest request, HttpServletResponse response, BrowserStreamProvider provider)
             throws IOException {
-        if (!provider.requiresLogin()) {
+        if (!provider.requiresCredentials()) {
             return true;
         }
         AuthFilter filter = this.authFilter;

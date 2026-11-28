@@ -58,10 +58,9 @@
 		<description>Browser URL of a go2rtc page for camera video, audio, and talk-back.</description>
 		<state readOnly="true"/>
 		<config-description>
-			<parameter name="requireLogin" type="boolean" required="false">
-				<label>Require Login</label>
-				<description>Require an openHAB user name and password, or an API token, to open the camera page. Use only over
-					HTTPS.</description>
+			<parameter name="requiresCredentials" type="boolean" required="false">
+				<label>Requires Credentials</label>
+				<description>Requires openHAB credentials to open the camera page.</description>
 				<default>false</default>
 			</parameter>
 		</config-description>

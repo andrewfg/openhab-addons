@@ -105,7 +105,7 @@ public class HomekitBindingConstants {
 
     public static final String CONFIG_SNAPSHOT_WIDTH = "imageWidth";
     public static final String CONFIG_SNAPSHOT_HEIGHT = "imageHeight";
-    public static final String CONFIG_REQUIRE_LOGIN = "requireLogin";
+    public static final String CONFIG_REQUIRES_CREDENTIALS = "requiresCredentials";
 
     // pattern matcher for pairing code XXX-XX-XXX or XXXX-XXXX or XXXXXXXX
     public static final Pattern PAIRING_CODE_PATTERN = Pattern.compile("^(\\d{3}-\\d{2}-\\d{3}|\\d{4}-\\d{4}|\\d{8})$");

@@ -140,7 +140,7 @@ class Go2RtcCameraServletTest {
         Go2RtcCameraServlet.BrowserStreamProvider base = provider();
         return new Go2RtcCameraServlet.BrowserStreamProvider() {
             @Override
-            public boolean requiresLogin() {
+            public boolean requiresCredentials() {
                 return true;
             }
 
