@@ -21,6 +21,12 @@
       <version>${bouncycastle.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.openhab.core.bundles</groupId>
+      <artifactId>org.openhab.core.io.rest.auth</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
 </project>

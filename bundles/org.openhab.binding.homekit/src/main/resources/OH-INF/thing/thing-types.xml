@@ -57,6 +57,13 @@
 		<label>Camera URL</label>
 		<description>Browser URL of a go2rtc page for camera video, audio, and talk-back.</description>
 		<state readOnly="true"/>
+		<config-description>
+			<parameter name="requiresCredentials" type="boolean" required="false">
+				<label>Requires Credentials</label>
+				<description>Requires openHAB credentials to open the camera page.</description>
+				<default>false</default>
+			</parameter>
+		</config-description>
 	</channel-type>
 
 </thing:thing-descriptions>

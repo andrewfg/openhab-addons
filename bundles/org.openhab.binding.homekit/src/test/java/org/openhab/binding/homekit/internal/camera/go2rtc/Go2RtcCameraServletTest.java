@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -25,6 +26,9 @@ import java.util.List;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.openhab.core.auth.AuthenticationException;
+import org.openhab.core.io.rest.auth.AnonymousUserSecurityContext;
+import org.openhab.core.io.rest.auth.AuthFilter;
 import org.openhab.core.net.NetworkAddressService;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
@@ -32,6 +36,7 @@ import org.osgi.framework.ServiceRegistration;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.SecurityContext;
 
 /**
  * Tests that every registered camera is served, and that a missing camera is not turned into a container error page.
@@ -89,6 +94,73 @@ class Go2RtcCameraServletTest {
         verify(registrations.get(1)).unregister();
     }
 
+    @Test
+    void loginRequiredRejectsMissingAndAnonymousCredentials() throws Exception {
+        AuthFilter filter = mock(AuthFilter.class);
+        Go2RtcCameraServlet servlet = servlet();
+        servlet.setAuthFilter(filter);
+        servlet.addProvider("55bcd1cd8b1e", loginProvider());
+
+        when(filter.getSecurityContext(any(HttpServletRequest.class), eq(false))).thenReturn(null);
+        Captured none = get(servlet, null, "/homekit/camera/55bcd1cd8b1e");
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, none.status);
+        verify(none.response).setHeader(eq("WWW-Authenticate"), startsWith("Basic"));
+
+        when(filter.getSecurityContext(any(HttpServletRequest.class), eq(false)))
+                .thenReturn(new AnonymousUserSecurityContext());
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+    }
+
+    @Test
+    void loginRequiredAcceptsValidUserAndThrottlesBadCredentials() throws Exception {
+        AuthFilter filter = mock(AuthFilter.class);
+        Go2RtcCameraServlet servlet = servlet();
+        servlet.setAuthFilter(filter);
+        servlet.addProvider("55bcd1cd8b1e", loginProvider());
+
+        when(filter.getSecurityContext(any(HttpServletRequest.class), eq(false)))
+                .thenReturn(mock(SecurityContext.class));
+        assertEquals(HttpServletResponse.SC_OK, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+
+        when(filter.getSecurityContext(any(HttpServletRequest.class), eq(false)))
+                .thenThrow(new AuthenticationException("bad"));
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+        assertEquals(429, get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+    }
+
+    @Test
+    void loginRequiredFailsClosedWithoutAuthService() throws Exception {
+        Go2RtcCameraServlet servlet = servlet();
+        servlet.addProvider("55bcd1cd8b1e", loginProvider());
+        assertEquals(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                get(servlet, null, "/homekit/camera/55bcd1cd8b1e").status);
+    }
+
+    private static Go2RtcCameraServlet.BrowserStreamProvider loginProvider() {
+        Go2RtcCameraServlet.BrowserStreamProvider base = provider();
+        return new Go2RtcCameraServlet.BrowserStreamProvider() {
+            @Override
+            public boolean requiresCredentials() {
+                return true;
+            }
+
+            @Override
+            public boolean openBrowserStream() throws InterruptedException {
+                return base.openBrowserStream();
+            }
+
+            @Override
+            public String answerBrowserOffer(String offer) throws IOException {
+                return base.answerBrowserOffer(offer);
+            }
+
+            @Override
+            public String answerBrowserTalkOffer(String offer) throws IOException {
+                return base.answerBrowserTalkOffer(offer);
+            }
+        };
+    }
+
     private static Go2RtcCameraServlet servlet() {
         return new Go2RtcCameraServlet(mock(NetworkAddressService.class), mock(BundleContext.class));
     }
@@ -118,6 +190,7 @@ class Go2RtcCameraServletTest {
         when(request.getPathInfo()).thenReturn(pathInfo);
         when(request.getRequestURI()).thenReturn(requestUri);
         when(request.getContextPath()).thenReturn("");
+        when(request.getRemoteAddr()).thenReturn("192.168.0.10");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter body = new StringWriter();
         when(response.getWriter()).thenReturn(new PrintWriter(body));

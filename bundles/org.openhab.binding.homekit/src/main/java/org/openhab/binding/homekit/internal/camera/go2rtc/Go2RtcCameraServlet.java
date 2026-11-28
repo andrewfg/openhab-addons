@@ -14,14 +14,20 @@ package org.openhab.binding.homekit.internal.camera.go2rtc;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.core.auth.AuthenticationException;
+import org.openhab.core.io.rest.auth.AnonymousUserSecurityContext;
+import org.openhab.core.io.rest.auth.AuthFilter;
 import org.openhab.core.net.HttpServiceUtil;
 import org.openhab.core.net.NetworkAddressService;
 import org.osgi.framework.BundleContext;
@@ -30,6 +36,8 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.servlet.whiteboard.HttpWhiteboardConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +47,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.core.SecurityContext;
 
 /**
  * Serves the browser viewer of a HomeKit camera on openHAB's own origin. A GET opens the camera stream on demand and
@@ -63,6 +72,13 @@ public class Go2RtcCameraServlet extends HttpServlet {
      * Provides the viewer of one camera, starting the camera stream if necessary.
      */
     public interface BrowserStreamProvider {
+
+        /**
+         * Whether the viewer requires an authenticated openHAB user.
+         */
+        default boolean requiresCredentials() {
+            return false;
+        }
 
         /**
          * Opens the camera stream for a browser and waits until it is available.
@@ -96,6 +112,8 @@ public class Go2RtcCameraServlet extends HttpServlet {
 
     public static final String PATH = "/homekit/camera";
 
+    private static final Duration LOGIN_FAILURE_COOLDOWN = Duration.ofSeconds(2);
+    private static final int MAX_TRACKED_CLIENTS = 1000;
     private static final String WEBRTC_SUFFIX = "/webrtc";
     private static final String TALK_SUFFIX = "/talk";
     private static final Pattern CAMERA_UID_KEY = Pattern.compile("[A-Za-z0-9._-]+");
@@ -202,11 +220,24 @@ public class Go2RtcCameraServlet extends HttpServlet {
     private final Map<String, ServiceRegistration<Servlet>> aliases = new ConcurrentHashMap<>();
     private final NetworkAddressService networkAddressService;
     private final BundleContext bundleContext;
+    private final Map<String, Instant> lastLoginFailures = new ConcurrentHashMap<>();
+    private volatile @Nullable AuthFilter authFilter;
 
     @Activate
     public Go2RtcCameraServlet(@Reference NetworkAddressService networkAddressService, BundleContext bundleContext) {
         this.networkAddressService = networkAddressService;
         this.bundleContext = bundleContext;
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setAuthFilter(AuthFilter authFilter) {
+        this.authFilter = authFilter;
+    }
+
+    protected void unsetAuthFilter(AuthFilter authFilter) {
+        if (Objects.equals(this.authFilter, authFilter)) {
+            this.authFilter = null;
+        }
     }
 
     /**
@@ -313,6 +344,10 @@ public class Go2RtcCameraServlet extends HttpServlet {
             logger.debug("doGet() error code={}", HttpServletResponse.SC_NOT_FOUND);
             return;
         }
+        if (!authorized(request, response, provider)) {
+            logger.debug("doGet() not authorized");
+            return;
+        }
         boolean available;
         try {
             available = provider.openBrowserStream();
@@ -352,6 +387,10 @@ public class Go2RtcCameraServlet extends HttpServlet {
             logger.debug("doPost() error code={}", HttpServletResponse.SC_NOT_FOUND);
             return;
         }
+        if (!authorized(request, response, provider)) {
+            logger.debug("doPost() not authorized");
+            return;
+        }
         final int maxOfferBytes = 64 * 1024;
         byte[] offerBytes = request.getInputStream().readNBytes(maxOfferBytes + 1);
         if (offerBytes.length > maxOfferBytes) {
@@ -378,6 +417,53 @@ public class Go2RtcCameraServlet extends HttpServlet {
         response.setHeader("Cache-Control", "no-store");
         response.getWriter().write(answer);
         logger.debug("doPost() response code={}", HttpServletResponse.SC_OK);
+    }
+
+    /**
+     * Checks the request against openHAB's user accounts if the camera requires a login. A browser answers the Basic
+     * challenge with its own login dialog; an API token entered as the user name with an empty password is also
+     * accepted, see {@link AuthFilter}. The request is refused if the authentication service is unavailable, and
+     * anonymous access, which openHAB grants by default, does not count as a login.
+     *
+     * @return true if the request may proceed; otherwise the response has been completed
+     */
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, BrowserStreamProvider provider)
+            throws IOException {
+        if (!provider.requiresCredentials()) {
+            return true;
+        }
+        AuthFilter filter = this.authFilter;
+        if (filter == null) {
+            reject(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            logger.debug("authorized() authentication service unavailable");
+            return false;
+        }
+        String client = request.getRemoteAddr();
+        Instant lastFailure = client == null ? null : lastLoginFailures.get(client);
+        if (lastFailure != null && lastFailure.plus(LOGIN_FAILURE_COOLDOWN).isAfter(Instant.now())) {
+            reject(response, 429); // Too Many Requests
+            return false;
+        }
+        boolean failed = false;
+        try {
+            SecurityContext context = filter.getSecurityContext(request, false);
+            if (context != null && !(context instanceof AnonymousUserSecurityContext)) {
+                return true;
+            }
+        } catch (AuthenticationException e) {
+            failed = true;
+            logger.debug("authorized() invalid credentials from {}: {}", client, e.getMessage());
+        }
+        if (failed && client != null) {
+            if (lastLoginFailures.size() > MAX_TRACKED_CLIENTS) {
+                Instant expiry = Instant.now().minus(LOGIN_FAILURE_COOLDOWN);
+                lastLoginFailures.values().removeIf(time -> time.isBefore(expiry));
+            }
+            lastLoginFailures.put(client, Instant.now());
+        }
+        response.setHeader("WWW-Authenticate", "Basic realm=\"openHAB camera\", charset=\"UTF-8\"");
+        reject(response, HttpServletResponse.SC_UNAUTHORIZED);
+        return false;
     }
 
     /**

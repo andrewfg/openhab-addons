@@ -189,7 +189,8 @@ The **Talk** button sends your browser microphone to the camera speaker.
   The default openHAB certificate is self-signed, so the browser shows a warning that you must accept.
   Otherwise, the viewer uses plain HTTP.
 - Browsers only allow microphone access on HTTPS, so **Talk** is available only when the viewer is opened over HTTPS and the browser trusts the certificate.
-- The viewer has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
+- By default the viewer has **no authentication**, so anyone who can reach the host on that network can listen to and talk through the camera and view its video.
+  Set the Camera URL channel's `requiresCredentials` parameter to make the browser ask for openHAB credentials (HTTP Basic authentication).
 
 ## Integration with Apple Home App / Ecosystem
 

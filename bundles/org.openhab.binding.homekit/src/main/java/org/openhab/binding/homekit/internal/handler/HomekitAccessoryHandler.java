@@ -77,6 +77,7 @@ import org.openhab.binding.homekit.internal.persistence.HomekitTypeProvider;
 import org.openhab.binding.homekit.internal.transport.IpTransport;
 import org.openhab.core.OpenHAB;
 import org.openhab.core.common.ThreadPoolManager;
+import org.openhab.core.config.core.ConfigParser;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.io.net.mac.MacResolver;
@@ -539,6 +540,21 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
                 registerCamera();
             }
         }
+
+        // channels are rebuilt on every initialization, so carry over any configuration the user has set on them
+        uniqueChannelsMap.replaceAll((id, channel) -> {
+            Channel oldChannel = thing.getChannel(channel.getUID());
+            if (CHANNEL_CAMERA_URL.equals(id)) {
+                logger.debug("{} channel {} stored configuration {}", thing.getUID(), id,
+                        oldChannel == null ? "n/a (no stored channel)" : oldChannel.getConfiguration().getProperties());
+            }
+            if (oldChannel == null || oldChannel.getConfiguration().getProperties().isEmpty()) {
+                return channel;
+            }
+            logger.debug("{} channel {} keeping configuration {}", thing.getUID(), id,
+                    oldChannel.getConfiguration().getProperties());
+            return ChannelBuilder.create(channel).withConfiguration(oldChannel.getConfiguration()).build();
+        });
 
         String oldLabel = thing.getLabel();
         String newLabel = oldLabel == null || oldLabel.isEmpty() ? accessory.getAccessoryInstanceLabel() : null;
@@ -1971,6 +1987,21 @@ public class HomekitAccessoryHandler extends HomekitBaseAccessoryHandler
         registerCamera();
         startGo2rtcIfAvailable();
         return true;
+    }
+
+    @Override
+    public void thingUpdated(Thing thing) {
+        Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
+        logger.debug("{} thingUpdated() camera-url configuration {}", thing.getUID(),
+                channel == null ? "n/a" : channel.getConfiguration().getProperties());
+        super.thingUpdated(thing);
+    }
+
+    @Override
+    public boolean requiresCredentials() {
+        Channel channel = thing.getChannel(CHANNEL_CAMERA_URL);
+        return channel != null && Boolean.TRUE.equals(
+                ConfigParser.valueAs(channel.getConfiguration().get(CONFIG_REQUIRES_CREDENTIALS), Boolean.class));
     }
 
     @Override
